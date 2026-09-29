@@ -5,7 +5,7 @@ Araçlar ve mobil kullanım için tasarlanmış, hafif bir YouTube müzik deneyi
 Karmaşık YouTube arayüzü ve reklamlardan arındırılmış, Spotify benzeri kategori keşfi + uzaktan playlist kontrolü. Tek sayfa HTML — sunucu, API anahtarı veya hesap gerekmez.
 
 **Canlı demo (GitHub Pages):**  
-`*https://KULLANICIADI.github.io/minimal-muzik/*`
+`*wom2024.github.io/minimal-muzik*`
 
 ---
 
@@ -65,8 +65,8 @@ minimal-muzik/
 5. 1–2 dakika sonra:
 
 ```
-https://KULLANICIADI.github.io/minimal-muzik/
-https://KULLANICIADI.github.io/minimal-muzik/playlist.html
+http://wom2024.github.io/minimal-muzik/
+https://wom2024.github.io/minimal-muzik/playlist.html
 ```
 
 FTP veya sunucu gerekmez. Statik dosyalar yeterlidir.
