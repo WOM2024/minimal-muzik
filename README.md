@@ -4,6 +4,32 @@ Araçlar ve mobil kullanım için tasarlanmış, hafif bir YouTube müzik deneyi
 
 Karmaşık YouTube arayüzü ve reklamlardan arındırılmış, Spotify benzeri kategori keşfi + uzaktan playlist kontrolü. Tek sayfa HTML — sunucu, API anahtarı veya hesap gerekmez.
 
+## Yasal uyarı ve sorumluluk reddi
+
+**Bu yazılım yalnızca test, eğitim, araştırma ve kişisel deneme amaçlı üretilmiştir.**
+
+1. **Resmi ilişki yok**  
+   Bu proje YouTube, YouTube Music, Google LLC veya bağlı kuruluşlarının resmi ürünü değildir; onlar tarafından onaylanmamış, desteklenmemiş veya onaylanmamıştır. Tüm ilgili ticari markalar sahiplerine aittir.
+
+2. **Kullanım şartları ve telif**  
+   Üçüncü taraf platformların (YouTube vb.) Kullanım Şartları, Topluluk Kuralları ve telif hakkı mevzuatına uymak **tamamen kullanıcının kendi sorumluluğundadır**. Bu yazılım aracılığıyla erişilen içeriklerin yasalara uygun kullanıldığından kullanıcı sorumludur.
+
+3. **“Olduğu gibi” (AS-IS)**  
+   Yazılım hiçbir garanti olmaksızın, açık veya zımni hiçbir taahhüt içermeksizin sunulur. Ticari elverişlilik, belirli bir amaca uygunluk, kesintisiz veya hatasız çalışma **garanti edilmez**.
+
+4. **Sorumluluk sınırı**  
+   Yazar(lar), geliştirici(ler) ve katkıda bulunanlar; bu yazılımın kullanımından, kullanılamamasından veya üçüncü taraf servislerin (API, proxy, gömülü oynatıcı vb.) arızasından doğan doğrudan, dolaylı, arızi, özel veya sonuç olarak ortaya çıkan hiçbir zarardan **sorumlu tutulamaz**. Bu, veri kaybı, gelir kaybı, cihaz arızası, yasal yaptırım veya üçüncü taraf talepleri için de geçerlidir.
+
+5. **Üçüncü taraf bağımlılık**  
+   Arama ve oynatma üçüncü taraf servislere bağlıdır. Bu servisler önceden haber verilmeden değişebilir, kısıtlanabilir veya kapanabilir. Proje sahibi bunların sürekliliğini taahhüt etmez.
+
+6. **Kabul**  
+   Bu yazılımı indiren, forklayan, çalıştıran veya paylaşan kişi, yukarıdaki koşulları okuduğunu ve kabul ettiğini beyan etmiş sayılır. Kabul etmiyorsanız yazılımı kullanmayın ve cihazınızdan silin.
+
+7. **Ticari / üretim kullanımı**  
+   Yoğun trafik, ticari ürün veya kritik sistemlerde kullanım önerilmez ve desteklenmez. Böyle bir kullanım tamamen kullanıcının riski altındadır.
+
+
 **Canlı demo (GitHub Pages):**  
 `*wom2024.github.io/minimal-muzik*`
 
@@ -124,3 +150,7 @@ MIT — kullan, değiştir, paylaş.
 ## Katkı
 
 PR’ler memnuniyetle karşılanır: yeni kategoriler, daha stabil Invidious instance’ları, oynatıcı iyileştirmeleri.
+
+## Disclaimer
+
+This project is provided **for testing, educational, and personal experimental use only**. It is **not** affiliated with YouTube, YouTube Music, or Google. The software is provided **“AS IS”**, without warranty of any kind. Authors shall not be liable for any damages arising from use. Compliance with third-party terms of service and copyright law is the sole responsibility of the user. Use at your own risk.
