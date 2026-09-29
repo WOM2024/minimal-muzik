@@ -1,156 +1,411 @@
 # Minimal Müzik
 
-Araçlar ve mobil kullanım için tasarlanmış, hafif bir YouTube müzik deneyimi.
+A lightweight YouTube music experience designed for cars and mobile devices.
 
-Karmaşık YouTube arayüzü ve reklamlardan arındırılmış, Spotify benzeri kategori keşfi + uzaktan playlist kontrolü. Tek sayfa HTML — sunucu, API anahtarı veya hesap gerekmez.
+A simplified, Spotify-style music discovery interface without the complexity of the standard YouTube UI. Includes category-based discovery and remote playlist control.
 
-## Yasal uyarı ve sorumluluk reddi
+Single-page HTML — no server, API key, or account required.
 
-**Bu yazılım yalnızca test, eğitim, araştırma ve kişisel deneme amaçlı üretilmiştir.**
+## Legal Notice & Disclaimer
 
-1. **Resmi ilişki yok**  
-   Bu proje YouTube, YouTube Music, Google LLC veya bağlı kuruluşlarının resmi ürünü değildir; onlar tarafından onaylanmamış, desteklenmemiş veya onaylanmamıştır. Tüm ilgili ticari markalar sahiplerine aittir.
+**This software is intended solely for testing, educational, research, and personal experimental purposes.**
 
-2. **Kullanım şartları ve telif**  
-   Üçüncü taraf platformların (YouTube vb.) Kullanım Şartları, Topluluk Kuralları ve telif hakkı mevzuatına uymak **tamamen kullanıcının kendi sorumluluğundadır**. Bu yazılım aracılığıyla erişilen içeriklerin yasalara uygun kullanıldığından kullanıcı sorumludur.
+### 1. No Official Affiliation
 
-3. **“Olduğu gibi” (AS-IS)**  
-   Yazılım hiçbir garanti olmaksızın, açık veya zımni hiçbir taahhüt içermeksizin sunulur. Ticari elverişlilik, belirli bir amaca uygunluk, kesintisiz veya hatasız çalışma **garanti edilmez**.
+This project is not an official product of YouTube, YouTube Music, Google LLC, or any of their affiliates.
 
-4. **Sorumluluk sınırı**  
-   Yazar(lar), geliştirici(ler) ve katkıda bulunanlar; bu yazılımın kullanımından, kullanılamamasından veya üçüncü taraf servislerin (API, proxy, gömülü oynatıcı vb.) arızasından doğan doğrudan, dolaylı, arızi, özel veya sonuç olarak ortaya çıkan hiçbir zarardan **sorumlu tutulamaz**. Bu, veri kaybı, gelir kaybı, cihaz arızası, yasal yaptırım veya üçüncü taraf talepleri için de geçerlidir.
+It is not endorsed, supported, sponsored, or approved by them.
 
-5. **Üçüncü taraf bağımlılık**  
-   Arama ve oynatma üçüncü taraf servislere bağlıdır. Bu servisler önceden haber verilmeden değişebilir, kısıtlanabilir veya kapanabilir. Proje sahibi bunların sürekliliğini taahhüt etmez.
+All related trademarks and copyrights belong to their respective owners.
 
-6. **Kabul**  
-   Bu yazılımı indiren, forklayan, çalıştıran veya paylaşan kişi, yukarıdaki koşulları okuduğunu ve kabul ettiğini beyan etmiş sayılır. Kabul etmiyorsanız yazılımı kullanmayın ve cihazınızdan silin.
+### 2. Terms of Service & Copyright
 
-7. **Ticari / üretim kullanımı**  
-   Yoğun trafik, ticari ürün veya kritik sistemlerde kullanım önerilmez ve desteklenmez. Böyle bir kullanım tamamen kullanıcının riski altındadır.
+Users are solely responsible for complying with the Terms of Service, Community Guidelines, and copyright laws applicable to third-party platforms such as YouTube.
 
+Any content accessed through this software must be used in accordance with applicable laws and the terms of the relevant third-party services.
 
-**Canlı demo (GitHub Pages):**  
-`*wom2024.github.io/minimal-muzik*`
+Responsibility for such use rests entirely with the user.
 
----
+### 3. "AS IS"
 
-## Neden bu proje?
+This software is provided **"AS IS"**, without warranties or guarantees of any kind, either express or implied.
 
-- **Araç kullanımı:** Büyük dokunma alanları, direksiyon / kulaklık Media Session kontrolleri (önceki–sonraki)
-- **Sade arayüz:** YouTube’un kalabalık tasarımı ve reklamları yok
-- **Keşif:** Her açılışta popüler ve çeşitlenen şarkılar (views + rastgele sayfa + karıştırma)
-- **Uzaktan kontrol:** Telefondan arabaya / tablete playlist yönetimi (QR + kalıcı oda kodu)
+No guarantee is made regarding merchantability, fitness for a particular purpose, uninterrupted operation, availability, reliability, or error-free performance.
 
----
+### 4. Limitation of Liability
 
-## Özellikler
+The author(s), developer(s), and contributor(s) shall not be held liable for any direct, indirect, incidental, special, consequential, or other damages arising from the use of, inability to use, or malfunction of this software or any third-party services involved.
 
-### Ana oynatıcı (`index.html`)
-- Türkçe Pop, Rock, Arabesk, Rap, Slow, Yabancı Pop, Klasik, Lofi, Popüler kategorileri
-- Metin arama + sesli arama (mikrofon)
-- Favoriler (cihazda localStorage)
-- Sonsuz kaydırma
-- youtube-nocookie embed + autoplay
-- Video bitince otomatik sonraki parça
-- Media Session (kilit ekranı / direksiyon)
-- **Kalıcı playlist kodu** (aynı cihazda her açılışta aynı kod)
-- Koda dokununca QR popup → diğer cihaz playlist’e bağlanır
+This includes, but is not limited to:
 
-### Uzaktan playlist (`playlist.html`)
-- **Shuffle** modu: ana listedeki sırayı canlı izle / kontrol et
-- **Manuel** modu: kendi listeni oluştur
-- YouTube Music resmi chart listeleri (Türkiye Top 100 vb.)
-- Kategoriye göre hazır playlist önerileri
-- Playlist seç → tüm şarkılar aktarılır, otomatik çalar
-- Şarkı arama, tek tek ekle / çıkar
-- Önceki / sonraki ve listeden seçim
-- Aynı cihaz: BroadcastChannel (anında)
-- Farklı cihaz: PeerJS oda kodu ile bağlantı
+* Data loss
+* Loss of revenue
+* Device damage or malfunction
+* Service interruptions
+* Legal consequences
+* Claims or disputes from third parties
+
+### 5. Third-Party Dependencies
+
+Search and playback functionality depend on third-party services.
+
+These services may change, become restricted, become unavailable, or shut down without prior notice.
+
+The project owner does not guarantee the availability, stability, or continued operation of any third-party service.
+
+### 6. Acceptance
+
+By downloading, forking, running, or sharing this software, you acknowledge that you have read and accepted the terms described above.
+
+If you do not agree with these terms, do not use this software and remove it from your device.
+
+### 7. Commercial / Production Use
+
+Use in high-traffic environments, commercial products, or critical systems is not recommended and is not supported.
+
+Any such use is entirely at the user's own risk.
 
 ---
 
-## Dosyalar
+## Why This Project?
 
-```
+* **Designed for cars:** Large touch targets and Media Session support for steering-wheel / headset controls, including previous and next track controls
+* **Minimal interface:** Removes the complexity of the standard YouTube interface
+* **Music discovery:** Popular and varied tracks on every launch using view-based results, randomized pages, and shuffling
+* **Remote control:** Manage the playlist from your phone while the music plays on another device, such as a car head unit or tablet
+* **No account required:** No login, API key, or backend server required
+
+---
+
+## Features
+
+### Main Player (`index.html`)
+
+* Turkish Pop, Rock, Arabesque, Rap, Slow, International Pop, Classical, Lofi, and Popular categories
+* Text search
+* Voice search using the device microphone
+* Favorites stored locally using `localStorage`
+* Infinite scrolling
+* `youtube-nocookie.com` embedded player with autoplay
+* Automatically plays the next track when a video ends
+* Media Session API support for lock-screen and steering-wheel/headset controls
+* **Persistent playlist room code**
+* A unique 6-digit code is generated for the device and remains the same across sessions
+* Tap the code to open a QR code popup
+* Connect another device to the playlist using the QR code or generated link
+
+### Remote Playlist (`playlist.html`)
+
+* **Shuffle mode:** Follow and control the order of tracks from the main player
+* **Manual mode:** Build and manage your own playlist
+* YouTube Music official chart lists, including available regional charts
+* Ready-made playlist suggestions based on categories
+* Select a playlist and transfer all tracks to the main player
+* Search for songs and add or remove individual tracks
+* Previous / next controls
+* Select and play individual tracks from the playlist
+* Same-device synchronization using `BroadcastChannel`
+* Cross-device synchronization using PeerJS and a room code
+
+---
+
+## Project Structure
+
+```text
 minimal-muzik/
-├── index.html      # Ana müzik uygulaması
-├── playlist.html   # Uzaktan playlist kontrolü
+├── index.html      # Main music application
+├── playlist.html   # Remote playlist controller
 ├── README.md
-└── LICENSE         # MIT
+└── LICENSE         # MIT License
 ```
 
 ---
 
-## GitHub Pages ile kullanma
+## GitHub Pages
 
-1. Bu repoyu açın veya fork’layın
-2. **Settings → Pages**
-3. Source: **Deploy from a branch**
-4. Branch: `main`, folder: `/ (root)` → Save
-5. 1–2 dakika sonra:
+GitHub Pages allows the project to run directly from your repository without requiring FTP, a web server, or a backend.
 
+### 1. Fork or Copy the Repository
+
+Fork this repository or create your own copy of the project in your GitHub account.
+
+### 2. Enable GitHub Pages
+
+Go to:
+
+**Settings → Pages**
+
+### 3. Configure the Source
+
+Select:
+
+**Source:** `Deploy from a branch`
+
+Then choose:
+
+**Branch:** `main`
+**Folder:** `/ (root)`
+
+Click **Save**.
+
+After approximately 1–2 minutes, your application should be available at your GitHub Pages URL:
+
+```text
+https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/
 ```
-http://wom2024.github.io/minimal-muzik/
-https://wom2024.github.io/minimal-muzik/playlist.html
+
+The remote playlist controller will be available at:
+
+```text
+https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/playlist.html
 ```
 
-FTP veya sunucu gerekmez. Statik dosyalar yeterlidir.
+Replace `YOUR_USERNAME` with your GitHub username and `YOUR_REPOSITORY` with the name of your repository.
+
+For example, if your GitHub username is `example` and your repository is named `minimal-muzik`, your URLs will be:
+
+```text
+https://example.github.io/minimal-muzik/
+https://example.github.io/minimal-muzik/playlist.html
+```
+
+No FTP server or backend is required. The project can run entirely as static files.
 
 ---
 
-## Kullanım
+## Usage
 
-1. `index.html` (veya Pages adresi) açılır
-2. Sağ üstte **6 haneli kod** görünür (cihaza özel, kalıcı)
-3. Koda dokunun → QR / link
-4. İkinci cihazda QR okutun veya `playlist.html?c=KOD` açın
-5. Playlist’ten **Manuel** → YouTube Music / kategori → listeyi **Ekle**
-6. Ana ekranda müzik çalar; bitince sıradaki şarkıya geçer
+### Main Device
+
+1. Open `index.html` or your GitHub Pages URL.
+2. A **6-digit room code** will appear in the top-right corner.
+3. Tap the room code to open the QR code / connection popup.
+4. Keep this page open on the device where the music will play.
+
+### Remote Device
+
+5. Scan the QR code with another device, or open:
+
+```text
+https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/playlist.html?c=ROOM_CODE
+```
+
+6. Open **Manual** mode.
+7. Select a YouTube Music chart or category playlist.
+8. Add the tracks you want.
+9. The playlist will be synchronized with the main player.
+10. Control playback remotely from the second device.
 
 ---
 
-## Teknik notlar
+## How Synchronization Works
 
-- Arama: Invidious API (`SEARCH_INSTANCES`)
-- Oynatma: YouTube IFrame API + youtube-nocookie.com embed
-- Senkron: localStorage + BroadcastChannel + PeerJS
-- Oda kodu: localStorage (`minimal_muzik_room_code`) — cihaza göre sabit
+The project supports two synchronization methods.
 
-Tarayıcı autoplay kuralları nedeniyle ilk çalmada bir kez dokunmak gerekebilir; sonrası otomatik devam eder.
+### Same Device
+
+When `index.html` and `playlist.html` are opened on the same device and browser, communication can use:
+
+```text
+BroadcastChannel
+```
+
+This allows playlist and playback changes to be synchronized immediately between the two pages.
+
+### Different Devices
+
+For communication between different devices, the project uses:
+
+```text
+PeerJS
+```
+
+The 6-digit room code is used to establish the connection between the main player and the remote playlist controller.
 
 ---
 
-## Yerelde çalıştırma
+## Technical Notes
+
+### Search
+
+Music search uses the Invidious API through a list of configured instances.
+
+```text
+SEARCH_INSTANCES
+```
+
+The project does not require a personal YouTube API key.
+
+### Playback
+
+Playback uses:
+
+* YouTube IFrame Player
+* `youtube-nocookie.com`
+* Autoplay where supported by the browser
+
+### Synchronization
+
+The project uses:
+
+* `localStorage`
+* `BroadcastChannel`
+* PeerJS
+
+### Room Code
+
+The room code is stored locally using:
+
+```text
+minimal_muzik_room_code
+```
+
+The code is generated per device/browser and is intended to remain persistent between sessions.
+
+### Browser Autoplay
+
+Modern browsers enforce autoplay restrictions.
+
+Because of these restrictions, the first playback may require a user interaction, such as tapping the screen.
+
+After the initial interaction, subsequent tracks can generally continue automatically, depending on the browser and device.
+
+---
+
+## Local Development
+
+You can run the project locally without installing a backend.
+
+### Python
 
 ```bash
 python -m http.server 8080
-# veya: npx serve .
 ```
 
-`http://localhost:8080` adresini açın.
+Then open:
+
+```text
+http://localhost:8080
+```
+
+### Node.js
+
+Alternatively, if Node.js is installed:
+
+```bash
+npx serve .
+```
+
+Then open the local address provided by the server.
 
 ---
 
-## Özelleştirme
+## Customization
 
-| Ne | Nerede |
-|----|--------|
-| Kategoriler | `index.html` → `CATEGORY_VARIANTS` |
-| Invidious sunucuları | `SEARCH_INSTANCES` |
-| Hazır playlist’ler | `playlist.html` → `CATEGORY_PLAYLISTS` |
-| Oda kodu anahtarı | `ROOM_CODE_KEY` |
+| Setting               | Location                               |
+| --------------------- | -------------------------------------- |
+| Categories            | `index.html` → `CATEGORY_VARIANTS`     |
+| Invidious instances   | `index.html` → `SEARCH_INSTANCES`      |
+| Ready-made playlists  | `playlist.html` → `CATEGORY_PLAYLISTS` |
+| Room code storage key | `ROOM_CODE_KEY`                        |
 
 ---
 
-## Lisans
+## Compatibility
 
-MIT — kullan, değiştir, paylaş.
+The interface is designed primarily for:
 
-## Katkı
+* Mobile browsers
+* Android devices
+* iPhones and iPads
+* Car multimedia systems with modern WebView/browser support
+* Desktop browsers
 
-PR’ler memnuniyetle karşılanır: yeni kategoriler, daha stabil Invidious instance’ları, oynatıcı iyileştirmeleri.
+The layout is optimized for touch interaction and smaller screens while remaining usable on desktop browsers.
+
+---
+
+## Privacy
+
+The application does not require a user account or backend database.
+
+Favorites and the persistent room code are stored locally in the browser using `localStorage`.
+
+The project itself does not provide a user authentication system.
+
+However, external services used by the application may process requests according to their own privacy policies and terms.
+
+---
+
+## Dependencies & External Services
+
+The project may interact with the following third-party technologies and services:
+
+* YouTube / YouTube IFrame Player
+* YouTube Music public chart information
+* Invidious instances for search
+* PeerJS for cross-device communication
+* Browser `BroadcastChannel` API
+* Browser `Media Session` API
+
+Availability and behavior of these services are outside the control of this project.
+
+---
+
+## Limitations
+
+This project intentionally remains a lightweight static application.
+
+It does not provide:
+
+* User accounts
+* A backend database
+* Server-side playlist storage
+* A personal YouTube API key
+* Cloud-based user profiles
+* Guaranteed availability of third-party services
+
+Because the project relies on external services, functionality may stop working or require changes if those services modify their APIs, restrictions, availability, or behavior.
+
+---
+
+## License
+
+MIT License — use, modify, and share.
+
+See [`LICENSE`](LICENSE) for the full license text.
+
+---
+
+## Contributing
+
+Pull requests are welcome.
+
+Possible contribution areas include:
+
+* New music categories
+* More reliable Invidious instances
+* Player improvements
+* Mobile and car interface improvements
+* Playlist improvements
+* Synchronization improvements
+* Accessibility improvements
+* Performance optimizations
+
+If you submit a pull request, please keep the project lightweight and avoid introducing unnecessary backend dependencies.
+
+---
 
 ## Disclaimer
 
-This project is provided **for testing, educational, and personal experimental use only**. It is **not** affiliated with YouTube, YouTube Music, or Google. The software is provided **“AS IS”**, without warranty of any kind. Authors shall not be liable for any damages arising from use. Compliance with third-party terms of service and copyright law is the sole responsibility of the user. Use at your own risk.
+This project is provided **for testing, educational, research, and personal experimental use only**.
+
+It is **not affiliated with, endorsed by, sponsored by, or approved by YouTube, YouTube Music, Google LLC, or their affiliates**.
+
+The software is provided **"AS IS"**, without warranty of any kind.
+
+The authors and contributors shall not be liable for any damages arising from the use of, inability to use, or malfunction of the software or any third-party services.
+
+Users are solely responsible for complying with applicable laws, copyright regulations, and the terms of service of any third-party platforms they access through the software.
+
+**Use at your own risk.**
