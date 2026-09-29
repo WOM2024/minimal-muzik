@@ -323,7 +323,7 @@
     </div>
 
     <div class="search-bar" id="searchBar">
-      <input id="plSearch" type="search" placeholder="Playlist veya şarkı ara…" enterkeyhint="search" />
+      <input id="plSearch" type="search" placeholder="Ara…" enterkeyhint="search" />
       <button type="button" id="plSearchBtn">Ara</button>
     </div>
 
@@ -341,7 +341,7 @@
 
     <div class="tabs" id="tabsBar">
       <div class="tab active" data-tab="playlist">Playlistim</div>
-      <div class="tab" data-tab="ready">YouTube Music</div>
+      <div class="tab" data-tab="ready">Youtube Playlist</div>
       <div class="tab" data-tab="search">Şarkı ara</div>
     </div>
 
@@ -1061,12 +1061,24 @@
     modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
     modeManual.addEventListener("click", function() { setMode("manual"); });
 
+    function updateSearchPlaceholder() {
+      if (!plSearch) return;
+      if (activeTab === "search") {
+        plSearch.placeholder = "Şarkı adı yaz…";
+      } else if (activeTab === "ready") {
+        plSearch.placeholder = "Playlist ara…";
+      } else {
+        plSearch.placeholder = "Playlist veya şarkı ara…";
+      }
+    }
+
     document.querySelectorAll(".tab").forEach(function(tab) {
       tab.addEventListener("click", function() {
         activeTab = tab.dataset.tab;
         document.querySelectorAll(".tab").forEach(function(t) {
           t.classList.toggle("active", t.dataset.tab === activeTab);
         });
+        updateSearchPlaceholder();
         if (activeTab === "ready" && !readyPlaylists.length && !searchLoading) {
           loadReadyPlaylists("populer");
         } else {
@@ -1085,17 +1097,26 @@
       });
     }
 
-    plSearchBtn.addEventListener("click", function() {
+    function runPlSearch() {
       var q = plSearch.value.trim();
       if (!q) return;
-      doSmartSearch(q);
+      // Youtube Playlist sekmesi → playlist ara
+      // Şarkı ara sekmesi → tekli video ara
+      if (activeTab === "search") {
+        doSongSearch(q);
+      } else {
+        // ready veya playlistim: playlist araması (ready sekmesine geçer)
+        doSmartSearch(q);
+      }
+    }
+
+    plSearchBtn.addEventListener("click", function() {
+      runPlSearch();
     });
     plSearch.addEventListener("keydown", function(e) {
       if (e.key === "Enter") {
         e.preventDefault();
-        var q = plSearch.value.trim();
-        if (!q) return;
-        doSmartSearch(q);
+        runPlSearch();
       }
     });
   </script>

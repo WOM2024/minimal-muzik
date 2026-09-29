@@ -676,7 +676,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="display:none;"
+        style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -1902,179 +1902,111 @@
       if (playerPoster) playerPoster.style.display = "none";
       setPlayerLoading(true, "Yükleniyor...");
 
-      // Mevcut YT.Player varsa SİLME — loadVideoById ile değiştir
-      // (aynı iframe kalır → YouTube fullscreen düşmez)
-      if (ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function") {
-        try {
-          ytPlayerInstance.loadVideoById({
-            videoId: id,
-            startSeconds: 0
-          });
-          try { ytPlayerInstance.mute(); } catch (e) {}
-          try { ytPlayerInstance.playVideo(); } catch (e) {}
-          setPlayerLoading(false);
-          if (!muted) {
-            setTimeout(function() {
-              try {
-                ytPlayerInstance.unMute();
-                ytPlayerInstance.setVolume(100);
-                ytPlayerInstance.playVideo();
-              } catch (e) {}
-            }, 400);
-          }
-          setTimeout(goPlayerFullscreen, 200);
-          setTimeout(goPlayerFullscreen, 600);
-          setTimeout(goPlayerFullscreen, 1200);
-          return;
-        } catch (e) {
-          // loadVideoById başarısız → yeniden oluştur
+      // YT.Player kalıntısı
+      try {
+        if (ytPlayerInstance && ytPlayerInstance.destroy) {
+          ytPlayerInstance.destroy();
         }
+      } catch (e) {}
+      ytPlayerInstance = null;
+      var oldHost = document.getElementById(ytHostId);
+      try { if (oldHost) oldHost.remove(); } catch (e) {}
+
+      var embedQuery =
+        "?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1" +
+        "&iv_load_policy=3&controls=1&fs=1&loop=0";
+
+      function buildSrc(vid) {
+        // cache-bust: aynı ID tekrarında da yüklesin
+        return "https://www.youtube44.com/embed/" + vid + embedQuery + "&_t=" + Date.now();
       }
 
-      // İlk kurulum veya yeniden oluşturma
-      function clearPlayers() {
-        var old = document.getElementById("ytplayer");
-        try { if (old) old.remove(); } catch (e) {}
-        var oldHost = document.getElementById(ytHostId);
-        try { if (oldHost) oldHost.remove(); } catch (e) {}
+      var frameStyle =
+        "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:block;";
+
+      function sendPlayCommands(frame) {
         try {
-          if (ytPlayerInstance && ytPlayerInstance.destroy) {
-            ytPlayerInstance.destroy();
+          if (!frame || !frame.contentWindow) return;
+          frame.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+            "*"
+          );
+          if (!muted) {
+            frame.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "unMute", args: [] }),
+              "*"
+            );
+            frame.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "setVolume", args: [100] }),
+              "*"
+            );
           }
         } catch (e) {}
-        ytPlayerInstance = null;
-      }
-      clearPlayers();
-
-      var host = ensureYtHost();
-      if (!host) {
-        loadRawIframe(id, muted);
-        return;
       }
 
-      whenYtReady(function() {
-        try {
-          if (typeof YT === "undefined" || !YT.Player) {
-            loadRawIframe(id, muted);
-            return;
-          }
-          clearPlayers();
-          host = ensureYtHost();
-          if (!host) {
-            loadRawIframe(id, muted);
-            return;
-          }
+      function schedulePlayBurst(frame) {
+        [400, 900, 1500, 2500, 4000].forEach(function(ms) {
+          setTimeout(function() {
+            sendPlayCommands(frame);
+            try { goPlayerFullscreen(); } catch (e) {}
+          }, ms);
+        });
+      }
 
-          ytPlayerInstance = new YT.Player(host.id, {
-            videoId: id,
-            width: "100%",
-            height: "100%",
-            playerVars: {
-              autoplay: 1,
-              mute: 1,
-              playsinline: 1,
-              rel: 0,
-              modestbranding: 1,
-              controls: 1,
-              fs: 1,
-              iv_load_policy: 3,
-              enablejsapi: 1,
-              origin: (location.origin && location.protocol !== "file:") ? location.origin : undefined
-            },
-            events: {
-              onReady: function(ev) {
-                setPlayerLoading(false);
-                try {
-                  ev.target.mute();
-                  ev.target.playVideo();
-                  goPlayerFullscreen();
-                  if (!muted) {
-                    setTimeout(function() {
-                      try {
-                        ev.target.unMute();
-                        ev.target.setVolume(100);
-                        ev.target.playVideo();
-                      } catch (e2) {}
-                    }, 300);
-                    setTimeout(function() {
-                      try {
-                        ev.target.unMute();
-                        ev.target.playVideo();
-                      } catch (e3) {}
-                    }, 900);
-                  }
-                  setTimeout(goPlayerFullscreen, 200);
-                  setTimeout(goPlayerFullscreen, 600);
-                  setTimeout(goPlayerFullscreen, 1200);
-                } catch (e) {}
-              },
-              onStateChange: onYtStateChange,
-              onError: function(ev) {
-                try { clearPlayers(); } catch (e) {}
-                loadRawIframe(id, muted);
-              }
-            }
-          });
-          ytplayer = host;
-        } catch (e) {
-          loadRawIframe(id, muted);
-        }
-      });
+      // src değişirken ended sinyali gelmesin diye kısa kilit
+      window._yt44IgnoreEndedUntil = Date.now() + 2500;
 
-      function loadRawIframe(vid, isMuted) {
-        clearPlayers();
-        var frame = document.createElement("iframe");
+      var frame = document.getElementById("ytplayer");
+      if (!frame || frame.tagName !== "IFRAME") {
+        frame = document.createElement("iframe");
         frame.id = "ytplayer";
-        frame.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen");
+        frame.setAttribute(
+          "allow",
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+        );
         frame.setAttribute("allowfullscreen", "true");
         frame.setAttribute("playsinline", "");
         frame.setAttribute("webkit-playsinline", "");
         frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-        frame.style.cssText =
-          "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;";
-        var origin = (location.origin && location.origin !== "null" && location.protocol !== "file:")
-          ? location.origin
-          : "https://www.youtube.com";
-        frame.src =
-          "https://www.youtube.com/embed/" + vid +
-          "?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1" +
-          "&iv_load_policy=3&controls=1&fs=1&origin=" + encodeURIComponent(origin) +
-          "&widget_referrer=" + encodeURIComponent(origin);
         if (area) area.appendChild(frame);
-        ytplayer = frame;
+      }
 
-        function sendPlay() {
+      // Her yüklemede görünür + stil garantisi (display:none kalmasın)
+      frame.style.cssText = frameStyle;
+      frame.src = buildSrc(id);
+      ytplayer = frame;
+
+      // Bitiş dinleyicisi bir kez
+      if (!window._yt44EndedBound) {
+        window._yt44EndedBound = true;
+        window.addEventListener("message", function(evt) {
           try {
-            if (!frame.contentWindow) return;
-            frame.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*"
-            );
-            frame.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "unMute", args: [] }), "*"
-            );
-          } catch (e) {}
-        }
-        frame.addEventListener("load", function() {
-          setPlayerLoading(false);
-          sendPlay();
-          goPlayerFullscreen();
-          setTimeout(sendPlay, 400);
-          setTimeout(goPlayerFullscreen, 400);
-          setTimeout(sendPlay, 1000);
-          setTimeout(goPlayerFullscreen, 1000);
-          setTimeout(sendPlay, 2000);
-          setTimeout(goPlayerFullscreen, 2000);
-        });
-        window.addEventListener("message", function handler(evt) {
-          try {
+            if (Date.now() < (window._yt44IgnoreEndedUntil || 0)) return;
             var d = typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
-            if (d && d.event === "onStateChange" && d.info === 0) {
-              window.removeEventListener("message", handler);
+            if (!d || d.event !== "onStateChange") return;
+            var st = d.info !== undefined ? d.info : d.data;
+            if (st === 0 || st === "0") {
               playNext();
             }
           } catch (e) {}
         });
       }
+
+      function onLoaded() {
+        setPlayerLoading(false);
+        frame.style.display = "block";
+        sendPlayCommands(frame);
+        schedulePlayBurst(frame);
+        try { forceFullscreenFromPlaylist(); } catch (e) {}
+      }
+
+      frame.onload = onLoaded;
+      // load kaçarsa
+      setTimeout(function() {
+        setPlayerLoading(false);
+        frame.style.display = "block";
+        sendPlayCommands(frame);
+      }, 2000);
     }
 
     function forceLoadVideo(id) {
@@ -2114,6 +2046,15 @@
       // Direksiyon / Media Session / playlist / UI — hepsi buradan geçer
       try { forceFullscreenFromPlaylist(); } catch (e) {}
       syncQueueFromDOM();
+      // Kuyruk boşsa en azından şu an çalanı koy (tek şarkı / playlist senkronu)
+      if (!playQueue.length && currentPlayingId) {
+        playQueue = [{
+          id: currentPlayingId,
+          title: currentPlayingTitle || "",
+          author: currentPlayingAuthor || ""
+        }];
+        playIndex = 0;
+      }
       if (!playQueue.length) return;
 
       // currentPlayingId ile index bul
@@ -2152,6 +2093,14 @@
       // Direksiyon / Media Session / playlist / UI — hepsi buradan geçer
       try { forceFullscreenFromPlaylist(); } catch (e) {}
       syncQueueFromDOM();
+      if (!playQueue.length && currentPlayingId) {
+        playQueue = [{
+          id: currentPlayingId,
+          title: currentPlayingTitle || "",
+          author: currentPlayingAuthor || ""
+        }];
+        playIndex = 0;
+      }
       if (!playQueue.length) return;
 
       var found = -1;

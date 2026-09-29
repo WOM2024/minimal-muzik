@@ -158,7 +158,7 @@ Do **not** open the HTML files as `file://` if you need remote sync or reliable 
 | Piece | Implementation |
 |--------|----------------|
 | Search / metadata | Public Invidious instances (`SEARCH_INSTANCES` in `index.html`) |
-| Playback | YouTube IFrame API; same `YT.Player` reused with `loadVideoById` between tracks |
+| Playback | `youtube44.com/embed` iframe (autoplay + postMessage play/unMute); search still via Invidious |
 | Embed fallback | Direct `youtube.com/embed` iframe with `referrerpolicy` / `origin` (mitigates Error 153) |
 | Same-device sync | `BroadcastChannel` + `localStorage` events |
 | Cross-device sync | PeerJS data connections, room id `mm-` + code |
