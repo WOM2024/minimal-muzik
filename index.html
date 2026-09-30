@@ -933,7 +933,8 @@
           return {
             id: x.id,
             title: x.title || "",
-            author: x.author || ""
+            author: x.author || "",
+            duration: parseInt(x.duration, 10) || parseInt(x.lengthSeconds, 10) || 0
           };
         });
         playIndex = -1;
@@ -1319,7 +1320,7 @@
             }
             return;
           }
-          playVideo(card.dataset.id, card.dataset.title, card.dataset.author || "");
+          playVideo(card.dataset.id, card.dataset.title, card.dataset.author || "", false, parseInt(card.dataset.len, 10) || 0);
         });
       });
     }
@@ -1376,7 +1377,8 @@
         playQueue.push({
           id: card.dataset.id,
           title: card.dataset.title || "",
-          author: card.dataset.author || ""
+          author: card.dataset.author || "",
+          duration: parseInt(card.dataset.len, 10) || 0
         });
       });
       // Mevcut şarkının index'ini koru
@@ -2002,6 +2004,7 @@
             if (d.event === "onStateChange") {
               var st = d.info !== undefined ? d.info : d.data;
               if ((st === 0 || st === "0") && Date.now() >= (window._ytIgnoreEndedUntil || 0)) {
+                console.log("[MM] embed ENDED → playNext");
                 playNext();
               }
               if (st === 1 || st === "1") {
@@ -2119,38 +2122,98 @@
       loadYoutube44Embed(id, muted);
     }
 
+    var _playNextLockUntil = 0;
+    var _trackEndTimer = null;
+    var _trackWatchdog = null;
+
+    function clearTrackTimers() {
+      if (_trackEndTimer) {
+        clearTimeout(_trackEndTimer);
+        _trackEndTimer = null;
+      }
+      if (_trackWatchdog) {
+        clearInterval(_trackWatchdog);
+        _trackWatchdog = null;
+      }
+    }
+
+    function armTrackEndWatch(durationSec) {
+      clearTrackTimers();
+      var started = Date.now();
+      var durMs = 0;
+      if (durationSec && durationSec >= 8) {
+        durMs = (durationSec - 0.8) * 1000;
+      }
+      // Bilinen süre varsa zamanlayıcı
+      if (durMs > 5000) {
+        _trackEndTimer = setTimeout(function() {
+          console.log("[MM] süre doldu → sıradaki");
+          playNext();
+        }, durMs);
+      }
+      // Bilinmiyorsa: youtube44 ended vermezse uzun watchdog yok;
+      // postMessage / poll zaten var. Ek: 30dk güvenlik üst sınırı
+      _trackEndTimer = _trackEndTimer; // keep
+    }
+
     function playAtIndex(idx) {
-      if (!playQueue.length) return;
+      if (!playQueue.length) {
+        console.warn("[MM] playAtIndex: kuyruk boş");
+        return;
+      }
       if (idx < 0) idx = playQueue.length - 1;
       if (idx >= playQueue.length) idx = 0;
 
-      // Aynı şarkıysa bir sonrakine zorla geç
-      if (playQueue[idx].id === currentPlayingId && playQueue.length > 1) {
+      // Aynı şarkıya yapışmayı engelle
+      var tries = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[idx].id === currentPlayingId &&
+        tries < playQueue.length
+      ) {
         idx = (idx + 1) % playQueue.length;
+        tries++;
       }
 
       playIndex = idx;
       var item = playQueue[idx];
-      playVideo(item.id, item.title, item.author, true);
+      console.log("[MM] playAtIndex", idx, item.id, item.title, "queue=", playQueue.length);
+      playVideo(item.id, item.title, item.author, true, item.duration || 0);
     }
 
     function playNext() {
-      // Direksiyon / Media Session / playlist / UI
+      var now = Date.now();
+      // Çift tetiklemeyi kes (ended + timer aynı anda)
+      if (now < _playNextLockUntil) {
+        console.log("[MM] playNext kilitli, atlandı");
+        return;
+      }
+      _playNextLockUntil = now + 2800;
+      clearTrackTimers();
+      window._ytIgnoreEndedUntil = now + 3500;
+
       try { forceFullscreenFromPlaylist(); } catch (e) {}
-      // Manuel kilitliyse DOM kuyruğu ezmesin
+
       if (!queueLocked) {
         syncQueueFromDOM();
       }
+
       if (!playQueue.length && currentPlayingId) {
         playQueue = [{
           id: currentPlayingId,
           title: currentPlayingTitle || "",
-          author: currentPlayingAuthor || ""
+          author: currentPlayingAuthor || "",
+          duration: 0
         }];
         playIndex = 0;
       }
-      if (!playQueue.length) return;
 
+      if (!playQueue.length) {
+        console.warn("[MM] playNext: kuyruk boş");
+        return;
+      }
+
+      // Mevcut index
       var found = -1;
       for (var j = 0; j < playQueue.length; j++) {
         if (playQueue[j].id === currentPlayingId) {
@@ -2159,35 +2222,53 @@
         }
       }
       if (found >= 0) playIndex = found;
-      else if (playIndex < 0) playIndex = 0;
+      if (playIndex < 0 || playIndex >= playQueue.length) playIndex = 0;
 
       var next = playIndex + 1;
       if (next >= playQueue.length) next = 0;
 
-      // Tek şarkı değilse aynı ID'ye yapışma
-      if (playQueue.length > 1 && playQueue[next].id === currentPlayingId) {
+      // Aynı ID ise atla
+      var guard = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[next].id === currentPlayingId &&
+        guard < playQueue.length
+      ) {
         next = (next + 1) % playQueue.length;
+        guard++;
       }
-      if (playQueue.length > 1 && playQueue[next].id === currentPlayingId) {
-        var candidates = playQueue.filter(function(x) {
-          return x.id !== currentPlayingId;
-        });
-        if (candidates.length) {
-          var pick = candidates[Math.floor(Math.random() * candidates.length)];
-          for (var k = 0; k < playQueue.length; k++) {
-            if (playQueue[k].id === pick.id) {
-              next = k;
-              break;
-            }
-          }
+
+      console.log(
+        "[MM] playNext",
+        playIndex,
+        "→",
+        next,
+        playQueue[next] && playQueue[next].id,
+        "locked=",
+        queueLocked,
+        "len=",
+        playQueue.length
+      );
+
+      // Mevcut iframe'i hemen kes (aynı şarkıya dönüşü engelle)
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f) {
+          f.onload = null;
+          f.src = "about:blank";
         }
-      }
+      } catch (e) {}
 
       playAtIndex(next);
     }
 
     function playPrev() {
-      // Direksiyon / Media Session / playlist / UI — hepsi buradan geçer
+      var now = Date.now();
+      if (now < _playNextLockUntil) return;
+      _playNextLockUntil = now + 2800;
+      clearTrackTimers();
+      window._ytIgnoreEndedUntil = now + 3500;
+
       try { forceFullscreenFromPlaylist(); } catch (e) {}
       if (!queueLocked) {
         syncQueueFromDOM();
@@ -2196,7 +2277,8 @@
         playQueue = [{
           id: currentPlayingId,
           title: currentPlayingTitle || "",
-          author: currentPlayingAuthor || ""
+          author: currentPlayingAuthor || "",
+          duration: 0
         }];
         playIndex = 0;
       }
@@ -2214,20 +2296,24 @@
       var prev = playIndex - 1;
       if (prev < 0) prev = playQueue.length - 1;
 
-      if (playQueue.length > 1 && playQueue[prev].id === currentPlayingId) {
-        var candidates = playQueue.filter(function(x) {
-          return x.id !== currentPlayingId;
-        });
-        if (candidates.length) {
-          var pick = candidates[Math.floor(Math.random() * candidates.length)];
-          for (var k = 0; k < playQueue.length; k++) {
-            if (playQueue[k].id === pick.id) {
-              prev = k;
-              break;
-            }
-          }
-        }
+      var guard = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[prev].id === currentPlayingId &&
+        guard < playQueue.length
+      ) {
+        prev = prev - 1;
+        if (prev < 0) prev = playQueue.length - 1;
+        guard++;
       }
+
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f) {
+          f.onload = null;
+          f.src = "about:blank";
+        }
+      } catch (e) {}
 
       playAtIndex(prev);
     }
@@ -2332,14 +2418,13 @@
       }
     }
 
-    function playVideo(id, title, author, fromQueue) {
+    function playVideo(id, title, author, fromQueue, durationSec) {
       if (!id) return;
-      // Her şarkı geçişinde YouTube fullscreen (direksiyon / playlist / UI)
       try { forceFullscreenFromPlaylist(); } catch (e) {}
+      clearTrackTimers();
 
-      // Kuyruğu güncelle
       if (!fromQueue) {
-        syncQueueFromDOM();
+        if (!queueLocked) syncQueueFromDOM();
         playIndex = -1;
         for (var i = 0; i < playQueue.length; i++) {
           if (playQueue[i].id === id) {
@@ -2347,11 +2432,21 @@
             break;
           }
         }
-        // Listede yoksa ekle
         if (playIndex < 0) {
-          playQueue.push({ id: id, title: title || "", author: author || "" });
+          playQueue.push({
+            id: id,
+            title: title || "",
+            author: author || "",
+            duration: durationSec || 0
+          });
           playIndex = playQueue.length - 1;
         }
+      }
+
+      // Süre: argüman veya kuyruktan
+      var dur = durationSec || 0;
+      if (!dur && playIndex >= 0 && playQueue[playIndex]) {
+        dur = playQueue[playIndex].duration || 0;
       }
 
       currentPlayingId = id;
@@ -2360,6 +2455,9 @@
       playerTitle.textContent = title || "";
       updateMediaSession(title, author, id);
       broadcastState();
+
+      // Süre biliniyorsa bitiş zamanlayıcısı (youtube44 ENDED göndermeyebilir)
+      armTrackEndWatch(dur);
 
       var alreadyOpen = playerView.classList.contains("active");
       if (alreadyOpen) {
