@@ -11,6 +11,7 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
   <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
   <title>Minimal Müzik</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>🎵</text></svg>">
 
   <style>
     * {
@@ -686,8 +687,7 @@
 
       <iframe
         id="ytplayer"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-        allowfullscreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen"
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
@@ -903,12 +903,10 @@
       // playlist.html'den gelen tüm çalma isteklerinde tam ekran zorla
       if (cmd.type === "next" || cmd.type === "prev" || cmd.type === "play" ||
           cmd.type === "setQueue" || cmd.type === "fullscreen") {
-        try { forceFullscreenFromPlaylist(); } catch (e) {}
-      }
+        }
 
       if (cmd.type === "fullscreen") {
-        try { forceFullscreenFromPlaylist(); } catch (e) {}
-        return;
+          return;
       }
       if (cmd.type === "next") {
         playNext();
@@ -1831,7 +1829,6 @@
             return;
           }
           if (event.data === YT.PlayerState.PLAYING) {
-            goPlayerFullscreen();
           }
         }
       } catch (e) {}
@@ -1839,7 +1836,6 @@
         playNext();
       }
       if (event && event.data === 1) {
-        goPlayerFullscreen();
       }
     }
 
@@ -1896,7 +1892,6 @@
       var attempts = 0;
       _fsRemoteTimer = setInterval(function() {
         attempts++;
-        goPlayerFullscreen();
         var el = getYoutubeIframeEl();
         var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
                    document.mozFullScreenElement || document.msFullscreenElement;
@@ -1977,9 +1972,8 @@
         frame.id = "ytplayer";
         frame.setAttribute(
           "allow",
-          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen"
         );
-        frame.setAttribute("allowfullscreen", "true");
         frame.setAttribute("playsinline", "");
         frame.setAttribute("webkit-playsinline", "");
         if (area) area.appendChild(frame);
@@ -2192,7 +2186,6 @@
       clearTrackTimers();
       window._ytIgnoreEndedUntil = now + 3500;
 
-      try { forceFullscreenFromPlaylist(); } catch (e) {}
 
       if (!queueLocked) {
         syncQueueFromDOM();
@@ -2269,7 +2262,6 @@
       clearTrackTimers();
       window._ytIgnoreEndedUntil = now + 3500;
 
-      try { forceFullscreenFromPlaylist(); } catch (e) {}
       if (!queueLocked) {
         syncQueueFromDOM();
       }
@@ -2420,7 +2412,6 @@
 
     function playVideo(id, title, author, fromQueue, durationSec) {
       if (!id) return;
-      try { forceFullscreenFromPlaylist(); } catch (e) {}
       clearTrackTimers();
 
       if (!fromQueue) {
