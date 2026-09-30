@@ -1940,6 +1940,7 @@
           q += "&end=" + Math.floor(durationSec - 1);
         }
         if (bust) q += "&_t=" + bust;
+        // Not: youtube44 sunucusu bu URL'yi nocookie + loop=1'e yönlendirir (parametreler silinir)
         return "https://www.youtube44.com/embed/" + vid + "?" + q;
       }
 
@@ -2002,11 +2003,32 @@
         window.addEventListener("message", function(evt) {
           try {
             var raw = evt.data;
-            var d = typeof raw === "string" ? JSON.parse(raw) : raw;
+            var d = raw;
+            if (typeof raw === "string") {
+              try { d = JSON.parse(raw); } catch (e1) { d = { raw: raw }; }
+            }
             if (!d) return;
+
+            // —— DEBUG: youtube44 / nocookie ne gönderiyor?
+            if (_debugYt) {
+              var interesting =
+                d.event ||
+                d.info !== undefined ||
+                d.data !== undefined ||
+                (typeof raw === "string" && raw.length < 300);
+              if (interesting) {
+                console.log("[MM][YT-MSG]", {
+                  origin: evt.origin,
+                  event: d.event,
+                  info: d.info,
+                  data: d.data,
+                  keys: Object.keys(d)
+                });
+              }
+            }
+
             if (d.event === "onStateChange") {
               var st = d.info !== undefined ? d.info : d.data;
-              // 0=ended — loop yüzünden gelmeyebilir
               if ((st === 0 || st === "0") && Date.now() >= (window._ytIgnoreEndedUntil || 0)) {
                 console.log("[MM] embed ENDED → playNext");
                 playNext();
@@ -2018,23 +2040,18 @@
               }
             }
             if (d.event === "infoDelivery" && d.info) {
-              if (typeof d.info.currentTime === "number") {
-                var tnow = d.info.currentTime;
-                // Loop: süre geri sıçradıysa sıradakine geç
-                if (
-                  window._ytLastKnownTime > 20 &&
-                  tnow < 3 &&
-                  Date.now() >= (window._ytIgnoreEndedUntil || 0)
-                ) {
-                  console.log("[MM] loop tespit (time reset) → playNext");
-                  playNext();
-                  return;
-                }
-                window._ytLastKnownTime = tnow;
+              var pos = typeof d.info.currentTime === "number" ? d.info.currentTime : null;
+              var dur = typeof d.info.duration === "number" ? d.info.duration : null;
+              if (pos !== null) {
+                onTrackPosition(pos, dur || window._ytDuration || _trackDurationSec);
+              } else if (dur !== null) {
+                window._ytDuration = dur;
+                _trackDurationSec = dur;
               }
-              if (typeof d.info.duration === "number" && d.info.duration > 0) {
-                window._ytDuration = d.info.duration;
-              }
+            }
+            // Bazı player'lar farklı format
+            if (typeof d.currentTime === "number") {
+              onTrackPosition(d.currentTime, d.duration || _trackDurationSec);
             }
           } catch (e) {}
         });
@@ -2143,6 +2160,11 @@
     var _playNextLockUntil = 0;
     var _trackEndTimer = null;
     var _trackWatchdog = null;
+    var _armedForId = "";
+    var _trackStartedAt = 0;
+    var _trackDurationSec = 0;
+    var _lastKnownPos = 0;
+    var _debugYt = true; // true = tüm embed mesajlarını konsola yaz
 
     function clearTrackTimers() {
       if (_trackEndTimer) {
@@ -2155,18 +2177,70 @@
       }
     }
 
-    function armTrackEndWatch(durationSec) {
+    function scheduleEndFromPosition(positionSec, durationSec, reason) {
       clearTrackTimers();
-      durationSec = parseInt(durationSec, 10) || 0;
-      console.log("[MM] armTrackEndWatch", durationSec, "sn");
-      if (durationSec >= 8) {
-        // Bitişten ~1.5 sn önce sıradakine geç (proxy loop=1 başlamadan)
-        var durMs = Math.max(4000, (durationSec - 1.5) * 1000);
-        _trackEndTimer = setTimeout(function() {
-          console.log("[MM] süre doldu → sıradaki", durationSec);
-          playNext();
-        }, durMs);
+      positionSec = Math.max(0, Number(positionSec) || 0);
+      durationSec = Number(durationSec) || _trackDurationSec || 0;
+      _lastKnownPos = positionSec;
+      if (durationSec < 8) {
+        console.log("[MM] scheduleEnd: süre yok, timer yok", reason);
+        return;
       }
+      var remaining = durationSec - positionSec - 1.5;
+      if (remaining < 2) remaining = 2;
+      var durMs = remaining * 1000;
+      console.log(
+        "[MM] scheduleEnd",
+        reason,
+        "pos=",
+        positionSec.toFixed(1),
+        "dur=",
+        durationSec,
+        "remaining≈",
+        remaining.toFixed(1),
+        "sn"
+      );
+      _trackEndTimer = setTimeout(function() {
+        console.log("[MM] süre doldu → sıradaki", durationSec, "reason=", reason);
+        _armedForId = "";
+        playNext();
+      }, durMs);
+      _armedForId = currentPlayingId || "";
+    }
+
+    function armTrackEndWatch(durationSec, force) {
+      durationSec = parseInt(durationSec, 10) || 0;
+      _trackDurationSec = durationSec;
+      _trackStartedAt = Date.now();
+      _lastKnownPos = 0;
+      if (!force && _armedForId && _armedForId === currentPlayingId && _trackEndTimer) {
+        return;
+      }
+      scheduleEndFromPosition(0, durationSec, "start");
+    }
+
+    // Seek / konum güncellemesi — embed currentTime verirse timer yenilenir
+    function onTrackPosition(positionSec, durationSec) {
+      if (!currentPlayingId) return;
+      if (Date.now() < (window._ytIgnoreEndedUntil || 0)) return;
+      durationSec = durationSec || _trackDurationSec || window._ytDuration || 0;
+      positionSec = Number(positionSec) || 0;
+
+      // Loop: büyük zamandan başa sıçrama
+      if (_lastKnownPos > 15 && positionSec < 3) {
+        console.log("[MM] loop/seek-to-start tespit → playNext");
+        playNext();
+        return;
+      }
+
+      // Anlamlı seek: 3 sn'den fazla zıplama → timer'ı kalan süreye göre kur
+      if (Math.abs(positionSec - _lastKnownPos) > 3) {
+        scheduleEndFromPosition(positionSec, durationSec, "seek/pos");
+      } else {
+        _lastKnownPos = positionSec;
+      }
+      window._ytLastKnownTime = positionSec;
+      if (durationSec > 0) window._ytDuration = durationSec;
     }
 
     function playAtIndex(idx) {
@@ -2203,6 +2277,8 @@
       }
       _playNextLockUntil = now + 2800;
       clearTrackTimers();
+      _armedForId = "";
+      _trackStartedAt = 0;
       window._ytIgnoreEndedUntil = now + 3500;
 
 
@@ -2279,6 +2355,8 @@
       if (now < _playNextLockUntil) return;
       _playNextLockUntil = now + 2800;
       clearTrackTimers();
+      _armedForId = "";
+      _trackStartedAt = 0;
       window._ytIgnoreEndedUntil = now + 3500;
 
       if (!queueLocked) {
