@@ -1902,7 +1902,10 @@
       }, 300);
     }
 
-    function loadYoutube44Embed(id, muted) {
+    // Aktif yükleme süresi (end= parametresi + timer)
+    var _currentLoadDuration = 0;
+
+    function loadYoutube44Embed(id, muted, durationSec) {
       try {
         if (audioPlayer) {
           audioPlayer.pause();
@@ -1921,15 +1924,23 @@
       var oldHost = document.getElementById(ytHostId);
       try { if (oldHost) oldHost.remove(); } catch (e) {}
 
-      // youtube44 — reklamsız proxy
+      durationSec = parseInt(durationSec, 10) || _currentLoadDuration || 0;
+      _currentLoadDuration = durationSec;
+
+      // youtube44 bazen loop=1&playlist=ID zorluyor → end= ile kes + kendi timer
       function buildSrc(vid, muteFlag, bust) {
-        return (
-          "https://www.youtube44.com/embed/" + vid +
-          "?autoplay=1&autoplay=true&mute=" + (muteFlag ? "1" : "0") +
+        var q =
+          "autoplay=1&autoplay=true" +
+          "&mute=" + (muteFlag ? "1" : "0") +
           "&playsinline=1&rel=0&modestbranding=1&enablejsapi=1" +
-          "&iv_load_policy=3&controls=1&fs=1&loop=0" +
-          (bust ? "&_t=" + bust : "")
-        );
+          "&iv_load_policy=3&controls=1&fs=1" +
+          "&loop=0";
+        // Bitiş saniyesi — proxy loop açsa bile videoyu durdurmayı dener
+        if (durationSec >= 8) {
+          q += "&end=" + Math.floor(durationSec - 1);
+        }
+        if (bust) q += "&_t=" + bust;
+        return "https://www.youtube44.com/embed/" + vid + "?" + q;
       }
 
       var frameStyle =
@@ -1962,9 +1973,9 @@
         } catch (e) {}
       }
 
-      window._ytIgnoreEndedUntil = Date.now() + 4000;
+      window._ytIgnoreEndedUntil = Date.now() + 5000;
       window._ytLastKnownTime = 0;
-      window._ytDuration = 0;
+      window._ytDuration = durationSec || 0;
 
       var frame = document.getElementById("ytplayer");
       if (!frame || frame.tagName !== "IFRAME") {
@@ -1983,9 +1994,7 @@
       var muteFlag = muted || !mediaUnlocked;
       ytplayer = frame;
 
-      // —— Strateji: 1) ilk src  2) yükleme bitmeden blank + ikinci src (senin çalışan yöntem)
-      // İkinci yükleme sonrası play burst
-      var phase = 0; // 0=first, 1=second reload, 2=done
+      var phase = 0;
 
       function armEndedListener() {
         if (window._ytMsgBound) return;
@@ -1997,6 +2006,7 @@
             if (!d) return;
             if (d.event === "onStateChange") {
               var st = d.info !== undefined ? d.info : d.data;
+              // 0=ended — loop yüzünden gelmeyebilir
               if ((st === 0 || st === "0") && Date.now() >= (window._ytIgnoreEndedUntil || 0)) {
                 console.log("[MM] embed ENDED → playNext");
                 playNext();
@@ -2008,8 +2018,23 @@
               }
             }
             if (d.event === "infoDelivery" && d.info) {
-              if (typeof d.info.currentTime === "number") window._ytLastKnownTime = d.info.currentTime;
-              if (typeof d.info.duration === "number" && d.info.duration > 0) window._ytDuration = d.info.duration;
+              if (typeof d.info.currentTime === "number") {
+                var tnow = d.info.currentTime;
+                // Loop: süre geri sıçradıysa sıradakine geç
+                if (
+                  window._ytLastKnownTime > 20 &&
+                  tnow < 3 &&
+                  Date.now() >= (window._ytIgnoreEndedUntil || 0)
+                ) {
+                  console.log("[MM] loop tespit (time reset) → playNext");
+                  playNext();
+                  return;
+                }
+                window._ytLastKnownTime = tnow;
+              }
+              if (typeof d.info.duration === "number" && d.info.duration > 0) {
+                window._ytDuration = d.info.duration;
+              }
             }
           } catch (e) {}
         });
@@ -2024,24 +2049,24 @@
         if (!f) return;
         postCmd(f, "getCurrentTime");
         postCmd(f, "getDuration");
-        if (window._ytDuration > 15 && window._ytLastKnownTime > 0) {
-          if (window._ytLastKnownTime >= window._ytDuration - 1.25) {
+        var dur = window._ytDuration || durationSec || 0;
+        if (dur > 15 && window._ytLastKnownTime > 0) {
+          if (window._ytLastKnownTime >= dur - 1.5) {
+            console.log("[MM] poll end → playNext");
             window._ytIgnoreEndedUntil = Date.now() + 4000;
             window._ytLastKnownTime = 0;
-            window._ytDuration = 0;
             playNext();
           }
         }
         bumpMediaSessionPlaying();
-      }, 2000);
+      }, 1500);
 
       function afterSecondLoad() {
         phase = 2;
         setPlayerLoading(false);
         frame.style.display = "block";
-        // İkinci yüklemede autoplay’i zorla
         sendPlayCommands(frame);
-        [300, 800, 1500, 2500, 4000].forEach(function(ms) {
+        [300, 800, 1500, 2500].forEach(function(ms) {
           setTimeout(function() {
             if (currentPlayingId !== id) return;
             sendPlayCommands(frame);
@@ -2049,16 +2074,17 @@
         });
         bindMediaSessionHandlers();
         bumpMediaSessionPlaying();
+        // Süre timer'ı ikinci yüklemeden sonra yeniden kur
+        if (durationSec >= 8) {
+          armTrackEndWatch(durationSec);
+        }
       }
 
       frame.onload = function() {
         if (phase === 0) {
-          // İlk yükleme geldi — hemen ikinci yüklemeyi tetikle (tam oturmadan)
           phase = 1;
-          window._ytIgnoreEndedUntil = Date.now() + 4000;
-          try {
-            frame.src = "about:blank";
-          } catch (e) {}
+          window._ytIgnoreEndedUntil = Date.now() + 5000;
+          try { frame.src = "about:blank"; } catch (e) {}
           setTimeout(function() {
             if (!currentPlayingId || currentPlayingId !== id) return;
             phase = 1;
@@ -2073,16 +2099,15 @@
         }
       };
 
-      // İlk src
       phase = 0;
       frame.src = buildSrc(id, muteFlag, Date.now());
+      console.log("[MM] load", id, "duration=", durationSec);
 
-      // onload hiç gelmezse yedek: 600ms'de zorla ikinci yükleme
       setTimeout(function() {
         if (phase !== 0) return;
         if (!currentPlayingId || currentPlayingId !== id) return;
         phase = 1;
-        window._ytIgnoreEndedUntil = Date.now() + 4000;
+        window._ytIgnoreEndedUntil = Date.now() + 5000;
         try { frame.src = "about:blank"; } catch (e) {}
         setTimeout(function() {
           if (!currentPlayingId || currentPlayingId !== id) return;
@@ -2091,29 +2116,28 @@
         }, 80);
       }, 600);
 
-      // Güvenlik: 5sn sonra loading kapat + play dene
       setTimeout(function() {
         setPlayerLoading(false);
         sendPlayCommands(frame);
       }, 5000);
     }
 
-    function forceLoadVideo(id) {
+    function forceLoadVideo(id, durationSec) {
       setPlayerLoading(true, "Yükleniyor...");
       pendingPlayId = id;
       if (playerPoster) {
         playerPoster.style.backgroundImage =
           "url(https://i.ytimg.com/vi/" + id + "/hqdefault.jpg)";
       }
-      loadYoutube44Embed(id, !mediaUnlocked);
+      loadYoutube44Embed(id, !mediaUnlocked, durationSec || _currentLoadDuration || 0);
     }
 
-    function loadVideoInSamePlayer(id) {
-      forceLoadVideo(id);
+    function loadVideoInSamePlayer(id, durationSec) {
+      forceLoadVideo(id, durationSec);
     }
 
     function loadIframeNow(id, muted) {
-      loadYoutube44Embed(id, muted);
+      loadYoutube44Embed(id, muted, _currentLoadDuration || 0);
     }
 
     var _playNextLockUntil = 0;
@@ -2133,21 +2157,16 @@
 
     function armTrackEndWatch(durationSec) {
       clearTrackTimers();
-      var started = Date.now();
-      var durMs = 0;
-      if (durationSec && durationSec >= 8) {
-        durMs = (durationSec - 0.8) * 1000;
-      }
-      // Bilinen süre varsa zamanlayıcı
-      if (durMs > 5000) {
+      durationSec = parseInt(durationSec, 10) || 0;
+      console.log("[MM] armTrackEndWatch", durationSec, "sn");
+      if (durationSec >= 8) {
+        // Bitişten ~1.5 sn önce sıradakine geç (proxy loop=1 başlamadan)
+        var durMs = Math.max(4000, (durationSec - 1.5) * 1000);
         _trackEndTimer = setTimeout(function() {
-          console.log("[MM] süre doldu → sıradaki");
+          console.log("[MM] süre doldu → sıradaki", durationSec);
           playNext();
         }, durMs);
       }
-      // Bilinmiyorsa: youtube44 ended vermezse uzun watchdog yok;
-      // postMessage / poll zaten var. Ek: 30dk güvenlik üst sınırı
-      _trackEndTimer = _trackEndTimer; // keep
     }
 
     function playAtIndex(idx) {
@@ -2450,14 +2469,17 @@
       // Süre biliniyorsa bitiş zamanlayıcısı (youtube44 ENDED göndermeyebilir)
       armTrackEndWatch(dur);
 
+      _currentLoadDuration = dur || 0;
+      console.log("[MM] playVideo", id, "dur=", dur, "queue=", playQueue.length, "idx=", playIndex);
+
       var alreadyOpen = playerView.classList.contains("active");
       if (alreadyOpen) {
         setPlayerLoading(true, fromQueue ? "Sonraki şarkı yükleniyor..." : "Yükleniyor...");
-        loadVideoInSamePlayer(id);
+        loadVideoInSamePlayer(id, dur);
       } else {
         playerView.classList.add("active");
         setPlayerLoading(true, "Yükleniyor...");
-        loadVideoInSamePlayer(id);
+        loadVideoInSamePlayer(id, dur);
       }
     }
 
