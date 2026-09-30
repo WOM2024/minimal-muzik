@@ -1987,8 +1987,17 @@
                 // Tam ekran: açık değilse zorla
                 setTimeout(function() { forceFullscreenFromPlaylist(); }, 400);
                 setTimeout(function() { forceFullscreenFromPlaylist(); }, 1200);
+                _earlySkipDoneFor = "";
+                // API'den süre al (Invidious süresi yoksa)
+                try {
+                  var apiDur = 0;
+                  if (ev.target && typeof ev.target.getDuration === "function") {
+                    apiDur = ev.target.getDuration() || 0;
+                  }
+                  if (apiDur > 8) durationSec = apiDur;
+                } catch (eDur) {}
                 if (durationSec >= 8) {
-                  armTrackEndWatch(durationSec);
+                  armTrackEndWatch(durationSec, true);
                 }
               },
               onStateChange: function(event) {
@@ -1997,6 +2006,9 @@
                   if (event.data === YT.PlayerState.ENDED) {
                     var ignoreUntil = window._ytIgnoreEndedUntil || 0;
                     if (Date.now() < ignoreUntil) return;
+                    // Erken geçiş zaten yaptıysa tekrarlama
+                    if (_earlySkipDoneFor === currentPlayingId) return;
+                    _earlySkipDoneFor = currentPlayingId || "";
                     playNext();
                     return;
                   }
@@ -2058,6 +2070,9 @@
     var _trackDurationSec = 0;
     var _lastKnownPos = 0;
     var _debugYt = false; // true yaparsan [MM][YT-MSG] detay log
+    // Öneri ekranı çıkmasın diye bitişten bu kadar sn önce sonraki şarkıya geç
+    var EARLY_SKIP_SEC = 1.5;
+    var _earlySkipDoneFor = ""; // aynı şarkıda çift playNext engeli
 
     function clearTrackTimers() {
       if (_trackEndTimer) {
@@ -2079,8 +2094,9 @@
         if (_debugYt) console.log("[MM] scheduleEnd: süre yok, timer yok", reason);
         return;
       }
-      var remaining = durationSec - positionSec - 1.5;
-      if (remaining < 2) remaining = 2;
+      // Bitişten EARLY_SKIP_SEC sn önce geç → öneri ekranı açılmaz
+      var remaining = durationSec - positionSec - EARLY_SKIP_SEC;
+      if (remaining < 1) remaining = 1;
       var durMs = remaining * 1000;
       if (_debugYt) console.log(
         "[MM] scheduleEnd",
@@ -2089,16 +2105,52 @@
         positionSec.toFixed(1),
         "dur=",
         durationSec,
+        "early=",
+        EARLY_SKIP_SEC,
         "remaining≈",
         remaining.toFixed(1),
         "sn"
       );
       _trackEndTimer = setTimeout(function() {
-        console.log("[MM] süre doldu → sıradaki", durationSec, "reason=", reason);
+        if (_earlySkipDoneFor === currentPlayingId) return;
+        _earlySkipDoneFor = currentPlayingId || "";
+        console.log("[MM] erken geçiş → sıradaki", "dur=", durationSec, "reason=", reason);
         _armedForId = "";
         playNext();
       }, durMs);
       _armedForId = currentPlayingId || "";
+
+      // YT.Player varsa konum poll: süre API'den gelince daha isabetli erken geçiş
+      if (_trackWatchdog) {
+        try { clearInterval(_trackWatchdog); } catch (e) {}
+        _trackWatchdog = null;
+      }
+      _trackWatchdog = setInterval(function() {
+        try {
+          if (!ytPlayerInstance || !currentPlayingId) return;
+          if (_earlySkipDoneFor === currentPlayingId) return;
+          if (Date.now() < (window._ytIgnoreEndedUntil || 0)) return;
+          var t = 0;
+          var d = durationSec || _trackDurationSec || 0;
+          try {
+            if (typeof ytPlayerInstance.getCurrentTime === "function") {
+              t = ytPlayerInstance.getCurrentTime() || 0;
+            }
+            if (typeof ytPlayerInstance.getDuration === "function") {
+              var gd = ytPlayerInstance.getDuration() || 0;
+              if (gd > 8) d = gd;
+            }
+          } catch (e1) {}
+          if (d < 8) return;
+          _lastKnownPos = t;
+          if (t >= d - EARLY_SKIP_SEC) {
+            _earlySkipDoneFor = currentPlayingId || "";
+            clearTrackTimers();
+            console.log("[MM] poll erken geçiş", t.toFixed(1), "/", d.toFixed(1));
+            playNext();
+          }
+        } catch (e2) {}
+      }, 500);
     }
 
     function armTrackEndWatch(durationSec, force) {
@@ -2439,6 +2491,7 @@
       currentPlayingId = id;
       currentPlayingTitle = title || "";
       currentPlayingAuthor = author || "";
+      _earlySkipDoneFor = "";
       playerTitle.textContent = title || "";
       updateMediaSession(title, author, id);
       broadcastState();
