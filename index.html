@@ -1985,8 +1985,39 @@
       }
 
       frame.style.cssText = frameStyle;
-      frame.src = buildSrc(id, muted || !mediaUnlocked);
+      var muteFlag = muted || !mediaUnlocked;
+      // İlk yükleme
+      frame.src = buildSrc(id, muteFlag);
       ytplayer = frame;
+
+      // Tam yükleme bitmeden çerçeveyi bir kez zorla yeniden yükle
+      // (bazı araç / WebView ortamlarında ilk src takılı kalıyor)
+      if (window._ytEarlyReloadTimer) {
+        clearTimeout(window._ytEarlyReloadTimer);
+        window._ytEarlyReloadTimer = null;
+      }
+      window._ytEarlyReloadDone = false;
+      window._ytEarlyReloadTimer = setTimeout(function() {
+        try {
+          if (window._ytEarlyReloadDone) return;
+          if (!currentPlayingId || currentPlayingId !== id) return;
+          var f = document.getElementById("ytplayer");
+          if (!f) return;
+          window._ytIgnoreEndedUntil = Date.now() + 3500;
+          // about:blank ile sıfırla, ardından aynı videoyu yeniden bağla
+          f.src = "about:blank";
+          setTimeout(function() {
+            try {
+              if (!currentPlayingId || currentPlayingId !== id) return;
+              var f2 = document.getElementById("ytplayer");
+              if (!f2) return;
+              f2.src = buildSrc(id, muteFlag) + "&_r=" + Date.now();
+              ytplayer = f2;
+              setPlayerLoading(true, "Yeniden yükleniyor...");
+            } catch (e2) {}
+          }, 120);
+        } catch (e) {}
+      }, 450);
 
       // —— Bitiş + süre mesajları (tek bağlama) ——
       if (!window._ytMsgBound) {
@@ -2046,11 +2077,22 @@
         bumpMediaSessionPlaying();
       }, 2000);
 
+      var loadCount = 0;
       function onLoaded() {
+        loadCount++;
+        // İlk onload: erken yeniden yükleme henüz çalışacak olabilir — play komutlarını yine de dene
+        // İkinci onload (zorla reload sonrası): tamamlandı say
+        if (loadCount >= 2) {
+          window._ytEarlyReloadDone = true;
+          if (window._ytEarlyReloadTimer) {
+            clearTimeout(window._ytEarlyReloadTimer);
+            window._ytEarlyReloadTimer = null;
+          }
+        }
         setPlayerLoading(false);
         frame.style.display = "block";
         sendPlayCommands(frame);
-        [500, 1200, 2500].forEach(function(ms) {
+        [400, 1000, 2000].forEach(function(ms) {
           setTimeout(function() { sendPlayCommands(frame); }, ms);
         });
         bindMediaSessionHandlers();
