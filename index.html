@@ -2118,7 +2118,7 @@
 
       phase = 0;
       frame.src = buildSrc(id, muteFlag, Date.now());
-      console.log("[MM] load", id, "duration=", durationSec);
+      if (_debugYt) console.log("[MM] load", id, "duration=", durationSec);
 
       setTimeout(function() {
         if (phase !== 0) return;
@@ -2164,7 +2164,7 @@
     var _trackStartedAt = 0;
     var _trackDurationSec = 0;
     var _lastKnownPos = 0;
-    var _debugYt = true; // true = tüm embed mesajlarını konsola yaz
+    var _debugYt = false; // true yaparsan [MM][YT-MSG] detay log
 
     function clearTrackTimers() {
       if (_trackEndTimer) {
@@ -2183,13 +2183,13 @@
       durationSec = Number(durationSec) || _trackDurationSec || 0;
       _lastKnownPos = positionSec;
       if (durationSec < 8) {
-        console.log("[MM] scheduleEnd: süre yok, timer yok", reason);
+        if (_debugYt) console.log("[MM] scheduleEnd: süre yok, timer yok", reason);
         return;
       }
       var remaining = durationSec - positionSec - 1.5;
       if (remaining < 2) remaining = 2;
       var durMs = remaining * 1000;
-      console.log(
+      if (_debugYt) console.log(
         "[MM] scheduleEnd",
         reason,
         "pos=",
@@ -2264,7 +2264,7 @@
 
       playIndex = idx;
       var item = playQueue[idx];
-      console.log("[MM] playAtIndex", idx, item.id, item.title, "queue=", playQueue.length);
+      if (_debugYt) console.log("[MM] playAtIndex", idx, item.id, item.title, "queue=", playQueue.length);
       playVideo(item.id, item.title, item.author, true, item.duration || 0);
     }
 
@@ -2272,7 +2272,7 @@
       var now = Date.now();
       // Çift tetiklemeyi kes (ended + timer aynı anda)
       if (now < _playNextLockUntil) {
-        console.log("[MM] playNext kilitli, atlandı");
+        if (_debugYt) console.log("[MM] playNext kilitli, atlandı");
         return;
       }
       _playNextLockUntil = now + 2800;
@@ -2326,7 +2326,7 @@
         guard++;
       }
 
-      console.log(
+      if (_debugYt) console.log(
         "[MM] playNext",
         playIndex,
         "→",
@@ -2548,7 +2548,7 @@
       armTrackEndWatch(dur);
 
       _currentLoadDuration = dur || 0;
-      console.log("[MM] playVideo", id, "dur=", dur, "queue=", playQueue.length, "idx=", playIndex);
+      if (_debugYt) console.log("[MM] playVideo", id, "dur=", dur, "queue=", playQueue.length, "idx=", playIndex);
 
       var alreadyOpen = playerView.classList.contains("active");
       if (alreadyOpen) {
@@ -2582,6 +2582,30 @@
       currentPlayingAuthor = "";
       clearMediaSession();
       broadcastState();
+    });
+
+
+    // Sekme tekrar görünür olunca çalmaya devam etmeyi dene
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden) return;
+      if (!currentPlayingId) return;
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+            "*"
+          );
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "unMute", args: [] }),
+            "*"
+          );
+        }
+      } catch (e) {}
+      try {
+        bumpMediaSessionPlaying();
+        bindMediaSessionHandlers();
+      } catch (e2) {}
     });
 
     prevBtn.addEventListener("click", function() {
