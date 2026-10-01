@@ -1734,8 +1734,15 @@
           src.start(0);
         }
       } catch (e) {}
-      // Ses açılsın diye çalan şarkıyı bir kez sesli yenile
-      if (pendingPlayId || currentPlayingId) {
+      // Mevcut player varsa yeniden yükleme — sadece unmute (6.html modeli)
+      if (ytPlayerInstance) {
+        try {
+          ytPlayerInstance.unMute();
+          try { ytPlayerInstance.setVolume(100); } catch (eV) {}
+          ytPlayerInstance.playVideo();
+        } catch (eU) {}
+        pendingPlayId = null;
+      } else if (pendingPlayId || currentPlayingId) {
         var id = pendingPlayId || currentPlayingId;
         pendingPlayId = null;
         loadIframeNow(id, false);
@@ -1784,10 +1791,10 @@
       if (!area) return null;
       var tip = document.getElementById("tapToPlay");
 
-      // Eski iframe / host temizle
+      // Eski statik iframe varsa sadece gizle (player oturumunu bozma)
       var oldFrame = document.getElementById("ytplayer");
-      if (oldFrame) {
-        try { oldFrame.remove(); } catch (e) {}
+      if (oldFrame && oldFrame.tagName === "IFRAME") {
+        try { oldFrame.style.display = "none"; } catch (e) {}
       }
       var host = document.getElementById(ytHostId);
       if (!host) {
@@ -1800,23 +1807,8 @@
         } else {
           area.appendChild(host);
         }
-      } else {
-        // YT.Player destroy sonrası host boş olabilir — yeniden oluştur
-        try {
-          if (ytPlayerInstance && ytPlayerInstance.destroy) {
-            ytPlayerInstance.destroy();
-          }
-        } catch (e) {}
-        ytPlayerInstance = null;
-        var parent = host.parentNode;
-        var fresh = document.createElement("div");
-        fresh.id = ytHostId;
-        fresh.style.cssText = host.style.cssText;
-        if (parent) {
-          parent.replaceChild(fresh, host);
-        }
-        host = fresh;
       }
+      // Host varsa dokunma — tek player oturumu korunur (6.html modeli)
       return host;
     }
 
@@ -1881,31 +1873,20 @@
       return false;
     }
 
-    // playlist / şarkı geçişlerinde player hazır olana kadar dene
+    // Otomatik tam ekran kapalı (kullanıcı isteği)
     var _fsRemoteTimer = null;
     function forceFullscreenFromPlaylist() {
-      try { goPlayerFullscreen(); } catch (e) {}
+      // no-op: zorla fullscreen yapılmaz
       if (_fsRemoteTimer) {
         try { clearInterval(_fsRemoteTimer); } catch (e) {}
         _fsRemoteTimer = null;
       }
-      var attempts = 0;
-      _fsRemoteTimer = setInterval(function() {
-        attempts++;
-        var el = getYoutubeIframeEl();
-        var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
-                   document.mozFullScreenElement || document.msFullscreenElement;
-        if ((el && fsEl === el) || attempts >= 16) {
-          try { clearInterval(_fsRemoteTimer); } catch (e) {}
-          _fsRemoteTimer = null;
-        }
-      }, 300);
     }
 
     // Aktif yükleme süresi (end= parametresi + timer)
     var _currentLoadDuration = 0;
 
-    // —— Resmi YouTube IFrame API player (reklam/embed parametreleri + ENDED → playNext) ——
+    // —— Resmi YouTube IFrame API player (tek oturum + loadVideoById = 6.html modeli) ——
     function loadOfficialYtPlayer(id, muted, durationSec) {
       if (!id) return;
       durationSec = Number(durationSec) || 0;
@@ -1913,6 +1894,65 @@
       setPlayerLoading(true, "Yükleniyor...");
 
       whenYtReady(function() {
+        var wantMute = muted || !mediaUnlocked;
+
+        // Eski statik iframe (#ytplayer) gizle — src'yi blank yapma (oturum bozulmasın)
+        try {
+          var old = document.getElementById("ytplayer");
+          if (old && old.tagName === "IFRAME") {
+            old.style.display = "none";
+            old.onload = null;
+          }
+        } catch (e0) {}
+
+        function applyMuteAndPlay(target) {
+          try {
+            if (wantMute) {
+              target.mute();
+            } else {
+              target.unMute();
+              try { target.setVolume(100); } catch (e) {}
+            }
+            target.playVideo();
+          } catch (e2) {}
+        }
+
+        function armDurationFromApi(target) {
+          _earlySkipDoneFor = "";
+          try {
+            var apiDur = 0;
+            if (target && typeof target.getDuration === "function") {
+              apiDur = target.getDuration() || 0;
+            }
+            if (apiDur > 8) durationSec = apiDur;
+          } catch (eDur) {}
+          if (durationSec >= 8) {
+            armTrackEndWatch(durationSec, true);
+          }
+        }
+
+        // —— Aynı player oturumu: loadVideoById (pre-roll riskini düşürür) ——
+        if (ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function") {
+          try {
+            ytPlayerInstance.loadVideoById({ videoId: id, startSeconds: 0 });
+            setTimeout(function() {
+              applyMuteAndPlay(ytPlayerInstance);
+              setPlayerLoading(false);
+              bindMediaSessionHandlers();
+              bumpMediaSessionPlaying();
+              armDurationFromApi(ytPlayerInstance);
+            }, 350);
+            return;
+          } catch (eLoad) {
+            console.warn("[MM] loadVideoById başarısız, player yeniden oluşturulacak", eLoad);
+            try {
+              if (ytPlayerInstance.destroy) ytPlayerInstance.destroy();
+            } catch (eD) {}
+            ytPlayerInstance = null;
+          }
+        }
+
+        // —— İlk oluşturma (veya hata sonrası) ——
         var host = ensureYtHost();
         if (!host) {
           console.warn("[MM] yt host yok");
@@ -1920,17 +1960,18 @@
           return;
         }
 
-        // Eski iframe (#ytplayer) gizle
+        // Host içi boş değilse (önceki destroy kalıntısı) temiz host
         try {
-          var old = document.getElementById("ytplayer");
-          if (old) {
-            old.style.display = "none";
-            old.onload = null;
-            try { old.src = "about:blank"; } catch (e) {}
+          if (host.childNodes && host.childNodes.length) {
+            var parent = host.parentNode;
+            var fresh = document.createElement("div");
+            fresh.id = ytHostId;
+            fresh.style.cssText = host.style.cssText;
+            if (parent) parent.replaceChild(fresh, host);
+            host = fresh;
           }
-        } catch (e0) {}
+        } catch (eHost) {}
 
-        var wantMute = muted || !mediaUnlocked;
         var playerVars = {
           autoplay: 1,
           controls: 1,
@@ -1944,102 +1985,56 @@
         };
         if (wantMute) playerVars.mute = 1;
 
-        function attachPlayer() {
-          try {
-            if (ytPlayerInstance && ytPlayerInstance.destroy) {
-              try { ytPlayerInstance.destroy(); } catch (e) {}
-              ytPlayerInstance = null;
-            }
-          } catch (e1) {}
-
-          // Host'u taze tut
-          host = ensureYtHost();
-          if (!host) return;
-
-          ytPlayerInstance = new YT.Player(ytHostId, {
-            videoId: id,
-            width: "100%",
-            height: "100%",
-            playerVars: playerVars,
-            events: {
-              onReady: function(ev) {
-                try {
-                  if (wantMute) {
-                    ev.target.mute();
-                  } else {
-                    ev.target.unMute();
-                    try { ev.target.setVolume(100); } catch (e) {}
-                  }
-                  ev.target.playVideo();
-                } catch (e2) {}
-                setPlayerLoading(false);
-                try {
-                  var iframe = ev.target.getIframe && ev.target.getIframe();
-                  if (iframe) {
-                    iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
-                    iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                    iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:block;";
-                    ytplayer = iframe;
-                  }
-                } catch (e3) {}
-                bindMediaSessionHandlers();
-                bumpMediaSessionPlaying();
-                // Tam ekran: açık değilse zorla
-                setTimeout(function() { forceFullscreenFromPlaylist(); }, 400);
-                setTimeout(function() { forceFullscreenFromPlaylist(); }, 1200);
-                _earlySkipDoneFor = "";
-                // API'den süre al (Invidious süresi yoksa)
-                try {
-                  var apiDur = 0;
-                  if (ev.target && typeof ev.target.getDuration === "function") {
-                    apiDur = ev.target.getDuration() || 0;
-                  }
-                  if (apiDur > 8) durationSec = apiDur;
-                } catch (eDur) {}
-                if (durationSec >= 8) {
-                  armTrackEndWatch(durationSec, true);
+        ytPlayerInstance = new YT.Player(ytHostId, {
+          videoId: id,
+          width: "100%",
+          height: "100%",
+          playerVars: playerVars,
+          events: {
+            onReady: function(ev) {
+              applyMuteAndPlay(ev.target);
+              setPlayerLoading(false);
+              try {
+                var iframe = ev.target.getIframe && ev.target.getIframe();
+                if (iframe) {
+                  iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
+                  iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+                  iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:block;";
+                  ytplayer = iframe;
                 }
-              },
-              onStateChange: function(event) {
-                try {
-                  if (typeof YT === "undefined") return;
-                  if (event.data === YT.PlayerState.ENDED) {
-                    var ignoreUntil = window._ytIgnoreEndedUntil || 0;
-                    if (Date.now() < ignoreUntil) return;
-                    // Erken geçiş zaten yaptıysa tekrarlama
-                    if (_earlySkipDoneFor === currentPlayingId) return;
-                    _earlySkipDoneFor = currentPlayingId || "";
-                    playNext();
-                    return;
-                  }
-                  if (event.data === YT.PlayerState.PLAYING) {
-                    setPlayerLoading(false);
-                    bumpMediaSessionPlaying();
-                    // Oynarken fullscreen değilse tekrar dene
-                    try {
-                      var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
-                                 document.mozFullScreenElement || document.msFullscreenElement;
-                      var iframe = getYoutubeIframeEl();
-                      if (iframe && fsEl !== iframe) {
-                        forceFullscreenFromPlaylist();
-                      }
-                    } catch (e4) {}
-                  }
-                } catch (e5) {}
-              },
-              onError: function(event) {
-                console.warn("[MM] YT error", event && event.data);
-                setPlayerLoading(false);
-                // Kritik hata: sonraki şarkıya geç
-                if (event && (event.data === 100 || event.data === 101 || event.data === 150 || event.data === 153)) {
-                  setTimeout(function() { playNext(); }, 1500);
+              } catch (e3) {}
+              bindMediaSessionHandlers();
+              bumpMediaSessionPlaying();
+              // otomatik tam ekran yok
+              armDurationFromApi(ev.target);
+            },
+            onStateChange: function(event) {
+              try {
+                if (typeof YT === "undefined") return;
+                if (event.data === YT.PlayerState.ENDED) {
+                  var ignoreUntil = window._ytIgnoreEndedUntil || 0;
+                  if (Date.now() < ignoreUntil) return;
+                  if (_earlySkipDoneFor === currentPlayingId) return;
+                  _earlySkipDoneFor = currentPlayingId || "";
+                  playNext();
+                  return;
                 }
+                if (event.data === YT.PlayerState.PLAYING) {
+                  setPlayerLoading(false);
+                  bumpMediaSessionPlaying();
+                  // otomatik tam ekran yok
+                }
+              } catch (e5) {}
+            },
+            onError: function(event) {
+              console.warn("[MM] YT error", event && event.data);
+              setPlayerLoading(false);
+              if (event && (event.data === 100 || event.data === 101 || event.data === 150 || event.data === 153)) {
+                setTimeout(function() { playNext(); }, 1500);
               }
             }
-          });
-        }
-
-        attachPlayer();
+          }
+        });
       });
     }
 
@@ -2283,22 +2278,13 @@
         playQueue.length
       );
 
-      // Mevcut player'ı kes (aynı şarkıya dönüşü engelle)
-      try {
-        var f = document.getElementById("ytplayer");
-        if (f) {
-          f.onload = null;
-          try { f.src = "about:blank"; } catch (e0) {}
-        }
-      } catch (e) {}
+      // Aynı player oturumunu bozma — src blank yapma; sadece stop, loadVideoById yapacak
       try {
         if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
       } catch (e1) {}
 
       playAtIndex(next);
-      // Geçişte tam ekranı koru / zorla
-      setTimeout(function() { forceFullscreenFromPlaylist(); }, 500);
-      setTimeout(function() { forceFullscreenFromPlaylist(); }, 1400);
+      // otomatik tam ekran yok
     }
 
     function playPrev() {
@@ -2348,11 +2334,7 @@
       }
 
       try {
-        var f = document.getElementById("ytplayer");
-        if (f) {
-          f.onload = null;
-          f.src = "about:blank";
-        }
+        if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
       } catch (e) {}
 
       playAtIndex(prev);
