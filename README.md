@@ -1,4 +1,4 @@
-# Minimal Music
+# SUPERYT-Minimal Music
 
 **A lightweight YouTube music player built for TVs, car head units, and any always-on display — with a phone that acts as a true Wi‑Fi remote.**
 
