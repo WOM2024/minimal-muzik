@@ -374,13 +374,21 @@
       position: relative;
       background: #000;
       min-height: 0;
+      overflow: hidden; /* cover için kenarları kes */
     }
 
-    #ytplayer {
+    /* Video ekranı tamamen doldursun (cover) — oran bozulmaz, fazla kısım kesilir */
+    #ytplayer,
+    #ytplayer-host,
+    .player-area iframe {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 177.78vh);   /* 16:9 genişlik */
+      height: max(100%, 56.25vw);   /* 16:9 yükseklik */
+      min-width: 100%;
+      min-height: 100%;
+      transform: translate(-50%, -50%);
       border: none;
       background: #000;
     }
@@ -691,7 +699,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:none;"
+        style="position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -1919,7 +1927,7 @@
         host = document.createElement("div");
         host.id = ytHostId;
         host.style.cssText =
-          "position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;";
+          "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
         if (tip && tip.parentNode === area) {
           area.insertBefore(host, tip);
         } else {
@@ -2120,7 +2128,7 @@
                 if (iframe) {
                   iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                   iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                  iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;z-index:1;display:block;";
+                  iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
                   ytplayer = iframe;
                 }
               } catch (e3) {}
@@ -2467,6 +2475,41 @@
       playAtIndex(prev);
     }
 
+    // —— Agresif Media Session (direksiyon / kulaklık / sistem medya tuşları) ——
+    var _msBindTimer = null;
+
+    function msPlay() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === "function") {
+          ytPlayerInstance.playVideo();
+        } else {
+          var f = getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*"
+            );
+          }
+        }
+      } catch (e) {}
+      try { navigator.mediaSession.playbackState = "playing"; } catch (e2) {}
+    }
+
+    function msPause() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.pauseVideo === "function") {
+          ytPlayerInstance.pauseVideo();
+        } else {
+          var f = getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "pauseVideo", args: [] }), "*"
+            );
+          }
+        }
+      } catch (e) {}
+      try { navigator.mediaSession.playbackState = "paused"; } catch (e2) {}
+    }
+
     function bumpMediaSessionPlaying() {
       if (!("mediaSession" in navigator)) return;
       try {
@@ -2479,39 +2522,35 @@
           });
         }
       } catch (e) {}
+      // Oynarken handler'ları periyodik yenile (bazı head-unit'ler unutuyor)
+      if (!_msBindTimer) {
+        _msBindTimer = setInterval(function() {
+          if (currentPlayingId) bindMediaSessionHandlers();
+          else {
+            clearInterval(_msBindTimer);
+            _msBindTimer = null;
+          }
+        }, 8000);
+      }
     }
 
     function bindMediaSessionHandlers() {
       if (!("mediaSession" in navigator)) return;
       try {
-        navigator.mediaSession.setActionHandler("play", function() {
-          var f = document.getElementById("ytplayer");
-          if (f && f.contentWindow) {
-            f.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-              "*"
-            );
-          }
-          navigator.mediaSession.playbackState = "playing";
-        });
-        navigator.mediaSession.setActionHandler("pause", function() {
-          var f = document.getElementById("ytplayer");
-          if (f && f.contentWindow) {
-            f.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
-              "*"
-            );
-          }
-          navigator.mediaSession.playbackState = "paused";
-        });
+        navigator.mediaSession.setActionHandler("play", msPlay);
+        navigator.mediaSession.setActionHandler("pause", msPause);
         navigator.mediaSession.setActionHandler("stop", function() {
           try {
-            if (ytplayer) ytplayer.src = "";
+            if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
           } catch (e) {}
+          try {
+            if (ytplayer) ytplayer.src = "";
+          } catch (e2) {}
           playerView.classList.remove("active");
           currentPlayingId = "";
-          navigator.mediaSession.playbackState = "none";
+          try { navigator.mediaSession.playbackState = "none"; } catch (e3) {}
         });
+
         // Direksiyon / kulaklık / multimedya — sonraki / önceki
         navigator.mediaSession.setActionHandler("nexttrack", function() {
           playNext();
@@ -2519,7 +2558,8 @@
         navigator.mediaSession.setActionHandler("previoustrack", function() {
           playPrev();
         });
-        // Bazı sistemler seek kullanır
+
+        // Bazı sistemler seek / skip kullanır
         try {
           navigator.mediaSession.setActionHandler("seekforward", function() {
             playNext();
@@ -2528,6 +2568,15 @@
             playPrev();
           });
         } catch (e2) {}
+
+        // Bazı Android Auto / head-unit'ler "skipad" veya "togglemicrophone" gönderebiliyor — yoksay
+        try {
+          navigator.mediaSession.setActionHandler("seekto", function(details) {
+            if (details && typeof details.seekTime === "number" && ytPlayerInstance && ytPlayerInstance.seekTo) {
+              ytPlayerInstance.seekTo(details.seekTime, true);
+            }
+          });
+        } catch (e3) {}
       } catch (e) {
         console.warn("MediaSession handlers", e);
       }
@@ -2539,7 +2588,8 @@
         var art = videoId
           ? [
               { src: "https://i.ytimg.com/vi/" + videoId + "/default.jpg", sizes: "120x90", type: "image/jpeg" },
-              { src: "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" }
+              { src: "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" },
+              { src: "https://i.ytimg.com/vi/" + videoId + "/maxresdefault.jpg", sizes: "1280x720", type: "image/jpeg" }
             ]
           : [];
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -2685,16 +2735,55 @@
       playNext();
     });
 
-    // Donanım / sistem medya tuşları (bazı multimedya sistemleri)
+    // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
     window.addEventListener("keydown", function(e) {
-      if (e.key === "MediaTrackNext") {
+      var k = e.key || e.code || "";
+      if (
+        k === "MediaTrackNext" || k === "MediaNextTrack" ||
+        k === "AudioTrackNext" || e.keyCode === 176
+      ) {
         e.preventDefault();
+        e.stopPropagation();
         playNext();
-      } else if (e.key === "MediaTrackPrevious") {
+      } else if (
+        k === "MediaTrackPrevious" || k === "MediaPreviousTrack" ||
+        k === "AudioTrackPrevious" || e.keyCode === 177
+      ) {
         e.preventDefault();
+        e.stopPropagation();
         playPrev();
+      } else if (k === "MediaPlayPause" || e.keyCode === 179) {
+        e.preventDefault();
+        e.stopPropagation();
+        // toggle
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function") {
+            var st = ytPlayerInstance.getPlayerState();
+            if (typeof YT !== "undefined" && st === YT.PlayerState.PLAYING) msPause();
+            else msPlay();
+          } else {
+            msPlay();
+          }
+        } catch (err) { msPlay(); }
+      }
+    }, true); // capture = true → iframe odakli olsa bile yakala
+
+    // Sayfa görünür olunca / odak gelince handler'ları yenile
+    document.addEventListener("visibilitychange", function() {
+      if (!document.hidden && currentPlayingId) {
+        bindMediaSessionHandlers();
+        bumpMediaSessionPlaying();
+        updateMediaSession(currentPlayingTitle, currentPlayingAuthor, currentPlayingId);
       }
     });
+    window.addEventListener("focus", function() {
+      if (currentPlayingId) {
+        bindMediaSessionHandlers();
+        bumpMediaSessionPlaying();
+      }
+    });
+    // Sayfa yüklenir yüklenmez bir kez bağla
+    try { bindMediaSessionHandlers(); } catch (e) {}
 
     function formatDuration(sec) {
       if (!sec) return "";
