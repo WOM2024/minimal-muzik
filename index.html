@@ -1761,6 +1761,124 @@
     var ytPlayerInstance = null;
     var ytHostId = "ytplayer-host";
 
+    // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
+    var sponsorSkipEnabled = localStorage.getItem("mm_sponsorSkip") !== "false";
+    var sponsorSegments = [];
+    var sponsorCheckInterval = null;
+    var lastSkippedSegment = null;
+    var SPONSOR_CATEGORIES = [
+      "sponsor",
+      "selfpromo",
+      "interaction",
+      "intro",
+      "outro",
+      "preview",
+      "music_offtopic",
+      "filler"
+    ];
+
+    async function fetchSponsorSegments(videoId) {
+      sponsorSegments = [];
+      lastSkippedSegment = null;
+      if (!sponsorSkipEnabled || !videoId) return;
+      try {
+        var cats = JSON.stringify(SPONSOR_CATEGORIES);
+        var url =
+          "https://sponsor.ajay.app/api/skipSegments?videoID=" +
+          encodeURIComponent(videoId) +
+          "&categories=" +
+          encodeURIComponent(cats) +
+          '&actionTypes=["skip","mute"]';
+        var res = await fetch(url);
+        if (res.status === 404) return;
+        if (!res.ok) throw new Error("SB HTTP " + res.status);
+        var data = await res.json();
+        sponsorSegments = Array.isArray(data) ? data : [];
+      } catch (e) {
+        sponsorSegments = [];
+      }
+    }
+
+    function checkAndSkipSponsorSegments() {
+      if (!sponsorSkipEnabled || !ytPlayerInstance || !sponsorSegments.length) return;
+      try {
+        if (typeof ytPlayerInstance.getPlayerState === "function") {
+          if (typeof YT !== "undefined" && ytPlayerInstance.getPlayerState() !== YT.PlayerState.PLAYING) return;
+        }
+        var t = ytPlayerInstance.getCurrentTime ? ytPlayerInstance.getCurrentTime() : 0;
+        for (var i = 0; i < sponsorSegments.length; i++) {
+          var seg = sponsorSegments[i];
+          if (!seg || !seg.segment) continue;
+          var start = seg.segment[0];
+          var end = seg.segment[1];
+          var uid = seg.UUID || start + "-" + end;
+          if (t >= start && t < end && lastSkippedSegment !== uid) {
+            lastSkippedSegment = uid;
+            try {
+              ytPlayerInstance.seekTo(end, true);
+            } catch (eSeek) {}
+            showSponsorSkipToast(seg.category || "sponsor", end - start);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    function startSponsorCheck(videoId) {
+      stopSponsorCheck();
+      if (!sponsorSkipEnabled) return;
+      if (videoId) {
+        fetchSponsorSegments(videoId).then(function() {
+          if (!sponsorSegments.length) return;
+          sponsorCheckInterval = setInterval(checkAndSkipSponsorSegments, 500);
+        });
+      } else {
+        sponsorCheckInterval = setInterval(checkAndSkipSponsorSegments, 500);
+      }
+    }
+
+    function stopSponsorCheck() {
+      if (sponsorCheckInterval) {
+        clearInterval(sponsorCheckInterval);
+        sponsorCheckInterval = null;
+      }
+    }
+
+    function showSponsorSkipToast(category, seconds) {
+      try {
+        var existing = document.getElementById("mm-sponsor-toast");
+        if (existing) existing.remove();
+        var names = {
+          sponsor: "Sponsor",
+          selfpromo: "Self promo",
+          interaction: "Etkileşim",
+          intro: "Intro",
+          outro: "Outro",
+          preview: "Önizleme",
+          music_offtopic: "Off-topic",
+          filler: "Filler"
+        };
+        var label = names[category] || category;
+        var el = document.createElement("div");
+        el.id = "mm-sponsor-toast";
+        el.textContent = "Atlandı: " + label + " (" + (seconds || 0).toFixed(1) + "s)";
+        el.style.cssText =
+          "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+          "background:rgba(0,0,0,0.85);color:#fff;padding:10px 18px;border-radius:8px;" +
+          "font-size:14px;z-index:99999;pointer-events:none;opacity:0;transition:opacity .2s;";
+        document.body.appendChild(el);
+        requestAnimationFrame(function() {
+          el.style.opacity = "1";
+        });
+        setTimeout(function() {
+          el.style.opacity = "0";
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+          }, 300);
+        }, 2200);
+      } catch (e) {}
+    }
+
     window.onYouTubeIframeAPIReady = function() {
       ytApiReady = true;
       ytApiWaiters.forEach(function(fn) {
@@ -1972,14 +2090,17 @@
           }
         } catch (eHost) {}
 
+        // Skipcut ile aynı reklam/kalabalık azaltma parametreleri
         var playerVars = {
           autoplay: 1,
           controls: 1,
           modestbranding: 1,
           rel: 0,
           iv_load_policy: 3,
+          cc_load_policy: 0,
           fs: 1,
           playsinline: 1,
+          disablekb: 0,
           enablejsapi: 1,
           origin: window.location.origin || undefined
         };
@@ -2012,6 +2133,7 @@
               try {
                 if (typeof YT === "undefined") return;
                 if (event.data === YT.PlayerState.ENDED) {
+                  stopSponsorCheck();
                   var ignoreUntil = window._ytIgnoreEndedUntil || 0;
                   if (Date.now() < ignoreUntil) return;
                   if (_earlySkipDoneFor === currentPlayingId) return;
@@ -2022,7 +2144,11 @@
                 if (event.data === YT.PlayerState.PLAYING) {
                   setPlayerLoading(false);
                   bumpMediaSessionPlaying();
-                  // otomatik tam ekran yok
+                  // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
+                  if (currentPlayingId) startSponsorCheck(currentPlayingId);
+                }
+                if (event.data === YT.PlayerState.PAUSED) {
+                  stopSponsorCheck();
                 }
               } catch (e5) {}
             },
@@ -2078,6 +2204,7 @@
         clearInterval(_trackWatchdog);
         _trackWatchdog = null;
       }
+      stopSponsorCheck();
     }
 
     function scheduleEndFromPosition(positionSec, durationSec, reason) {
@@ -2443,6 +2570,8 @@
     function playVideo(id, title, author, fromQueue, durationSec) {
       if (!id) return;
       clearTrackTimers();
+      sponsorSegments = [];
+      lastSkippedSegment = null;
 
       if (!fromQueue) {
         if (!queueLocked) syncQueueFromDOM();
@@ -2477,6 +2606,8 @@
       playerTitle.textContent = title || "";
       updateMediaSession(title, author, id);
       broadcastState();
+      // Yeni video için SponsorBlock segmentlerini önceden çek
+      if (sponsorSkipEnabled) fetchSponsorSegments(id);
 
       // Süre biliniyorsa yedek bitiş zamanlayıcısı (ENDED kaçarsa)
       armTrackEndWatch(dur);
@@ -2509,6 +2640,10 @@
           ytplayer.src = "";
         }
       } catch (e) {}
+      stopSponsorCheck();
+      sponsorSegments = [];
+      lastSkippedSegment = null;
+      clearTrackTimers();
       playerView.classList.remove("active");
       setPlayerLoading(false);
       currentPlayingId = "";
