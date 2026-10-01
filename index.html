@@ -11,7 +11,7 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
   <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
   <title>Minimal Müzik</title>
-  <link rel="icon" type="image/x-icon" href="superyt-logo.ico">
+  <link rel="icon" type="image/x-icon" href="superyt-logo.ico"><text y='24' font-size='24'>🎵</text></svg>">
 
   <style>
     * {
@@ -69,16 +69,16 @@
 
     .logo {
       flex-shrink: 0;
-      width: 28px;
-      height: 20px;
+      width: 65px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
     .logo img {
-      width: 28px;
-      height: 20px;
+      width: 65px;
+      height: 40px;
       display: block;
       object-fit: contain;
       background: transparent;
@@ -90,6 +90,8 @@
       align-items: center;
       gap: 8px;
       min-width: 0;
+      height: 42px;
+      max-height: 42px;
     }
 
     #searchInput {
@@ -117,8 +119,8 @@
 
     .mic-btn {
       flex-shrink: 0;
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       border: none;
       border-radius: 50%;
       background: #3ea6ff;
@@ -355,7 +357,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 8px;
       flex-shrink: 0;
       position: absolute;
       left: 50%;
@@ -364,26 +366,37 @@
     }
 
     .player-nav button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 122px;
+      height: 36px;
+      padding: 0 12px;
       background: #222;
-      border: none;
+      border: 1px solid #333;
       color: #fff;
-      width: 36px;
-      height: 32px;
-      border-radius: 8px;
-      font-size: 16px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
     }
 
-    .player-nav .nav-label {
-      width: auto;
-      padding: 0 8px;
-      font-size: 11px;
+    .player-nav .nav-icon {
+      font-size: 17px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .player-nav .nav-text {
+      line-height: 1;
     }
 
     .player-nav button:active {
       background: #3ea6ff;
       color: #000;
+      border-color: #3ea6ff;
     }
 
     .player-area {
@@ -457,8 +470,8 @@
       }
 
       .mic-btn {
-        width: 40px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
         font-size: 18px;
       }
 
@@ -691,10 +704,12 @@
       <div class="player-title" id="playerTitle"></div>
 
       <div class="player-nav">
-        <button type="button" class="nav-label" id="prevLabelBtn" title="Önceki video">Önceki video</button>
-        <button type="button" id="prevBtn" title="Önceki">⏮</button>
-        <button type="button" id="nextBtn" title="Sonraki">⏭</button>
-        <button type="button" class="nav-label" id="nextLabelBtn" title="Sonraki video">Sonraki video</button>
+        <button type="button" id="prevBtn" title="Önceki video" aria-label="Önceki video">
+          <span class="nav-icon">⏮</span><span class="nav-text">Önceki video</span>
+        </button>
+        <button type="button" id="nextBtn" title="Sonraki video" aria-label="Sonraki video">
+          <span class="nav-text">Sonraki video</span><span class="nav-icon">⏭</span>
+        </button>
       </div>
     </div>
 
@@ -2748,14 +2763,6 @@
     });
 
     nextBtn.addEventListener("click", function() {
-      playNext();
-    });
-
-    document.getElementById("prevLabelBtn").addEventListener("click", function() {
-      playPrev();
-    });
-
-    document.getElementById("nextLabelBtn").addEventListener("click", function() {
       playNext();
     });
 
