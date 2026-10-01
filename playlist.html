@@ -7,7 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Playlist — Minimal Müzik</title>
+  <title>Playlist</title>
+  <link rel="icon" type="image/x-icon" href="superyt-logo.ico">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -20,13 +21,29 @@
 
     .header {
       flex-shrink: 0;
-      padding: 10px 14px 8px;
+      padding: 8px 14px 9px;
       border-bottom: 1px solid #1f1f1f;
       background: #0a0a0a;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .header-logo {
+      width: 65px;
+      height: 40px;
+      display: block;
+      object-fit: contain;
+      object-position: center;
+      background: transparent;
+      flex-shrink: 0;
     }
     .header h1 {
       font-size: 15px; font-weight: 600; color: #eee;
       display: flex; align-items: center; gap: 8px;
+      min-width: 0;
     }
     .status-dot {
       width: 8px; height: 8px; border-radius: 50%;
@@ -287,10 +304,13 @@
 <body>
 
   <div class="header">
-    <h1>
-      <span class="status-dot" id="statusDot"></span>
-      Playlist
-    </h1>
+    <div class="header-brand">
+      <img class="header-logo" src="superyt-logo.png" alt="SuperYT" />
+      <h1>
+        <span class="status-dot" id="statusDot"></span>
+        Playlist
+      </h1>
+    </div>
     <div class="sub" id="statusText">Bağlantı bekleniyor…</div>
   </div>
 
