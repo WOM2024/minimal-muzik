@@ -326,6 +326,7 @@
       gap: 10px;
       padding: 0 10px;
       background: rgba(0,0,0,0.85);
+      position: relative;
     }
 
     .back-btn {
@@ -349,8 +350,14 @@
 
     .player-nav {
       display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 4px;
       flex-shrink: 0;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
     }
 
     .player-nav button {
@@ -362,6 +369,13 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .player-nav .nav-label {
+      width: auto;
+      padding: 0 8px;
+      font-size: 11px;
     }
 
     .player-nav button:active {
@@ -677,8 +691,10 @@
       <div class="player-title" id="playerTitle"></div>
 
       <div class="player-nav">
+        <button type="button" class="nav-label" id="prevLabelBtn" title="Önceki video">Önceki video</button>
         <button type="button" id="prevBtn" title="Önceki">⏮</button>
         <button type="button" id="nextBtn" title="Sonraki">⏭</button>
+        <button type="button" class="nav-label" id="nextLabelBtn" title="Sonraki video">Sonraki video</button>
       </div>
     </div>
 
@@ -2732,6 +2748,14 @@
     });
 
     nextBtn.addEventListener("click", function() {
+      playNext();
+    });
+
+    document.getElementById("prevLabelBtn").addEventListener("click", function() {
+      playPrev();
+    });
+
+    document.getElementById("nextLabelBtn").addEventListener("click", function() {
       playNext();
     });
 
