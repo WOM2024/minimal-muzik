@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>Player / Pre-roll Log Sistemi</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    h1 { font-size: 1.15rem; color: #f84545; margin-bottom: 8px; }
+    .hint { color: #999; font-size: 0.85rem; margin-bottom: 14px; line-height: 1.45; max-width: 960px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 220px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    button {
+      background: #f84545;
+      color: #fff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover { background: #d63a3a; }
+    button.sec { background: #333; }
+    button.sec:hover { background: #444; }
+    button.ok { background: #2e7d32; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      max-width: 1100px;
+    }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1.2fr 1fr; }
+    }
+    .card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #2a2a2a;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      padding: 10px 12px;
+      background: #222;
+      border-bottom: 1px solid #2a2a2a;
+      color: #bbb;
+    }
+    .player-wrap {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      background: #000;
+    }
+    #player {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .status {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      border-top: 1px solid #2a2a2a;
+      color: #ccc;
+    }
+    .status b { color: #f84545; }
+    .log-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-bottom: 1px solid #2a2a2a; }
+    #logBox {
+      height: 420px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    .log-line { padding: 2px 0; border-bottom: 1px solid #222; word-break: break-word; }
+    .log-line .t { color: #666; margin-right: 6px; }
+    .log-line.info { color: #64b5f6; }
+    .log-line.ok { color: #81c784; }
+    .log-line.warn { color: #ffb74d; }
+    .log-line.bad { color: #e57373; }
+    .log-line.pulse { color: #777; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #333;
+      margin-right: 6px;
+    }
+    .badge.bad { background: #5c1a1a; color: #ff8a80; }
+    .badge.ok { background: #1b3d1c; color: #a5d6a7; }
+    textarea#exportOut {
+      width: 100%;
+      min-height: 120px;
+      background: #111;
+      color: #ddd;
+      border: none;
+      border-top: 1px solid #2a2a2a;
+      padding: 10px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+    }
+    .ext-hint {
+      margin-top: 14px;
+      max-width: 1100px;
+      padding: 12px;
+      background: #1a1a1a;
+      border-radius: 10px;
+      border: 1px solid #333;
+      font-size: 0.82rem;
+      color: #aaa;
+      line-height: 1.45;
+    }
+    .ext-hint code { color: #f84545; }
+  </style>
+</head>
+<body>
+  <h1>Player / Pre-roll Log Sistemi</h1>
+  <p class="hint">
+    Bu sayfa kendi YouTube IFrame API player’ını kullanır (tek oturum + loadVideoById).
+    Her önemli olay timestamp + tip + detay ile kaydedilir.
+    Test bitince <b>Export JSON</b> → çıktıyı kopyalayıp bana yapıştır.
+    <br><br>
+    <b>Not:</b> SkipCut başka origin olduğu için iframe içinden okunamaz.
+    SkipCut’u ayrıca açıp aşağıdaki “SkipCut bookmarklet” kodunu orada çalıştır.
+  </p>
+
+  <div class="row">
+    <input id="urlInput" type="text" placeholder="YouTube URL veya video ID (örn. HaJSYCFsgOY)" value="HaJSYCFsgOY" />
+    <button id="btnLoad">1. Videoyu Yükle</button>
+    <button id="btnNext" class="sec">2. Videoya Geç (loadVideoById)</button>
+    <button id="btnForceNew" class="sec">Zorla NEW_PLAYER</button>
+  </div>
+  <div class="row">
+    <input id="urlInput2" type="text" placeholder="2. video ID (geçiş testi)" value="A7ShtPRP2Mc" />
+    <span class="badge" id="pathBadge">path: —</span>
+    <span class="badge" id="prerollBadge">pre-roll: izleniyor</span>
+    <span class="badge ok" id="eventBadge">events: 0</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Player</h2>
+      <div class="player-wrap"><div id="player"></div></div>
+      <div class="status" id="status">Player bekleniyor…</div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div class="log-tools">
+        <button id="btnExport" class="ok">Export JSON</button>
+        <button id="btnCopy" class="sec">Panoya Kopyala</button>
+        <button id="btnClear" class="sec">Temizle</button>
+        <button id="btnSummary" class="sec">Özet</button>
+      </div>
+      <div id="logBox"></div>
+      <textarea id="exportOut" readonly placeholder="Export burada görünecek…"></textarea>
+    </div>
+  </div>
+
+  <div class="ext-hint">
+    <b>SkipCut tarafı (ayrı sekme):</b> skipcut.com/?v=VIDEO_ID aç → Console’a şunu yapıştır → 2–3 dk izle → <code>window.__scLog.export()</code> sonucunu bana gönder.
+    <br><br>
+    Bookmarklet / console (SkipCut sayfasında):
+    <br>
+    <code style="display:block;margin-top:8px;white-space:pre-wrap;color:#ccc;font-size:0.7rem;">
+// SkipCut logger — skipcut.com sayfasında çalıştır
+(() => {
+  const ev=[]; const st={'-1':'UNSTARTED',0:'ENDED',1:'PLAYING',2:'PAUSED',3:'BUFFERING',5:'CUED'};
+  let lastT=-1,lastId=null,lastState=null,t0=Date.now();
+  const push=(type,extra={})=>{const e={ts:new Date().toISOString(),t_ms:Date.now()-t0,type,...extra};ev.push(e);console.log('%c[SCLOG] '+type,'color:#f84545',e);return e;};
+  const p=()=>typeof player!=='undefined'?player:null;
+  if(window.__scLog?.timer) clearInterval(window.__scLog.timer);
+  push('START',{url:location.href,hasPlayer:!!p()});
+  const timer=setInterval(()=>{
+    const pl=p(); if(!pl) return;
+    try{
+      const t=pl.getCurrentTime?.()??0, state=pl.getPlayerState?.(), data=pl.getVideoData?.()||{}, id=data.video_id||null, dur=pl.getDuration?.()||0;
+      if(state!==lastState&&lastState!==null) push('STATE',{from:st[lastState]??lastState,to:st[state]??state,t:+t.toFixed(2),id,dur:+dur.toFixed(2)});
+      lastState=state;
+      if(id&&lastId&&id!==lastId){push('TRACK_CHANGE',{fromId:lastId,toId:id,fromT:+lastT.toFixed(2),toT:+t.toFixed(2)}); lastId=id; lastT=t; return;}
+      if(id&&!lastId) lastId=id;
+      if(id===lastId&&lastT>=3&&t+1.2&lt;lastT) push(lastT>=(dur-3)&&dur>0?'END_REWIND':'SUSPECT',{id,from:+lastT.toFixed(2),to:+t.toFixed(2),dur:+dur.toFixed(2)});
+      if(state===1&&t&lt;1.2&&lastT&lt;0.5&&Date.now()-t0&lt;15000) push('EARLY_PLAYING',{t:+t.toFixed(2),id,note:'ilk ~15sn PLAYING — pre-roll bitmiş veya hiç yok'});
+      if(state===3&&t&lt;2&&Date.now()-t0&lt;20000) push('EARLY_BUFFER',{t:+t.toFixed(2),id});
+      lastT=t;
+    }catch(e){}
+  },300);
+  window.__scLog={events:ev,timer,export:()=>{const out={site:'skipcut',url:location.href,exportedAt:new Date().toISOString(),events:ev}; console.log(JSON.stringify(out,null,2)); return out;},stop:()=>{clearInterval(timer); return window.__scLog.export();}};
+  console.log('%c[SCLOG] açık — 2-3 dk sonra: window.__scLog.export()','color:#4caf50;font-weight:bold');
+  return window.__scLog;
+})();
+    </code>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    const LOG_VERSION = "1.0.0";
+    const events = [];
+    let player = null;
+    let ytReady = false;
+    let sessionId = "s_" + Date.now().toString(36);
+    let lastT = -1;
+    let lastId = null;
+    let lastState = null;
+    let currentId = null;
+    let loadPath = "—"; // NEW_PLAYER | LOAD_BY_ID
+    let firstPlayingAt = null;
+    let loadStartedAt = null;
+    let prerollGuess = "unknown"; // unknown | likely_none | possible | ended_early
+    let pulseTimer = null;
+
+    const el = {
+      logBox: document.getElementById("logBox"),
+      status: document.getElementById("status"),
+      pathBadge: document.getElementById("pathBadge"),
+      prerollBadge: document.getElementById("prerollBadge"),
+      eventBadge: document.getElementById("eventBadge"),
+      exportOut: document.getElementById("exportOut"),
+      urlInput: document.getElementById("urlInput"),
+      urlInput2: document.getElementById("urlInput2")
+    };
+
+    function extractId(input) {
+      if (!input) return null;
+      const s = String(input).trim();
+      if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+      const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    function setPath(path) {
+      loadPath = path;
+      el.pathBadge.textContent = "path: " + path;
+      el.pathBadge.className = "badge " + (path === "NEW_PLAYER" ? "bad" : path === "LOAD_BY_ID" ? "ok" : "");
+    }
+
+    function setPreroll(label, cls) {
+      prerollGuess = label;
+      el.prerollBadge.textContent = "pre-roll: " + label;
+      el.prerollBadge.className = "badge " + (cls || "");
+    }
+
+    function log(type, level, detail) {
+      const row = {
+        ts: new Date().toISOString(),
+        session: sessionId,
+        type,
+        level,
+        path: loadPath,
+        currentId,
+        detail: detail || {}
+      };
+      events.push(row);
+      el.eventBadge.textContent = "events: " + events.length;
+
+      const div = document.createElement("div");
+      div.className = "log-line " + (level || "info");
+      const t = new Date().toLocaleTimeString("tr-TR");
+      let extra = "";
+      try { extra = typeof detail === "string" ? detail : JSON.stringify(detail); } catch (e) { extra = String(detail); }
+      div.innerHTML = '<span class="t">' + t + "</span><b>[" + type + "]</b> " + extra;
+      el.logBox.prepend(div);
+
+      // konsola da
+      const col = level === "bad" ? "#e57373" : level === "ok" ? "#81c784" : level === "warn" ? "#ffb74d" : level === "pulse" ? "#777" : "#64b5f6";
+      console.log("%c[MMLOG] " + type, "color:" + col + ";font-weight:bold", row);
+      return row;
+    }
+
+    function setStatus(text) {
+      el.status.innerHTML = text;
+    }
+
+    function snapshotPlayer() {
+      if (!player) return null;
+      try {
+        const data = player.getVideoData?.() || {};
+        return {
+          video_id: data.video_id,
+          title: data.title,
+          author: data.author,
+          state: player.getPlayerState?.(),
+          t: player.getCurrentTime?.(),
+          dur: player.getDuration?.(),
+          muted: player.isMuted?.(),
+          vol: player.getVolume?.()
+        };
+      } catch (e) {
+        return { error: String(e) };
+      }
+    }
+
+    // —— Pre-roll sezgisel tespit ——
+    // YouTube API reklam state vermez. Proxy sinyaller:
+    // - load sonrası uzun süre BUFFERING + t≈0
+    // - load → ilk PLAYING gecikmesi yüksek
+    // - t uzun süre 0 civarı kalıp sonra ilerleme
+    function noteLoadStart(id, path) {
+      currentId = id;
+      loadStartedAt = Date.now();
+      firstPlayingAt = null;
+      setPreroll("izleniyor", "");
+      setPath(path);
+      log("LOAD_START", "warn", { id, path, at: loadStartedAt });
+    }
+
+    function noteFirstPlaying(t) {
+      if (firstPlayingAt) return;
+      firstPlayingAt = Date.now();
+      const delayMs = loadStartedAt ? firstPlayingAt - loadStartedAt : null;
+      // Kabaca: 8sn+ gecikme + başta uzun buffer → olası pre-roll
+      let guess = "likely_none";
+      let cls = "ok";
+      if (delayMs != null && delayMs > 8000) {
+        guess = "possible_preroll_delay";
+        cls = "bad";
+      } else if (delayMs != null && delayMs > 4000) {
+        guess = "uncertain_delay";
+        cls = "";
+      }
+      setPreroll(guess, cls);
+      log("FIRST_PLAYING", delayMs > 8000 ? "bad" : "ok", {
+        id: currentId,
+        t: +Number(t).toFixed(2),
+        delayMs,
+        guess,
+        note: "API reklam state vermez; delay proxy'sidir. Ekranda reklam gördün mü not et."
+      });
+    }
+
+    // —— Player ——
+    const playerVars = {
+      autoplay: 1,
+      mute: 1,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      iv_load_policy: 3,
+      fs: 1,
+      playsinline: 1,
+      enablejsapi: 1,
+      origin: window.location.origin
+    };
+
+    window.onYouTubeIframeAPIReady = function () {
+      ytReady = true;
+      log("YT_API_READY", "ok", { origin: location.origin });
+      setStatus("API hazır — video yükleyebilirsin");
+    };
+    if (typeof YT !== "undefined" && YT.Player) {
+      window.onYouTubeIframeAPIReady();
+    }
+
+    function createPlayer(id) {
+      noteLoadStart(id, "NEW_PLAYER");
+      if (player && player.destroy) {
+        try { player.destroy(); } catch (e) {}
+        player = null;
+        log("DESTROY", "warn", { reason: "createPlayer called" });
+      }
+      player = new YT.Player("player", {
+        videoId: id,
+        width: "100%",
+        height: "100%",
+        playerVars: Object.assign({}, playerVars),
+        events: {
+          onReady: onReady,
+          onStateChange: onStateChange,
+          onError: onError
+        }
+      });
+      log("NEW_PLAYER", "bad", { id, playerVars });
+    }
+
+    function loadById(id) {
+      if (!player || typeof player.loadVideoById !== "function") {
+        createPlayer(id);
+        return;
+      }
+      noteLoadStart(id, "LOAD_BY_ID");
+      try {
+        player.loadVideoById({ videoId: id, startSeconds: 0 });
+        setTimeout(() => {
+          try {
+            player.mute();
+            player.playVideo();
+          } catch (e) {}
+        }, 300);
+        log("LOAD_BY_ID", "ok", { id });
+      } catch (e) {
+        log("LOAD_BY_ID_FAIL", "bad", { id, error: String(e) });
+        createPlayer(id);
+      }
+    }
+
+    function onReady(ev) {
+      log("ON_READY", "ok", snapshotPlayer());
+      try {
+        ev.target.mute();
+        ev.target.playVideo();
+      } catch (e) {}
+      setStatus("Player hazır · <b>" + (currentId || "") + "</b> · path=" + loadPath);
+      startPulse();
+    }
+
+    function onStateChange(ev) {
+      const state = ev.data;
+      const names = { "-1": "UNSTARTED", 0: "ENDED", 1: "PLAYING", 2: "PAUSED", 3: "BUFFERING", 5: "CUED" };
+      const name = names[state] || state;
+      let t = null, dur = null, id = currentId;
+      try {
+        t = player.getCurrentTime?.();
+        dur = player.getDuration?.();
+        const d = player.getVideoData?.();
+        if (d && d.video_id) id = d.video_id;
+      } catch (e) {}
+
+      log("STATE", state === 1 ? "ok" : state === 0 ? "warn" : "info", {
+        from: lastState != null ? (names[lastState] || lastState) : null,
+        to: name,
+        t: t != null ? +Number(t).toFixed(2) : null,
+        dur: dur != null ? +Number(dur).toFixed(2) : null,
+        id
+      });
+
+      if (state === 1) {
+        noteFirstPlaying(t || 0);
+        setStatus("PLAYING · <b>" + (id || "") + "</b> · t=" + (t != null ? t.toFixed(1) : "?") + " · " + loadPath);
+      }
+      if (state === 3 && t != null && t < 1.5 && loadStartedAt && Date.now() - loadStartedAt < 20000) {
+        log("EARLY_BUFFER", "warn", { t: +Number(t).toFixed(2), sinceLoadMs: Date.now() - loadStartedAt, id });
+      }
+      if (state === 0) {
+        log("ENDED", "warn", { id, t, dur });
+      }
+
+      // aynı id süre geri
+      if (id && id === lastId && lastT >= 3 && t != null && t + 1.2 < lastT) {
+        const nearEnd = dur > 0 && lastT >= dur - 3;
+        log(nearEnd ? "END_REWIND" : "SUSPECT", nearEnd ? "warn" : "bad", {
+          id, from: +lastT.toFixed(2), to: +Number(t).toFixed(2), dur: dur != null ? +Number(dur).toFixed(2) : null
+        });
+      }
+      if (id && lastId && id !== lastId) {
+        log("TRACK_CHANGE", "ok", { fromId: lastId, toId: id, fromT: +lastT.toFixed(2), toT: t != null ? +Number(t).toFixed(2) : null });
+      }
+      if (id) lastId = id;
+      if (t != null) lastT = t;
+      lastState = state;
+    }
+
+    function onError(ev) {
+      log("ERROR", "bad", { code: ev.data, snap: snapshotPlayer() });
+      setStatus("Hata: " + ev.data);
+    }
+
+    function startPulse() {
+      if (pulseTimer) clearInterval(pulseTimer);
+      pulseTimer = setInterval(() => {
+        if (!player) return;
+        try {
+          const t = player.getCurrentTime?.() ?? 0;
+          const st = player.getPlayerState?.();
+          const d = player.getVideoData?.() || {};
+          const dur = player.getDuration?.() || 0;
+          if (Math.floor(t) % 15 === 0 && Math.abs(t - Math.floor(t)) < 0.55) {
+            log("PULSE", "pulse", {
+              t: +Number(t).toFixed(1),
+              state: st,
+              id: d.video_id,
+              dur: +Number(dur).toFixed(1),
+              path: loadPath
+            });
+          }
+        } catch (e) {}
+      }, 500);
+    }
+
+    // —— UI ——
+    document.getElementById("btnLoad").onclick = () => {
+      const id = extractId(el.urlInput.value);
+      if (!id) return log("BAD_INPUT", "bad", { value: el.urlInput.value });
+      if (!ytReady && !(typeof YT !== "undefined" && YT.Player)) {
+        return log("API_NOT_READY", "bad", {});
+      }
+      // ilk yükleme: player yoksa NEW, varsa LOAD_BY_ID
+      if (!player) createPlayer(id);
+      else loadById(id);
+    };
+
+    document.getElementById("btnNext").onclick = () => {
+      const id = extractId(el.urlInput2.value);
+      if (!id) return log("BAD_INPUT", "bad", { value: el.urlInput2.value });
+      if (!player) createPlayer(id);
+      else loadById(id);
+    };
+
+    document.getElementById("btnForceNew").onclick = () => {
+      const id = extractId(el.urlInput.value) || extractId(el.urlInput2.value);
+      if (!id) return log("BAD_INPUT", "bad", {});
+      createPlayer(id);
+    };
+
+    function buildExport() {
+      return {
+        logVersion: LOG_VERSION,
+        sessionId,
+        exportedAt: new Date().toISOString(),
+        page: location.href,
+        userAgent: navigator.userAgent,
+        summary: summarize(false),
+        events
+      };
+    }
+
+    function summarize(writeLog) {
+      const types = {};
+      events.forEach(e => { types[e.type] = (types[e.type] || 0) + 1; });
+      const loads = events.filter(e => e.type === "LOAD_START" || e.type === "NEW_PLAYER" || e.type === "LOAD_BY_ID");
+      const firstPlay = events.filter(e => e.type === "FIRST_PLAYING");
+      const suspects = events.filter(e => e.type === "SUSPECT" || e.type === "RESTART_NEAR_ZERO");
+      const s = {
+        totalEvents: events.length,
+        types,
+        loadPaths: loads.map(e => ({ type: e.type, id: e.detail?.id || e.currentId, path: e.path || e.detail?.path })),
+        firstPlaying: firstPlay.map(e => e.detail),
+        suspects: suspects.map(e => e.detail),
+        prerollGuess
+      };
+      if (writeLog) log("SUMMARY", "info", s);
+      return s;
+    }
+
+    document.getElementById("btnExport").onclick = () => {
+      const out = buildExport();
+      el.exportOut.value = JSON.stringify(out, null, 2);
+      log("EXPORT", "ok", { bytes: el.exportOut.value.length, events: events.length });
+    };
+    document.getElementById("btnCopy").onclick = async () => {
+      if (!el.exportOut.value) document.getElementById("btnExport").onclick();
+      try {
+        await navigator.clipboard.writeText(el.exportOut.value);
+        log("COPIED", "ok", { len: el.exportOut.value.length });
+      } catch (e) {
+        el.exportOut.select();
+        log("COPY_FAIL", "warn", { note: "Manuel Ctrl+C" });
+      }
+    };
+    document.getElementById("btnClear").onclick = () => {
+      events.length = 0;
+      el.logBox.innerHTML = "";
+      el.exportOut.value = "";
+      el.eventBadge.textContent = "events: 0";
+      log("CLEARED", "info", { sessionId });
+    };
+    document.getElementById("btnSummary").onclick = () => summarize(true);
+
+    log("BOOT", "ok", { sessionId, logVersion: LOG_VERSION, href: location.href });
+  </script>
+</body>
+</html>
