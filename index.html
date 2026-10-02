@@ -722,7 +722,8 @@
         <div style="font-size:64px;opacity:0.35;">🎵</div>
       </div>
 
-      <audio id="audioPlayer" playsinline preload="auto" style="display:none;"></audio>
+      <!-- Parent sayfada ses odağı: direksiyon / Bluetooth AVRCP track tuşları için gerekli -->
+      <audio id="audioPlayer" playsinline webkit-playsinline preload="auto" loop style="display:none;"></audio>
 
       <iframe
         id="ytplayer"
@@ -860,11 +861,15 @@
     let currentPlayingAuthor = "";
     let queueLocked = false;
 
-    // —— Playlist bağlantı sistemi ——
+    // —— Playlist bağlantı sistemi (canlı senkron) ——
     let roomCode = "";
     let syncBc = null;
     let peerHost = null;
     let peerConns = [];
+    let _syncHeartbeatTimer = null;
+    let _peerHostRetryTimer = null;
+    let _lastCmdTs = 0;
+    let _seenCmdKeys = {};
 
     var ROOM_CODE_KEY = "minimal_muzik_room_code";
 
@@ -923,6 +928,8 @@
       var state = buildSyncState();
       try {
         localStorage.setItem(STORAGE_KEY + "_" + roomCode, JSON.stringify(state));
+        // keepalive işareti — playlist poll ile görür
+        localStorage.setItem(STORAGE_KEY + "_alive_" + roomCode, String(state.updated));
       } catch (e) {}
       try {
         if (syncBc) {
@@ -936,13 +943,58 @@
       });
     }
 
+    function replyToPlaylist(kind, extra) {
+      if (!roomCode) return;
+      var msg = Object.assign({ kind: kind, room: roomCode, ts: Date.now() }, extra || {});
+      try {
+        if (syncBc) syncBc.postMessage(msg);
+      } catch (e) {}
+      try {
+        localStorage.setItem(STORAGE_KEY + "_reply_" + roomCode, JSON.stringify(msg));
+        localStorage.removeItem(STORAGE_KEY + "_reply_" + roomCode);
+      } catch (e) {}
+      peerConns.forEach(function(c) {
+        try {
+          if (c.open) c.send(msg);
+        } catch (e) {}
+      });
+    }
+
+    function startSyncHeartbeat() {
+      if (_syncHeartbeatTimer) clearInterval(_syncHeartbeatTimer);
+      _syncHeartbeatTimer = setInterval(function() {
+        if (!roomCode) return;
+        broadcastState();
+      }, 2000);
+    }
+
+    function cmdDedupeKey(cmd) {
+      if (!cmd) return "";
+      return String(cmd.type || "") + "|" + String(cmd.id || "") + "|" + String(cmd.ts || "");
+    }
+
     function handleRemoteCommand(cmd) {
       if (!cmd || !cmd.type) return;
 
-      // playlist.html'den gelen tüm çalma isteklerinde tam ekran zorla
-      if (cmd.type === "next" || cmd.type === "prev" || cmd.type === "play" ||
-          cmd.type === "setQueue" || cmd.type === "fullscreen") {
-        }
+      // Aynı komutu (BC + storage + Peer) üç kez gelmesin diye dedupe
+      var dk = cmdDedupeKey(cmd);
+      if (dk && cmd.ts) {
+        if (_seenCmdKeys[dk]) return;
+        _seenCmdKeys[dk] = Date.now();
+        // eski anahtarları temizle
+        var now = Date.now();
+        Object.keys(_seenCmdKeys).forEach(function(k) {
+          if (now - _seenCmdKeys[k] > 15000) delete _seenCmdKeys[k];
+        });
+      }
+      if (cmd.ts && cmd.ts < _lastCmdTs - 5000) return; // çok eski
+      if (cmd.ts && cmd.ts > _lastCmdTs) _lastCmdTs = cmd.ts;
+
+      if (cmd.type === "ping" || cmd.type === "sync") {
+        broadcastState();
+        replyToPlaylist("pong", { state: buildSyncState() });
+        return;
+      }
 
       if (cmd.type === "fullscreen") {
           return;
@@ -1015,6 +1067,67 @@
       }
     }
 
+    function attachPeerConnection(c) {
+      peerConns.push(c);
+      c.on("open", function() {
+        try { c.send({ kind: "state", state: buildSyncState() }); } catch (e) {}
+      });
+      c.on("data", function(data) {
+        if (!data) return;
+        if (data.kind === "cmd" && data.cmd) handleRemoteCommand(data.cmd);
+        if (data.kind === "hello" || data.kind === "ping" || data.kind === "sync") {
+          try {
+            c.send({ kind: "state", state: buildSyncState() });
+            c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: buildSyncState() });
+          } catch (e) {}
+        }
+      });
+      c.on("close", function() {
+        peerConns = peerConns.filter(function(x) { return x !== c; });
+      });
+      c.on("error", function() {
+        peerConns = peerConns.filter(function(x) { return x !== c; });
+      });
+    }
+
+    function startPeerHost() {
+      if (typeof Peer === "undefined" || !roomCode) return;
+      try {
+        if (peerHost) {
+          try { peerHost.destroy(); } catch (e) {}
+          peerHost = null;
+        }
+        peerConns = [];
+        var hostId = ROOM_PREFIX + roomCode.toLowerCase();
+        peerHost = new Peer(hostId);
+        peerHost.on("open", function() {
+          if (_peerHostRetryTimer) {
+            clearTimeout(_peerHostRetryTimer);
+            _peerHostRetryTimer = null;
+          }
+        });
+        peerHost.on("connection", function(c) {
+          attachPeerConnection(c);
+        });
+        peerHost.on("error", function(err) {
+          // id-taken / network — biraz sonra tekrar dene
+          if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
+          _peerHostRetryTimer = setTimeout(function() {
+            startPeerHost();
+          }, 4000);
+        });
+        peerHost.on("disconnected", function() {
+          try { peerHost.reconnect(); } catch (e) {
+            if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
+            _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 3000);
+          }
+        });
+      } catch (e) {
+        if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
+        _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 5000);
+      }
+    }
+
     function initRoomSync() {
       roomCode = getOrCreateRoomCode();
       var el = document.getElementById("roomCodeEl");
@@ -1026,42 +1139,37 @@
           var d = ev.data;
           if (!d || d.room !== roomCode) return;
           if (d.kind === "cmd" && d.cmd) handleRemoteCommand(d.cmd);
+          if (d.kind === "ping" || d.kind === "sync" || d.kind === "hello") {
+            broadcastState();
+            replyToPlaylist("pong", { state: buildSyncState() });
+          }
         };
       } catch (e) {}
 
       window.addEventListener("storage", function(ev) {
+        if (!roomCode) return;
         if (ev.key === STORAGE_KEY + "_cmd_" + roomCode && ev.newValue) {
           try {
             handleRemoteCommand(JSON.parse(ev.newValue));
           } catch (e) {}
         }
+        // playlist ping yazdıysa state bas
+        if (ev.key === STORAGE_KEY + "_ping_" + roomCode && ev.newValue) {
+          broadcastState();
+        }
       });
 
-      // PeerJS host — farklı cihazlar için
-      if (typeof Peer !== "undefined") {
-        try {
-          var hostId = ROOM_PREFIX + roomCode.toLowerCase();
-          peerHost = new Peer(hostId);
-          peerHost.on("connection", function(c) {
-            peerConns.push(c);
-            c.on("open", function() {
-              c.send({ kind: "state", state: buildSyncState() });
-            });
-            c.on("data", function(data) {
-              if (data && data.kind === "cmd" && data.cmd) {
-                handleRemoteCommand(data.cmd);
-              }
-              if (data && data.kind === "hello") {
-                c.send({ kind: "state", state: buildSyncState() });
-              }
-            });
-            c.on("close", function() {
-              peerConns = peerConns.filter(function(x) { return x !== c; });
-            });
-          });
-          peerHost.on("error", function() {});
-        } catch (e) {}
-      }
+      // PeerJS host — farklı cihazlar + kopunca yeniden
+      startPeerHost();
+      startSyncHeartbeat();
+
+      // Sekme görünür olunca state taze gönder
+      document.addEventListener("visibilitychange", function() {
+        if (!document.hidden && roomCode) broadcastState();
+      });
+      window.addEventListener("focus", function() {
+        if (roomCode) broadcastState();
+      });
 
       var badge = document.getElementById("roomBadge");
       var regenBtn = document.getElementById("regenCodeBtn");
@@ -1753,12 +1861,114 @@
     }
 
     var mediaUnlocked = false;
+    try {
+      if (sessionStorage.getItem("mm_mediaUnlocked") === "1") mediaUnlocked = true;
+    } catch (eMu) {}
     var pendingPlayId = null;
     var audioPlayer = document.getElementById("audioPlayer");
     var playerPoster = document.getElementById("playerPoster");
 
-    function unlockMedia() {
+    function markMediaUnlocked() {
       mediaUnlocked = true;
+      try { sessionStorage.setItem("mm_mediaUnlocked", "1"); } catch (e) {}
+    }
+
+    function ensureYtUnmuted(target) {
+      target = target || ytPlayerInstance;
+      if (!target) return;
+      try {
+        if (typeof target.unMute === "function") target.unMute();
+        if (typeof target.setVolume === "function") target.setVolume(100);
+      } catch (e) {}
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "unMute", args: [] }), "*"
+          );
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "setVolume", args: [100] }), "*"
+          );
+        }
+      } catch (e2) {}
+    }
+
+    // Parent document HTMLMediaElement odağı: direksiyon / Bluetooth AVRCP
+    // track tuşları çoğu head-unit'te yalnızca sayfanın kendi audio'su çalarken
+    // Media Session handler'larına düşer (YT cross-origin iframe yetmez).
+    var _focusSrcReady = false;
+
+    function buildFocusAudioSrc() {
+      try {
+        var sr = 8000;
+        var seconds = 1;
+        var num = sr * seconds;
+        var dataSize = num * 2;
+        var buffer = new ArrayBuffer(44 + dataSize);
+        var v = new DataView(buffer);
+        function wstr(off, s) {
+          for (var i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+        }
+        wstr(0, "RIFF");
+        v.setUint32(4, 36 + dataSize, true);
+        wstr(8, "WAVE");
+        wstr(12, "fmt ");
+        v.setUint32(16, 16, true);
+        v.setUint16(20, 1, true);
+        v.setUint16(22, 1, true);
+        v.setUint32(24, sr, true);
+        v.setUint32(28, sr * 2, true);
+        v.setUint16(32, 2, true);
+        v.setUint16(34, 16, true);
+        wstr(36, "data");
+        v.setUint32(40, dataSize, true);
+        for (var i = 0; i < num; i++) {
+          var t = i / sr;
+          // ~40 Hz, çok düşük genlik — duyulmaz ama AudioFocus tutar
+          var sample = Math.sin(2 * Math.PI * 40 * t) * 180;
+          v.setInt16(44 + i * 2, sample | 0, true);
+        }
+        return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+      } catch (e) {
+        return "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      }
+    }
+
+    function ensureMediaFocusSrc() {
+      if (!audioPlayer || _focusSrcReady) return;
+      try {
+        audioPlayer.src = buildFocusAudioSrc();
+        audioPlayer.loop = true;
+        audioPlayer.volume = 0.001;
+        audioPlayer.muted = false;
+        audioPlayer.setAttribute("playsinline", "");
+        audioPlayer.setAttribute("webkit-playsinline", "");
+        _focusSrcReady = true;
+      } catch (e) {}
+    }
+
+    function startMediaFocus() {
+      if (!audioPlayer) return;
+      ensureMediaFocusSrc();
+      try {
+        audioPlayer.muted = false;
+        audioPlayer.volume = 0.001;
+        var p = audioPlayer.play();
+        if (p && typeof p.then === "function") p.catch(function() {});
+      } catch (e) {}
+      try {
+        if (typeof bumpMediaSessionPlaying === "function") bumpMediaSessionPlaying();
+        if (typeof bindMediaSessionHandlers === "function") bindMediaSessionHandlers();
+      } catch (e2) {}
+    }
+
+    function stopMediaFocus() {
+      if (!audioPlayer) return;
+      try { audioPlayer.pause(); } catch (e) {}
+    }
+
+    function unlockMedia() {
+      markMediaUnlocked();
       var tip = document.getElementById("tapToPlay");
       if (tip) tip.style.display = "none";
       try {
@@ -1773,18 +1983,28 @@
           src.start(0);
         }
       } catch (e) {}
+      // Focus audio'yu da gesture içinde başlat (autoplay policy)
+      ensureMediaFocusSrc();
+      try {
+        if (audioPlayer) {
+          audioPlayer.volume = 0.01;
+          var ap = audioPlayer.play();
+          if (ap && typeof ap.then === "function") ap.catch(function() {});
+        }
+      } catch (eA) {}
       // Mevcut player varsa yeniden yükleme — sadece unmute (6.html modeli)
       if (ytPlayerInstance) {
         try {
-          ytPlayerInstance.unMute();
-          try { ytPlayerInstance.setVolume(100); } catch (eV) {}
+          ensureYtUnmuted(ytPlayerInstance);
           ytPlayerInstance.playVideo();
         } catch (eU) {}
         pendingPlayId = null;
+        if (currentPlayingId) startMediaFocus();
       } else if (pendingPlayId || currentPlayingId) {
         var id = pendingPlayId || currentPlayingId;
         pendingPlayId = null;
         loadIframeNow(id, false);
+        startMediaFocus();
       }
     }
 
@@ -2051,7 +2271,11 @@
       setPlayerLoading(true, "Yükleniyor...");
 
       whenYtReady(function() {
-        var wantMute = muted || !mediaUnlocked;
+        // Mevcut oturumda şarkı değişimi (atlama / playlist) → asla yeniden mute etme
+        // Sessiz sadece ilk player oluşturulurken ve henüz unlock yoksa
+        var hasExistingPlayer =
+          !!(ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function");
+        var wantMute = !hasExistingPlayer && !mediaUnlocked && !!muted;
 
         // Eski statik iframe (#ytplayer) gizle — src'yi blank yapma (oturum bozulmasın)
         try {
@@ -2067,8 +2291,8 @@
             if (wantMute) {
               target.mute();
             } else {
-              target.unMute();
-              try { target.setVolume(100); } catch (e) {}
+              // Atlama / sonraki şarkı: sesi koru
+              ensureYtUnmuted(target);
             }
             target.playVideo();
           } catch (e2) {}
@@ -2182,6 +2406,9 @@
                 }
                 if (event.data === YT.PlayerState.PLAYING) {
                   setPlayerLoading(false);
+                  // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
+                  markMediaUnlocked();
+                  try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
                   bumpMediaSessionPlaying();
                   // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
                   if (currentPlayingId) startSponsorCheck(currentPlayingId);
@@ -2192,11 +2419,16 @@
               } catch (e5) {}
             },
             onError: function(event) {
-              console.warn("[MM] YT error", event && event.data);
+              var code = event && event.data;
+              console.warn("[MM] YT error", code);
               setPlayerLoading(false);
-              if (event && (event.data === 100 || event.data === 101 || event.data === 150 || event.data === 153)) {
-                setTimeout(function() { playNext(); }, 1500);
-              }
+              // Açılmayan video → playlist sırasındaki sonraki şarkıya geç
+              // force: ardışık hatalı videolarda 2.8sn kilit takılmasın
+              var failedId = currentPlayingId;
+              setTimeout(function() {
+                if (failedId && currentPlayingId && currentPlayingId !== failedId) return;
+                playNext({ force: true });
+              }, 500);
             }
           }
         });
@@ -2374,18 +2606,22 @@
       playVideo(item.id, item.title, item.author, true, item.duration || 0);
     }
 
-    function playNext() {
+    function playNext(opts) {
+      opts = opts || {};
+      var force = !!opts.force;
       var now = Date.now();
-      // Çift tetiklemeyi kes (ended + timer aynı anda)
-      if (now < _playNextLockUntil) {
+      // Çift tetiklemeyi kes (ended + timer aynı anda).
+      // force=true: hatalı video zincirinde kilit atlanır
+      if (!force && now < _playNextLockUntil) {
         if (_debugYt) console.log("[MM] playNext kilitli, atlandı");
         return;
       }
-      _playNextLockUntil = now + 2800;
+      _playNextLockUntil = now + (force ? 500 : 2800);
       clearTrackTimers();
       _armedForId = "";
       _trackStartedAt = 0;
-      window._ytIgnoreEndedUntil = now + 3500;
+      if (force) _earlySkipDoneFor = "";
+      window._ytIgnoreEndedUntil = now + (force ? 900 : 3500);
 
 
       if (!queueLocked) {
@@ -2522,6 +2758,7 @@
           }
         }
       } catch (e) {}
+      startMediaFocus();
       try { navigator.mediaSession.playbackState = "playing"; } catch (e2) {}
     }
 
@@ -2538,6 +2775,7 @@
           }
         }
       } catch (e) {}
+      stopMediaFocus();
       try { navigator.mediaSession.playbackState = "paused"; } catch (e2) {}
     }
 
@@ -2553,61 +2791,66 @@
           });
         }
       } catch (e) {}
-      // Oynarken handler'ları periyodik yenile (bazı head-unit'ler unutuyor)
+      // Head-unit'ler handler'ı unutabiliyor — sık yenile + focus audio canlı tut
       if (!_msBindTimer) {
         _msBindTimer = setInterval(function() {
-          if (currentPlayingId) bindMediaSessionHandlers();
-          else {
+          if (currentPlayingId) {
+            bindMediaSessionHandlers();
+            // Focus audio durmuşsa yeniden başlat (bazı ROM'lar arka planda keser)
+            try {
+              if (audioPlayer && audioPlayer.paused && mediaUnlocked) {
+                var p = audioPlayer.play();
+                if (p && typeof p.then === "function") p.catch(function() {});
+              }
+            } catch (eR) {}
+          } else {
             clearInterval(_msBindTimer);
             _msBindTimer = null;
           }
-        }, 8000);
+        }, 3000);
       }
     }
 
     function bindMediaSessionHandlers() {
       if (!("mediaSession" in navigator)) return;
+      function safeSet(action, handler) {
+        try {
+          // Önce null — bazı Android sürümlerinde yeniden kayıt için gerekli
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch (e0) {}
+        try {
+          navigator.mediaSession.setActionHandler(action, handler);
+        } catch (e1) {}
+      }
       try {
-        navigator.mediaSession.setActionHandler("play", msPlay);
-        navigator.mediaSession.setActionHandler("pause", msPause);
-        navigator.mediaSession.setActionHandler("stop", function() {
+        safeSet("play", msPlay);
+        safeSet("pause", msPause);
+        safeSet("stop", function() {
           try {
             if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
           } catch (e) {}
           try {
             if (ytplayer) ytplayer.src = "";
           } catch (e2) {}
+          stopMediaFocus();
           playerView.classList.remove("active");
           currentPlayingId = "";
           try { navigator.mediaSession.playbackState = "none"; } catch (e3) {}
         });
 
-        // Direksiyon / kulaklık / multimedya — sonraki / önceki
-        navigator.mediaSession.setActionHandler("nexttrack", function() {
-          playNext();
-        });
-        navigator.mediaSession.setActionHandler("previoustrack", function() {
-          playPrev();
-        });
+        // Direksiyon / kulaklık / Bluetooth AVRCP — sonraki / önceki
+        safeSet("nexttrack", function() { playNext(); });
+        safeSet("previoustrack", function() { playPrev(); });
 
         // Bazı sistemler seek / skip kullanır
-        try {
-          navigator.mediaSession.setActionHandler("seekforward", function() {
-            playNext();
-          });
-          navigator.mediaSession.setActionHandler("seekbackward", function() {
-            playPrev();
-          });
-        } catch (e2) {}
+        safeSet("seekforward", function() { playNext(); });
+        safeSet("seekbackward", function() { playPrev(); });
 
-        // Bazı Android Auto / head-unit'ler "skipad" veya "togglemicrophone" gönderebiliyor — yoksay
-        try {
-          navigator.mediaSession.setActionHandler("seekto", function(details) {
-            if (details && typeof details.seekTime === "number" && ytPlayerInstance && ytPlayerInstance.seekTo) {
-              ytPlayerInstance.seekTo(details.seekTime, true);
-            }
-          });
-        } catch (e3) {}
+        safeSet("seekto", function(details) {
+          if (details && typeof details.seekTime === "number" && ytPlayerInstance && ytPlayerInstance.seekTo) {
+            ytPlayerInstance.seekTo(details.seekTime, true);
+          }
+        });
       } catch (e) {
         console.warn("MediaSession handlers", e);
       }
@@ -2705,14 +2948,22 @@
         setPlayerLoading(true, "Yükleniyor...");
         loadVideoInSamePlayer(id, dur);
       }
+      // Direksiyon track tuşları için parent sayfada AudioFocus tut
+      if (mediaUnlocked) startMediaFocus();
+      else {
+        // Gesture yoksa yine dene; policy engellerse unlockMedia tamamlar
+        try { startMediaFocus(); } catch (eF) {}
+      }
     }
 
     backBtn.addEventListener("click", function() {
+      stopMediaFocus();
       try {
         if (audioPlayer) {
           audioPlayer.pause();
           audioPlayer.removeAttribute("src");
           audioPlayer.load();
+          _focusSrcReady = false;
         }
       } catch (e) {}
       try {

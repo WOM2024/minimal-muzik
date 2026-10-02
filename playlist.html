@@ -447,6 +447,13 @@
     let bc = null;
     let lastState = null;
     let pollTimer = null;
+    let heartbeatTimer = null;
+    let peerRetryTimer = null;
+    let peerRetryDelay = 1500;
+    let lastAliveAt = 0;
+    let lastPongAt = 0;
+    let _cmdSeq = 0;
+    const LAST_ROOM_KEY = "minimal_muzik_last_room";
 
     let mode = "shuffle";
     let activeTab = "playlist"; // playlist | ready | search
@@ -485,8 +492,38 @@
       if (c.length >= 4) {
         codeInput.value = c.slice(0, 6);
         setTimeout(function() { joinRoom(c.slice(0, 6)); }, 300);
+        return;
       }
+      // Son kullanılan odayı hatırla — arka plan yeniden açılışta bağlan
+      try {
+        var last = (localStorage.getItem(LAST_ROOM_KEY) || "").trim().toUpperCase();
+        if (/^[A-Z0-9]{4,6}$/.test(last)) {
+          codeInput.value = last;
+          // otomatik join etme — kullanıcı isterse butona basar; sadece doldur
+        }
+      } catch (e) {}
     })();
+
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden || !roomCode) return;
+      sendPing();
+      ensurePeerClient();
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
+        if (raw) onStateMessage(JSON.parse(raw));
+      } catch (e) {}
+    });
+    window.addEventListener("focus", function() {
+      if (!roomCode) return;
+      sendPing();
+      ensurePeerClient();
+    });
+    window.addEventListener("online", function() {
+      if (!roomCode) return;
+      peerRetryDelay = 1500;
+      ensurePeerClient();
+      sendPing();
+    });
 
     function loadManual() {
       try { manualQueue = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]"); }
@@ -955,45 +992,109 @@
     }
 
     function sendCommand(cmd) {
+      if (!cmd) return;
       cmd.ts = Date.now();
+      cmd.seq = ++_cmdSeq;
       // Çalma ile ilgili her istekte index tarafında tam ekran zorlansın
-      if (cmd && (cmd.type === "play" || cmd.type === "next" || cmd.type === "prev" || cmd.type === "setQueue")) {
+      if (cmd.type === "play" || cmd.type === "next" || cmd.type === "prev" || cmd.type === "setQueue") {
         cmd.forceFs = true;
       }
       function push(msg) {
         try { if (bc) bc.postMessage({ kind: "cmd", room: roomCode, cmd: msg }); } catch (e) {}
         try {
+          // set + remove = storage event diğer sekmede
           localStorage.setItem(STORAGE_KEY + "_cmd_" + roomCode, JSON.stringify(msg));
           localStorage.removeItem(STORAGE_KEY + "_cmd_" + roomCode);
         } catch (e) {}
         try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: msg }); } catch (e) {}
       }
       push(cmd);
-      // Ayrı fullscreen komutu — index handleRemoteCommand bunu da yakalar
-      if (cmd && cmd.forceFs) {
-        push({ type: "fullscreen", ts: Date.now() });
+      // Kısa süre sonra bir kez daha yedek gönder (kayıp paket / race)
+      if (cmd.type === "play" || cmd.type === "setQueue" || cmd.type === "next" || cmd.type === "prev") {
+        setTimeout(function() {
+          try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: cmd }); } catch (e) {}
+          try { if (bc) bc.postMessage({ kind: "cmd", room: roomCode, cmd: cmd }); } catch (e) {}
+        }, 120);
+      }
+      if (cmd.forceFs) {
+        push({ type: "fullscreen", ts: Date.now(), seq: ++_cmdSeq });
+      }
+    }
+
+    function sendPing() {
+      if (!roomCode) return;
+      var ping = { kind: "ping", room: roomCode, ts: Date.now() };
+      try { if (bc) bc.postMessage(ping); } catch (e) {}
+      try {
+        localStorage.setItem(STORAGE_KEY + "_ping_" + roomCode, String(Date.now()));
+        localStorage.removeItem(STORAGE_KEY + "_ping_" + roomCode);
+      } catch (e) {}
+      try {
+        if (conn && conn.open) {
+          conn.send(ping);
+          conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
+        }
+      } catch (e) {}
+    }
+
+    function updateLinkStatus() {
+      var now = Date.now();
+      var peerOk = !!(conn && conn.open);
+      var recent = (lastAliveAt && now - lastAliveAt < 6000) || (lastPongAt && now - lastPongAt < 6000);
+      if (peerOk && recent) {
+        setStatus("on", "Bağlı · canlı");
+      } else if (peerOk) {
+        setStatus("on", "Bağlı · uzaktan");
+      } else if (recent) {
+        setStatus("on", "Bağlı · yerel");
+      } else if (roomCode) {
+        setStatus("wait", "Senkron aranıyor…");
       }
     }
 
     function onStateMessage(state) {
-      if (!state || state.room !== roomCode) return;
+      if (!state) return;
+      // state.room yoksa (peer) yine kabul et — roomCode zaten biliniyor
+      if (state.room && state.room !== roomCode) return;
+      lastAliveAt = Date.now();
       applyState(state);
-      setStatus("on", "Bağlı · canlı");
+      updateLinkStatus();
+    }
+
+    function onPong(data) {
+      lastPongAt = Date.now();
+      if (data && data.state) onStateMessage(data.state);
+      else updateLinkStatus();
     }
 
     function startLocalSync() {
       try {
+        if (bc) { try { bc.close(); } catch (e) {} }
         bc = new BroadcastChannel(BC_NAME);
         bc.onmessage = function(ev) {
           var d = ev.data;
           if (!d) return;
-          if (d.kind === "state" && d.room === roomCode) onStateMessage(d.state);
+          if (d.room && d.room !== roomCode) return;
+          if (d.kind === "state" && d.state) onStateMessage(d.state);
+          if (d.kind === "pong") onPong(d);
         };
       } catch (e) {}
 
       window.addEventListener("storage", function(ev) {
+        if (!roomCode) return;
         if (ev.key === STORAGE_KEY + "_" + roomCode && ev.newValue) {
           try { onStateMessage(JSON.parse(ev.newValue)); } catch (e) {}
+        }
+        if (ev.key === STORAGE_KEY + "_alive_" + roomCode && ev.newValue) {
+          lastAliveAt = Date.now();
+          updateLinkStatus();
+        }
+        if (ev.key === STORAGE_KEY + "_reply_" + roomCode && ev.newValue) {
+          try {
+            var rep = JSON.parse(ev.newValue);
+            if (rep.kind === "pong") onPong(rep);
+            else if (rep.state) onStateMessage(rep.state);
+          } catch (e) {}
         }
       });
 
@@ -1004,38 +1105,102 @@
 
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(function() {
+        if (!roomCode) return;
         try {
           var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
-          if (!raw) return;
-          var state = JSON.parse(raw);
-          if (!lastState || state.updated !== lastState.updated) onStateMessage(state);
+          if (raw) {
+            var state = JSON.parse(raw);
+            if (!lastState || state.updated !== lastState.updated) onStateMessage(state);
+            else if (state.updated) {
+              lastAliveAt = Math.max(lastAliveAt, state.updated);
+            }
+          }
+          var alive = localStorage.getItem(STORAGE_KEY + "_alive_" + roomCode);
+          if (alive) {
+            var t = parseInt(alive, 10);
+            if (t) lastAliveAt = Math.max(lastAliveAt, t);
+          }
         } catch (e) {}
-      }, 1500);
+        updateLinkStatus();
+      }, 800);
+
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(function() {
+        if (!roomCode) return;
+        sendPing();
+        // Peer düşmüşse yeniden bağlan
+        if (!conn || !conn.open) {
+          ensurePeerClient();
+        }
+        updateLinkStatus();
+      }, 2500);
+    }
+
+    function teardownPeer() {
+      try { if (conn) conn.close(); } catch (e) {}
+      conn = null;
+      try { if (peer) peer.destroy(); } catch (e) {}
+      peer = null;
+    }
+
+    function ensurePeerClient() {
+      if (typeof Peer === "undefined" || !roomCode) return;
+      if (conn && conn.open) return;
+      if (peerRetryTimer) return; // zaten planlı
+      startPeerClient();
+    }
+
+    function schedulePeerRetry() {
+      if (peerRetryTimer) clearTimeout(peerRetryTimer);
+      var delay = peerRetryDelay;
+      peerRetryDelay = Math.min(peerRetryDelay * 1.6, 12000);
+      peerRetryTimer = setTimeout(function() {
+        peerRetryTimer = null;
+        if (!roomCode) return;
+        teardownPeer();
+        startPeerClient();
+      }, delay);
     }
 
     function startPeerClient() {
-      if (typeof Peer === "undefined") return;
+      if (typeof Peer === "undefined" || !roomCode) return;
       try {
+        teardownPeer();
         peer = new Peer();
         peer.on("open", function() {
           var hostId = ROOM_PREFIX + roomCode.toLowerCase();
           conn = peer.connect(hostId, { reliable: true });
           conn.on("open", function() {
+            peerRetryDelay = 1500;
             setStatus("on", "Bağlı · uzaktan");
-            conn.send({ kind: "hello", room: roomCode });
+            try {
+              conn.send({ kind: "hello", room: roomCode });
+              conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
+            } catch (e) {}
           });
           conn.on("data", function(data) {
-            if (data && data.kind === "state") onStateMessage(data.state);
+            if (!data) return;
+            if (data.kind === "state" && data.state) onStateMessage(data.state);
+            if (data.kind === "pong") onPong(data);
           });
           conn.on("close", function() {
-            setStatus("wait", "Uzaktan koptu · yerel dinleniyor");
+            setStatus("wait", "Uzaktan koptu · yeniden bağlanıyor");
+            schedulePeerRetry();
+          });
+          conn.on("error", function() {
+            schedulePeerRetry();
           });
         });
         peer.on("error", function() {
-          setStatus("wait", "Yerel bağlantı aktif");
+          setStatus("wait", "Yerel bağlantı · peer yeniden");
+          schedulePeerRetry();
+        });
+        peer.on("disconnected", function() {
+          try { peer.reconnect(); } catch (e) { schedulePeerRetry(); }
         });
       } catch (e) {
         setStatus("wait", "Yerel bağlantı aktif");
+        schedulePeerRetry();
       }
     }
 
@@ -1046,23 +1211,31 @@
         return;
       }
       roomCode = code.slice(0, 6);
+      try { localStorage.setItem(LAST_ROOM_KEY, roomCode); } catch (e) {}
       joinErr.textContent = "";
+      lastAliveAt = 0;
+      lastPongAt = 0;
+      peerRetryDelay = 1500;
       setStatus("wait", "Bağlanıyor…");
       connectScreen.classList.add("hidden");
       mainScreen.classList.add("show");
       roomLabel.textContent = "Kod: " + roomCode;
       startLocalSync();
       startPeerClient();
+      sendPing();
       setMode("shuffle");
     }
 
     function disconnect() {
       roomCode = "";
       lastState = null;
+      lastAliveAt = 0;
+      lastPongAt = 0;
       if (bc) { try { bc.close(); } catch (e) {} bc = null; }
-      if (conn) { try { conn.close(); } catch (e) {} conn = null; }
-      if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+      teardownPeer();
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
       mainScreen.classList.remove("show");
       connectScreen.classList.remove("hidden");
       setStatus("", "Bağlantı bekleniyor…");
