@@ -286,7 +286,6 @@ If you believe that material in this repository infringes your copyright or othe
 
 ### 8. Legal and service references
 
-- [Turkish Ministry of Culture and Tourism — Copyright legislation](https://telifhaklari.ktb.gov.tr/TR-332443/kanunlar.html)
 - [Law No. 5846 — Grand National Assembly of Türkiye](https://www5.tbmm.gov.tr/develop/owa/kanun_ss.durumu?kanun_no=5846)
 - [YouTube Terms of Service](https://www.youtube.com/t/terms)
 - [Invidious project](https://github.com/iv-org/invidious)
