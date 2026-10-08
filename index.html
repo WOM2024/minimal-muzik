@@ -489,6 +489,73 @@
       z-index: 40;
       transition: opacity .2s;
     }
+    /* Party mode — müzik hissi veren kenar ışıkları */
+    .party-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 22;
+      overflow: hidden;
+    }
+    .party-overlay.on { display: block; }
+    .party-edge {
+      position: absolute;
+      opacity: 0;
+      transition: opacity .05s linear;
+    }
+    .party-edge.t {
+      top: 0; left: 0; right: 0; height: 28%;
+      background: linear-gradient(180deg, var(--party-c, #ff2d95) 0%, transparent 100%);
+    }
+    .party-edge.b {
+      bottom: 0; left: 0; right: 0; height: 28%;
+      background: linear-gradient(0deg, var(--party-c, #00e5ff) 0%, transparent 100%);
+    }
+    .party-edge.l {
+      top: 0; bottom: 0; left: 0; width: 22%;
+      background: linear-gradient(90deg, var(--party-c2, #b388ff) 0%, transparent 100%);
+    }
+    .party-edge.r {
+      top: 0; bottom: 0; right: 0; width: 22%;
+      background: linear-gradient(270deg, var(--party-c2, #69f0ae) 0%, transparent 100%);
+    }
+    .party-flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+    .sp-chips {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .sp-chip {
+      flex: 1;
+      min-width: 70px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #222;
+      color: #aaa;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+    .sp-chip.active {
+      background: rgba(29,185,84,0.2);
+      border-color: #1DB954;
+      color: #1DB954;
+    }
+    .sp-party-opts {
+      display: none;
+      margin-top: 10px;
+    }
+    .sp-party-opts.show { display: block; }
     .bright-panel-idx {
       display: none;
       position: absolute;
@@ -964,6 +1031,31 @@
         </div>
 
         <div class="sp-section">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Party modu</div>
+              <div class="sp-row-sub">Kenar ışıkları ritme yakın yanıp söner</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="partyToggle" />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-party-opts" id="partyOpts">
+            <div class="sp-chips" id="partyModeChips">
+              <button type="button" class="sp-chip active" data-party="pulse">Pulse</button>
+              <button type="button" class="sp-chip" data-party="fade">Fade</button>
+              <button type="button" class="sp-chip" data-party="flash">Flash</button>
+            </div>
+            <div class="sp-seconds-top" style="margin-top:10px">
+              <span>Yoğunluk</span>
+              <span class="sp-seconds-val" id="partyIntVal">60%</span>
+            </div>
+            <input type="range" id="partyIntensity" min="20" max="100" value="60" />
+          </div>
+        </div>
+
+        <div class="sp-section">
           <label class="sp-field-label" for="brightRangeIdx">
             Gece parlaklığı
             <span class="sp-dim-val" id="brightValLabel">0%</span>
@@ -975,6 +1067,13 @@
 
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
+      <div class="party-overlay" id="partyOverlay" aria-hidden="true">
+        <div class="party-edge t" id="partyT"></div>
+        <div class="party-edge b" id="partyB"></div>
+        <div class="party-edge l" id="partyL"></div>
+        <div class="party-edge r" id="partyR"></div>
+        <div class="party-flash" id="partyFlash"></div>
+      </div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
       <div class="player-loading" id="playerLoading">
         Sonraki şarkı yükleniyor...
@@ -3555,6 +3654,152 @@
 
 
     // Player ayarları + chrome gizleme + parlaklık
+
+    // Party mode — YT iframe sesine erişilemez; çalma + ritim benzeri efekt
+    (function initPartyMode() {
+      var overlay = document.getElementById("partyOverlay");
+      var partyT = document.getElementById("partyT");
+      var partyB = document.getElementById("partyB");
+      var partyL = document.getElementById("partyL");
+      var partyR = document.getElementById("partyR");
+      var partyFlash = document.getElementById("partyFlash");
+      var toggle = document.getElementById("partyToggle");
+      var opts = document.getElementById("partyOpts");
+      var intRange = document.getElementById("partyIntensity");
+      var intVal = document.getElementById("partyIntVal");
+      var chips = document.getElementById("partyModeChips");
+      var view = document.getElementById("playerView");
+
+      var KEY_ON = "minimal_muzik_party_on";
+      var KEY_MODE = "minimal_muzik_party_mode";
+      var KEY_INT = "minimal_muzik_party_int";
+
+      var on = false;
+      var mode = "pulse";
+      var intensity = 0.6;
+      var raf = 0;
+      var lastFlash = 0;
+      var hue = 0;
+
+      try {
+        on = localStorage.getItem(KEY_ON) === "1";
+        mode = localStorage.getItem(KEY_MODE) || "pulse";
+        intensity = Math.min(1, Math.max(0.2, (parseInt(localStorage.getItem(KEY_INT) || "60", 10) || 60) / 100));
+      } catch (e) {}
+
+      function syncUI() {
+        if (toggle) toggle.checked = on;
+        if (opts) {
+          if (on) opts.classList.add("show");
+          else opts.classList.remove("show");
+        }
+        if (intRange) intRange.value = String(Math.round(intensity * 100));
+        if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
+        if (chips) {
+          chips.querySelectorAll(".sp-chip").forEach(function(c) {
+            c.classList.toggle("active", c.getAttribute("data-party") === mode);
+          });
+        }
+        if (overlay) {
+          if (on) overlay.classList.add("on");
+          else overlay.classList.remove("on");
+        }
+      }
+      syncUI();
+
+      function isPlaying() {
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
+            var st = ytPlayerInstance.getPlayerState();
+            return st === YT.PlayerState.PLAYING;
+          }
+        } catch (e) {}
+        return !!_remotePlaying;
+      }
+
+      function setEdges(op, c1, c2) {
+        var edges = [partyT, partyB, partyL, partyR];
+        for (var i = 0; i < edges.length; i++) {
+          if (!edges[i]) continue;
+          edges[i].style.setProperty("--party-c", c1);
+          edges[i].style.setProperty("--party-c2", c2 || c1);
+          edges[i].style.opacity = String(op);
+        }
+      }
+
+      function tick(ts) {
+        if (!on || !view || !view.classList.contains("active")) {
+          setEdges(0, "#000");
+          if (partyFlash) partyFlash.style.opacity = "0";
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        var playing = isPlaying();
+        var t = ts * 0.001;
+        // Sahte "beat": 2–3 katmanlı sinüs (bass + mid hissi)
+        var bass = Math.pow(Math.max(0, Math.sin(t * 4.2)), 2);
+        var mid = Math.pow(Math.max(0, Math.sin(t * 7.1 + 1.2)), 2);
+        var energy = playing ? (0.35 * bass + 0.25 * mid + 0.15) : 0.05;
+        energy *= intensity;
+
+        hue = (hue + (playing ? 0.8 : 0.15)) % 360;
+        var c1 = "hsl(" + Math.floor(hue) + " 100% 55%)";
+        var c2 = "hsl(" + Math.floor((hue + 120) % 360) + " 100% 55%)";
+
+        if (mode === "fade") {
+          var op = playing ? (0.25 + energy * 0.55) : 0.08;
+          setEdges(op, c1, c2);
+          if (partyFlash) partyFlash.style.opacity = "0";
+        } else if (mode === "flash") {
+          setEdges(playing ? 0.12 + energy * 0.2 : 0.04, c1, c2);
+          if (partyFlash) {
+            if (playing && bass > 0.85 && ts - lastFlash > 180) {
+              partyFlash.style.opacity = String(0.15 + intensity * 0.25);
+              lastFlash = ts;
+            } else {
+              var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
+              partyFlash.style.opacity = String(Math.max(0, cur * 0.82));
+            }
+          }
+        } else {
+          // pulse (default)
+          var beat = playing ? (bass > 0.55 ? 1 : energy) : 0.06;
+          var op2 = 0.1 + beat * 0.7 * intensity;
+          setEdges(op2, c1, c2);
+          if (partyFlash) {
+            partyFlash.style.opacity = playing && bass > 0.9 ? String(0.08 * intensity) : "0";
+          }
+        }
+
+        raf = requestAnimationFrame(tick);
+      }
+      raf = requestAnimationFrame(tick);
+
+      if (toggle) {
+        toggle.addEventListener("change", function() {
+          on = !!toggle.checked;
+          try { localStorage.setItem(KEY_ON, on ? "1" : "0"); } catch (e) {}
+          syncUI();
+        });
+      }
+      if (intRange) {
+        intRange.addEventListener("input", function() {
+          intensity = Math.min(1, Math.max(0.2, (parseInt(intRange.value, 10) || 60) / 100));
+          if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
+          try { localStorage.setItem(KEY_INT, String(Math.round(intensity * 100))); } catch (e) {}
+        });
+      }
+      if (chips) {
+        chips.querySelectorAll(".sp-chip").forEach(function(chip) {
+          chip.addEventListener("click", function() {
+            mode = chip.getAttribute("data-party") || "pulse";
+            try { localStorage.setItem(KEY_MODE, mode); } catch (e) {}
+            syncUI();
+          });
+        });
+      }
+    })();
+
     (function initPlayerSettings() {
       var top = document.querySelector(".player-top");
       var view = document.getElementById("playerView");
