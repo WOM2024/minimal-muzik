@@ -19,7 +19,17 @@
       padding: 0;
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
+    
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      -webkit-touch-callout: default;
+    }
+
 
     html,
     body {
@@ -846,6 +856,8 @@
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
+    document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
+
     const SEARCH_INSTANCES = ["https://invidious.f5.si", "https://yt.chocolatemoo53.com", "https://invidious.nerdvpn.de", "https://invidious.tiekoetter.com"];
     const FAV_KEY = "minimal_yt_favorites";
     const ROOM_PREFIX = "mm-";

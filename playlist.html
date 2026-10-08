@@ -28,13 +28,27 @@
       --safe-t: env(safe-area-inset-top, 0px);
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
     html, body {
       height: 100%; width: 100%;
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       overflow: hidden; touch-action: manipulation;
       -webkit-font-smoothing: antialiased;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     body { display: flex; flex-direction: column; padding-top: var(--safe-t); }
 
@@ -357,46 +371,49 @@
       align-items: center;
     }
     .now-box.expanded .now-art {
-      width: min(70vw, 280px);
-      height: min(70vw, 280px);
-      max-height: 38vh;
+      position: relative;
+      width: min(68vw, 260px);
+      height: min(68vw, 260px);
+      max-height: 34vh;
       border-radius: 12px;
-      margin: 4px auto 16px;
+      margin: 2px auto 12px;
       box-shadow: 0 16px 48px rgba(0,0,0,0.55);
       flex-shrink: 0;
+      overflow: visible;
     }
     .now-box.expanded .now-meta {
       width: 100%;
       text-align: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       padding: 0 4px;
       flex-shrink: 0;
     }
     .now-box.expanded .now-times { display: none; }
     .now-box.expanded .now-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       white-space: normal;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       line-height: 1.3;
     }
     .now-box.expanded .now-author {
       font-size: 13px;
       color: #b3b3b3;
     }
+    /* Progress + kontroller sıkı, yukarıda (margin-top:auto yok) */
     .now-box.expanded .controls {
       width: 100%;
       justify-content: center;
       align-items: center;
-      gap: 16px;
-      padding: 8px 8px 18px;
+      gap: 22px;
+      padding: 6px 8px 8px;
       flex-shrink: 0;
-      margin-top: auto;
-      order: 5;
+      margin-top: 0;
+      order: 6;
     }
     .now-box.expanded .controls button {
       width: 48px; height: 48px;
@@ -411,19 +428,36 @@
     .now-box.expanded .controls button.primary svg {
       width: 28px; height: 28px;
     }
-    .now-box.expanded .now-fav { display: flex !important; }
     .now-fav {
       display: none;
-      color: #b3b3b3;
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 6;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
     }
-    .now-fav.on { color: var(--green); }
+    .now-fav svg { width: 20px; height: 20px; fill: currentColor; }
+    .now-box.expanded .now-fav { display: flex !important; }
+    .now-fav.on { color: var(--green); background: rgba(0,0,0,0.7); }
+    .now-fav:active { transform: scale(0.92); }
     .now-box.expanded .now-progress-wrap {
       width: 100%;
-      padding: 8px 22px 2px;
+      padding: 4px 22px 2px;
       height: auto;
       flex-shrink: 0;
       touch-action: none;
-      order: 3;
+      order: 4;
+      margin-top: 0;
     }
     .now-box.expanded .now-progress-track { height: 6px; }
     .now-box.expanded .now-progress-fill::after { opacity: 1; }
@@ -431,17 +465,17 @@
       display: none;
       justify-content: space-between;
       width: 100%;
-      padding: 2px 22px 4px;
+      padding: 2px 22px 2px;
       font-size: 11px;
       color: #888;
       font-weight: 600;
       flex-shrink: 0;
       box-sizing: border-box;
-      order: 4;
+      order: 5;
     }
     .now-box.expanded .now-times-bar { display: flex; }
     .now-box.expanded .now-row { order: 2; }
-    .now-box.expanded .controls { order: 5; }
+    .now-box.expanded .controls { order: 6; }
     .expand-hint { display: none; }
     .now-box:not(.expanded) .expand-grab {
       position: absolute;
@@ -807,6 +841,9 @@
       <div class="now-row" id="nowRow">
         <div class="now-art" id="nowArt">
           <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <button type="button" class="now-fav" id="nowFavBtn" title="Favori" aria-label="Favori">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
         </div>
         <div class="now-meta">
           <div class="now-times" id="nowTimes">0:00 / 0:00</div>
@@ -814,9 +851,6 @@
           <div class="now-author" id="nowAuthor">—</div>
         </div>
         <div class="controls">
-          <button type="button" class="now-fav" id="nowFavBtn" title="Favori" aria-label="Favori">
-            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          </button>
           <button type="button" id="prevBtn" title="Önceki" aria-label="Önceki">
             <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
           </button>
@@ -992,13 +1026,25 @@
 
     function setNowArt(id) {
       if (!nowArt) return;
+      var fav = document.getElementById("nowFavBtn");
       if (id) {
         nowArt.style.backgroundImage = "url(" + thumbUrl(id) + ")";
-        nowArt.innerHTML = "";
+        // placeholder svg'yi temizle, favori butonunu koru
+        Array.prototype.slice.call(nowArt.childNodes).forEach(function(n) {
+          if (n !== fav) nowArt.removeChild(n);
+        });
       } else {
         nowArt.style.backgroundImage = "";
-        nowArt.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>';
+        Array.prototype.slice.call(nowArt.childNodes).forEach(function(n) {
+          if (n !== fav) nowArt.removeChild(n);
+        });
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.innerHTML = '<path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>';
+        if (fav) nowArt.insertBefore(svg, fav);
+        else nowArt.appendChild(svg);
       }
+      if (fav && fav.parentNode !== nowArt) nowArt.appendChild(fav);
     }
 
     function updatePlayPauseUI(playing) {
