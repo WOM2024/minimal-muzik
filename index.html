@@ -672,6 +672,31 @@
       border: none;
       background: #000;
     }
+    /*
+      Kalite hilesi: YouTube ABR iframe piksel boyutuna bakarak bitrate seçer.
+      Düşük/normal = küçük gerçek çözünürlük + CSS scale ile ekranı doldur.
+    */
+    .player-area.quality-low #ytplayer,
+    .player-area.quality-low #ytplayer-host,
+    .player-area.quality-low iframe {
+      width: 426px !important;
+      height: 240px !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      transform: translate(-50%, -50%) scale(var(--yt-q-scale, 4)) !important;
+      transform-origin: center center !important;
+    }
+    .player-area.quality-normal #ytplayer,
+    .player-area.quality-normal #ytplayer-host,
+    .player-area.quality-normal iframe {
+      width: 854px !important;
+      height: 480px !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      transform: translate(-50%, -50%) scale(var(--yt-q-scale, 2)) !important;
+      transform-origin: center center !important;
+    }
+    /* quality-high: varsayılan full cover kuralları */
 
     .player-loading {
       display: none;
@@ -2511,24 +2536,63 @@
     var ytApiWaiters = [];
     var ytPlayerInstance = null;
 
-    // —— Video kalitesi tercihi (YouTube API sınırları içinde) ——
+    // —— Video kalitesi tercihi ——
+    // YouTube setPlaybackQuality çoğu zaman yok sayılır.
+    // Asıl etki: iframe'i düşük piksel boyutunda tutup CSS scale ile büyütmek (ABR).
     var KEY_QUALITY = "minimal_muzik_quality";
     var videoQualityPref = "normal"; // low | normal | high
+    var _qualityEnforceTimer = null;
     try {
       var _qSaved = localStorage.getItem(KEY_QUALITY);
       if (_qSaved === "low" || _qSaved === "normal" || _qSaved === "high") videoQualityPref = _qSaved;
     } catch (eQ) {}
 
     function qualityRangeForPref(pref) {
-      // setPlaybackQualityRange(minQuality, maxQuality)
-      // small≈240 medium≈360 large≈480 hd720 hd1080 highres
-      if (pref === "low") return { min: "small", max: "medium" };      // ≤360p
+      if (pref === "low") return { min: "tiny", max: "small" };       // ~144–240p
       if (pref === "high") return { min: "hd720", max: "highres" };   // ≥720p
-      return { min: "large", max: "hd720" };                           // ~480–720
+      return { min: "medium", max: "large" };                         // ~360–480p
+    }
+
+    function updateQualityScale() {
+      var area = document.querySelector(".player-area");
+      if (!area) return;
+      var baseW = videoQualityPref === "low" ? 426 : videoQualityPref === "normal" ? 854 : 0;
+      if (!baseW) {
+        area.style.removeProperty("--yt-q-scale");
+        return;
+      }
+      var rect = area.getBoundingClientRect();
+      var scale = Math.max(rect.width / baseW, rect.height / (baseW * 9 / 16)) * 1.02;
+      area.style.setProperty("--yt-q-scale", String(Math.max(1, scale)));
+    }
+
+    function applyPlayerViewportSize() {
+      var area = document.querySelector(".player-area");
+      if (!area) return;
+      area.classList.remove("quality-low", "quality-normal", "quality-high");
+      area.classList.add("quality-" + videoQualityPref);
+      updateQualityScale();
+      // iframe inline style varsa low/normal'de ez
+      try {
+        var iframe = null;
+        if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
+          iframe = ytPlayerInstance.getIframe();
+        }
+        if (!iframe) iframe = document.querySelector(".player-area iframe");
+        if (!iframe) return;
+        if (videoQualityPref === "high") {
+          iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+        } else {
+          var w = videoQualityPref === "low" ? 426 : 854;
+          var h = videoQualityPref === "low" ? 240 : 480;
+          iframe.style.cssText = "position:absolute;top:50%;left:50%;width:" + w + "px;height:" + h + "px;min-width:0;min-height:0;transform:translate(-50%,-50%) scale(var(--yt-q-scale,2));transform-origin:center center;border:none;background:#000;z-index:1;display:block;";
+        }
+      } catch (e) {}
     }
 
     function applyVideoQuality(player) {
       player = player || ytPlayerInstance;
+      applyPlayerViewportSize();
       if (!player) return;
       var range = qualityRangeForPref(videoQualityPref);
       try {
@@ -2536,14 +2600,29 @@
           player.setPlaybackQualityRange(range.min, range.max);
         }
       } catch (e1) {}
-      // Eski API (çoğu tarayıcıda yok sayılır ama zararsız)
       try {
         if (typeof player.setPlaybackQuality === "function") {
-          var suggested = videoQualityPref === "low" ? "medium"
+          var suggested = videoQualityPref === "low" ? "small"
             : videoQualityPref === "high" ? "hd1080" : "large";
           player.setPlaybackQuality(suggested);
         }
       } catch (e2) {}
+      // YT bazen birkaç sn sonra kaliteyi yükseltir — periyodik zorla
+      if (_qualityEnforceTimer) {
+        clearInterval(_qualityEnforceTimer);
+        _qualityEnforceTimer = null;
+      }
+      if (videoQualityPref !== "high") {
+        _qualityEnforceTimer = setInterval(function() {
+          if (!ytPlayerInstance) return;
+          try {
+            if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
+              var r = qualityRangeForPref(videoQualityPref);
+              ytPlayerInstance.setPlaybackQualityRange(r.min, r.max);
+            }
+          } catch (e) {}
+        }, 4000);
+      }
     }
 
     function setVideoQualityPref(pref) {
@@ -2551,7 +2630,6 @@
       videoQualityPref = pref;
       try { localStorage.setItem(KEY_QUALITY, pref); } catch (e) {}
       applyVideoQuality(ytPlayerInstance);
-      // UI
       var chips = document.getElementById("qualityChips");
       if (chips) {
         chips.querySelectorAll(".sp-chip").forEach(function(c) {
@@ -2559,6 +2637,10 @@
         });
       }
     }
+
+    window.addEventListener("resize", function() {
+      try { updateQualityScale(); } catch (e) {}
+    });
     var ytHostId = "ytplayer-host";
 
     // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
@@ -3020,8 +3102,8 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
+                applyPlayerViewportSize();
               }
             } catch (e3) {}
             bindMediaSessionHandlers();
