@@ -318,7 +318,7 @@
     <div class="connect-title">Bağlantı kodu</div>
     <div class="connect-hint">
       Ana uygulamadaki (index) 6 haneli kodu gir.<br>
-      Aynı telefonda veya başka cihazda çalışır.
+      Bir kez bağlandıktan sonra kod telefonunda saklanır — tekrar yazmana gerek yok.
     </div>
     <input id="codeInput" type="text" maxlength="6" placeholder="A3K9X2" autocomplete="off" autocapitalize="characters" />
     <button id="joinBtn" type="button">Bağlan</button>
@@ -494,12 +494,19 @@
         setTimeout(function() { joinRoom(c.slice(0, 6)); }, 300);
         return;
       }
-      // Son kullanılan odayı hatırla — arka plan yeniden açılışta bağlan
+      // Son kullanılan oda: araba / aynı telefon senaryosunda tekrar yazmaya gerek yok
+      // Kaydedilmiş kod varsa otomatik bağlan; başarısız olursa kod ekranda kalır
       try {
         var last = (localStorage.getItem(LAST_ROOM_KEY) || "").trim().toUpperCase();
         if (/^[A-Z0-9]{4,6}$/.test(last)) {
           codeInput.value = last;
-          // otomatik join etme — kullanıcı isterse butona basar; sadece doldur
+          setStatus("wait", "Son oda: " + last + " · bağlanılıyor…");
+          joinErr.textContent = "";
+          setTimeout(function() {
+            // Kullanıcı bu sırada başka kod yazdıysa dokunma
+            var current = (codeInput.value || "").trim().toUpperCase();
+            if (current === last) joinRoom(last);
+          }, 350);
         }
       } catch (e) {}
     })();
@@ -1227,6 +1234,8 @@
     }
 
     function disconnect() {
+      var kept = "";
+      try { kept = (localStorage.getItem(LAST_ROOM_KEY) || roomCode || "").trim().toUpperCase(); } catch (e) {}
       roomCode = "";
       lastState = null;
       lastAliveAt = 0;
@@ -1238,8 +1247,14 @@
       if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
       mainScreen.classList.remove("show");
       connectScreen.classList.remove("hidden");
-      setStatus("", "Bağlantı bekleniyor…");
-      codeInput.value = "";
+      // Oda kodunu silme — tek dokunuşla tekrar bağlanabilsin (araba senaryosu)
+      if (/^[A-Z0-9]{4,6}$/.test(kept)) {
+        codeInput.value = kept;
+        setStatus("", "Son oda hazır · Bağlan’a bas");
+      } else {
+        codeInput.value = "";
+        setStatus("", "Bağlantı bekleniyor…");
+      }
       codeInput.focus();
     }
 

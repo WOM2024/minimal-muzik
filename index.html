@@ -1853,11 +1853,62 @@
     var nextBtn = document.getElementById("nextBtn");
     var playerLoading = document.getElementById("playerLoading");
 
+    var _loadingWatchTimer = null;
+    var _loadToken = 0;
+    var _loadingExpectedId = "";
+    var _loadingRetryCount = 0;
+    var _loadingRetryForId = "";
+
+    function clearLoadingWatch() {
+      if (_loadingWatchTimer) {
+        clearTimeout(_loadingWatchTimer);
+        _loadingWatchTimer = null;
+      }
+    }
+
     function setPlayerLoading(on, label) {
       if (!playerLoading) return;
       if (label) playerLoading.textContent = label;
       if (on) playerLoading.classList.add("show");
-      else playerLoading.classList.remove("show");
+      else {
+        playerLoading.classList.remove("show");
+        clearLoadingWatch();
+        _loadingExpectedId = "";
+        _loadingRetryCount = 0;
+        _loadingRetryForId = "";
+      }
+    }
+
+    // Uzaktan seçimde loading sonsuza kadar kalmasın: 8 sn sonra player'ı yeniden kur (en fazla 2 kez)
+    function armLoadingWatch(expectedId) {
+      clearLoadingWatch();
+      _loadingExpectedId = expectedId || "";
+      if (!expectedId) return;
+      _loadingWatchTimer = setTimeout(function() {
+        _loadingWatchTimer = null;
+        if (!_loadingExpectedId || _loadingExpectedId !== expectedId) return;
+        if (!playerLoading || !playerLoading.classList.contains("show")) return;
+        if (currentPlayingId && currentPlayingId !== expectedId) return;
+        if (_loadingRetryForId !== expectedId) {
+          _loadingRetryForId = expectedId;
+          _loadingRetryCount = 0;
+        }
+        _loadingRetryCount++;
+        if (_loadingRetryCount > 2) {
+          console.warn("[MM] loading stuck, yeniden deneme tükendi", expectedId);
+          setPlayerLoading(false);
+          return;
+        }
+        console.warn("[MM] loading stuck → player yeniden kuruluyor", expectedId, "retry", _loadingRetryCount);
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.destroy === "function") {
+            ytPlayerInstance.destroy();
+          }
+        } catch (eD) {}
+        ytPlayerInstance = null;
+        var dur = _currentLoadDuration || 0;
+        loadOfficialYtPlayer(expectedId, !mediaUnlocked, dur);
+      }, 8000);
     }
 
     var mediaUnlocked = false;
@@ -2264,13 +2315,20 @@
     var _currentLoadDuration = 0;
 
     // —— Resmi YouTube IFrame API player (tek oturum + loadVideoById = 6.html modeli) ——
+    // Uzaktan play komutlarında yarış / takılma olmasın: en son istek kazanır + loading watchdog
     function loadOfficialYtPlayer(id, muted, durationSec) {
       if (!id) return;
       durationSec = Number(durationSec) || 0;
       _currentLoadDuration = durationSec;
+      var myToken = ++_loadToken;
+      pendingPlayId = id;
       setPlayerLoading(true, "Yükleniyor...");
+      armLoadingWatch(id);
 
       whenYtReady(function() {
+        // Daha yeni bir yükleme isteği geldiyse bu oturumu iptal et
+        if (myToken !== _loadToken) return;
+
         // Mevcut oturumda şarkı değişimi (atlama / playlist) → asla yeniden mute etme
         // Sessiz sadece ilk player oluşturulurken ve henüz unlock yoksa
         var hasExistingPlayer =
@@ -2312,17 +2370,49 @@
           }
         }
 
+        function finishLoadSuccess(target) {
+          if (myToken !== _loadToken) return;
+          pendingPlayId = null;
+          applyMuteAndPlay(target || ytPlayerInstance);
+          setPlayerLoading(false);
+          bindMediaSessionHandlers();
+          bumpMediaSessionPlaying();
+          armDurationFromApi(target || ytPlayerInstance);
+        }
+
         // —— Aynı player oturumu: loadVideoById (pre-roll riskini düşürür) ——
         if (ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function") {
           try {
             ytPlayerInstance.loadVideoById({ videoId: id, startSeconds: 0 });
             setTimeout(function() {
-              applyMuteAndPlay(ytPlayerInstance);
-              setPlayerLoading(false);
-              bindMediaSessionHandlers();
-              bumpMediaSessionPlaying();
-              armDurationFromApi(ytPlayerInstance);
-            }, 350);
+              if (myToken !== _loadToken) return;
+              // Player gerçekten bu videoya geçti mi? Değilse oturumu yenile
+              var switched = false;
+              try {
+                var vd = ytPlayerInstance.getVideoData && ytPlayerInstance.getVideoData();
+                if (vd && vd.video_id === id) switched = true;
+                // video_id henüz güncellenmemiş olabilir; state BUFFERING/PLAYING/CUED de kabul
+                if (!switched && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
+                  var st = ytPlayerInstance.getPlayerState();
+                  if (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING || st === YT.PlayerState.CUED) {
+                    switched = true;
+                  }
+                }
+              } catch (eChk) {
+                switched = true; // kontrol başarısızsa yine de play dene
+              }
+              if (!switched) {
+                console.warn("[MM] loadVideoById geçiş doğrulanamadı, player yeniden oluşturulacak", id);
+                try {
+                  if (ytPlayerInstance && ytPlayerInstance.destroy) ytPlayerInstance.destroy();
+                } catch (eD2) {}
+                ytPlayerInstance = null;
+                // Aynı token ile yeniden oluştur (token artırmadan)
+                loadOfficialYtPlayer._recreate(id, wantMute, durationSec, myToken);
+                return;
+              }
+              finishLoadSuccess(ytPlayerInstance);
+            }, 400);
             return;
           } catch (eLoad) {
             console.warn("[MM] loadVideoById başarısız, player yeniden oluşturulacak", eLoad);
@@ -2333,107 +2423,139 @@
           }
         }
 
-        // —— İlk oluşturma (veya hata sonrası) ——
-        var host = ensureYtHost();
-        if (!host) {
-          console.warn("[MM] yt host yok");
-          setPlayerLoading(false);
-          return;
-        }
-
-        // Host içi boş değilse (önceki destroy kalıntısı) temiz host
-        try {
-          if (host.childNodes && host.childNodes.length) {
-            var parent = host.parentNode;
-            var fresh = document.createElement("div");
-            fresh.id = ytHostId;
-            fresh.style.cssText = host.style.cssText;
-            if (parent) parent.replaceChild(fresh, host);
-            host = fresh;
-          }
-        } catch (eHost) {}
-
-        // Skipcut ile aynı reklam/kalabalık azaltma parametreleri
-        var playerVars = {
-          autoplay: 1,
-          controls: 1,
-          modestbranding: 1,
-          rel: 0,
-          iv_load_policy: 3,
-          cc_load_policy: 0,
-          fs: 1,
-          playsinline: 1,
-          disablekb: 0,
-          enablejsapi: 1,
-          origin: window.location.origin || undefined
-        };
-        if (wantMute) playerVars.mute = 1;
-
-        ytPlayerInstance = new YT.Player(ytHostId, {
-          videoId: id,
-          width: "100%",
-          height: "100%",
-          playerVars: playerVars,
-          events: {
-            onReady: function(ev) {
-              applyMuteAndPlay(ev.target);
-              setPlayerLoading(false);
-              try {
-                var iframe = ev.target.getIframe && ev.target.getIframe();
-                if (iframe) {
-                  iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
-                  iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                  iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
-                  ytplayer = iframe;
-                }
-              } catch (e3) {}
-              bindMediaSessionHandlers();
-              bumpMediaSessionPlaying();
-              // otomatik tam ekran yok
-              armDurationFromApi(ev.target);
-            },
-            onStateChange: function(event) {
-              try {
-                if (typeof YT === "undefined") return;
-                if (event.data === YT.PlayerState.ENDED) {
-                  stopSponsorCheck();
-                  var ignoreUntil = window._ytIgnoreEndedUntil || 0;
-                  if (Date.now() < ignoreUntil) return;
-                  if (_earlySkipDoneFor === currentPlayingId) return;
-                  _earlySkipDoneFor = currentPlayingId || "";
-                  playNext();
-                  return;
-                }
-                if (event.data === YT.PlayerState.PLAYING) {
-                  setPlayerLoading(false);
-                  // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
-                  markMediaUnlocked();
-                  try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
-                  bumpMediaSessionPlaying();
-                  // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
-                  if (currentPlayingId) startSponsorCheck(currentPlayingId);
-                }
-                if (event.data === YT.PlayerState.PAUSED) {
-                  stopSponsorCheck();
-                }
-              } catch (e5) {}
-            },
-            onError: function(event) {
-              var code = event && event.data;
-              console.warn("[MM] YT error", code);
-              setPlayerLoading(false);
-              // Açılmayan video → playlist sırasındaki sonraki şarkıya geç
-              // force: ardışık hatalı videolarda 2.8sn kilit takılmasın
-              var failedId = currentPlayingId;
-              setTimeout(function() {
-                if (failedId && currentPlayingId && currentPlayingId !== failedId) return;
-                playNext({ force: true });
-              }, 500);
-            }
-          }
-        });
+        loadOfficialYtPlayer._recreate(id, wantMute, durationSec, myToken);
       });
     }
+
+    // Player sıfırdan oluştur (loadOfficialYtPlayer içinden / watchdog'tan)
+    loadOfficialYtPlayer._recreate = function(id, wantMute, durationSec, myToken) {
+      if (myToken != null && myToken !== _loadToken) return;
+
+      var host = ensureYtHost();
+      if (!host) {
+        console.warn("[MM] yt host yok");
+        setPlayerLoading(false);
+        return;
+      }
+
+      // Host içi boş değilse (önceki destroy kalıntısı) temiz host
+      try {
+        if (host.childNodes && host.childNodes.length) {
+          var parent = host.parentNode;
+          var fresh = document.createElement("div");
+          fresh.id = ytHostId;
+          fresh.style.cssText = host.style.cssText;
+          if (parent) parent.replaceChild(fresh, host);
+          host = fresh;
+        }
+      } catch (eHost) {}
+
+      // Skipcut ile aynı reklam/kalabalık azaltma parametreleri
+      var playerVars = {
+        autoplay: 1,
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        iv_load_policy: 3,
+        cc_load_policy: 0,
+        fs: 1,
+        playsinline: 1,
+        disablekb: 0,
+        enablejsapi: 1,
+        origin: window.location.origin || undefined
+      };
+      if (wantMute) playerVars.mute = 1;
+
+      function applyMuteAndPlayRecreate(target) {
+        try {
+          if (wantMute) {
+            target.mute();
+          } else {
+            ensureYtUnmuted(target);
+          }
+          target.playVideo();
+        } catch (e2) {}
+      }
+
+      function armDurationFromApiRecreate(target) {
+        _earlySkipDoneFor = "";
+        try {
+          var apiDur = 0;
+          if (target && typeof target.getDuration === "function") {
+            apiDur = target.getDuration() || 0;
+          }
+          if (apiDur > 8) durationSec = apiDur;
+        } catch (eDur) {}
+        if (durationSec >= 8) {
+          armTrackEndWatch(durationSec, true);
+        }
+      }
+
+      ytPlayerInstance = new YT.Player(ytHostId, {
+        videoId: id,
+        width: "100%",
+        height: "100%",
+        playerVars: playerVars,
+        events: {
+          onReady: function(ev) {
+            if (myToken != null && myToken !== _loadToken) return;
+            pendingPlayId = null;
+            applyMuteAndPlayRecreate(ev.target);
+            setPlayerLoading(false);
+            try {
+              var iframe = ev.target.getIframe && ev.target.getIframe();
+              if (iframe) {
+                iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
+                iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+                ytplayer = iframe;
+              }
+            } catch (e3) {}
+            bindMediaSessionHandlers();
+            bumpMediaSessionPlaying();
+            armDurationFromApiRecreate(ev.target);
+          },
+          onStateChange: function(event) {
+            try {
+              if (typeof YT === "undefined") return;
+              if (event.data === YT.PlayerState.ENDED) {
+                stopSponsorCheck();
+                var ignoreUntil = window._ytIgnoreEndedUntil || 0;
+                if (Date.now() < ignoreUntil) return;
+                if (_earlySkipDoneFor === currentPlayingId) return;
+                _earlySkipDoneFor = currentPlayingId || "";
+                playNext();
+                return;
+              }
+              if (event.data === YT.PlayerState.PLAYING) {
+                setPlayerLoading(false);
+                // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
+                markMediaUnlocked();
+                try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
+                bumpMediaSessionPlaying();
+                // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
+                if (currentPlayingId) startSponsorCheck(currentPlayingId);
+              }
+              if (event.data === YT.PlayerState.PAUSED) {
+                stopSponsorCheck();
+              }
+            } catch (e5) {}
+          },
+          onError: function(event) {
+            var code = event && event.data;
+            console.warn("[MM] YT error", code);
+            setPlayerLoading(false);
+            // Açılmayan video → playlist sırasındaki sonraki şarkıya geç
+            // force: ardışık hatalı videolarda 2.8sn kilit takılmasın
+            var failedId = currentPlayingId;
+            setTimeout(function() {
+              if (failedId && currentPlayingId && currentPlayingId !== failedId) return;
+              playNext({ force: true });
+            }, 500);
+          }
+        }
+      });
+    };
 
     function forceLoadVideo(id, durationSec) {
 
