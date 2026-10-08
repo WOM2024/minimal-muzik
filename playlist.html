@@ -337,6 +337,8 @@
       background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 45%, #000 100%);
       display: flex;
       flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
       box-shadow: none;
       transform: none !important;
       opacity: 1 !important;
@@ -347,9 +349,10 @@
       to { transform: translateY(0); opacity: 1; }
     }
     .now-box.expanded .expand-grab {
-      position: relative;
+      position: absolute;
+      top: 0; left: 0; right: 0;
       flex-shrink: 0;
-      height: 36px;
+      height: 40px;
       z-index: 5;
     }
     .now-box.expanded .expand-grab::after {
@@ -372,11 +375,11 @@
     }
     .now-box.expanded .now-art {
       position: relative;
-      width: min(68vw, 260px);
-      height: min(68vw, 260px);
-      max-height: 34vh;
+      width: min(62vw, 240px);
+      height: min(62vw, 240px);
+      max-height: 32vh;
       border-radius: 12px;
-      margin: 2px auto 12px;
+      margin: 0 auto 14px;
       box-shadow: 0 16px 48px rgba(0,0,0,0.55);
       flex-shrink: 0;
       overflow: visible;
@@ -384,8 +387,8 @@
     .now-box.expanded .now-meta {
       width: 100%;
       text-align: center;
-      margin-bottom: 10px;
-      padding: 0 4px;
+      margin-bottom: 14px;
+      padding: 0 20px;
       flex-shrink: 0;
     }
     .now-box.expanded .now-times { display: none; }
@@ -410,7 +413,7 @@
       justify-content: center;
       align-items: center;
       gap: 22px;
-      padding: 6px 8px 8px;
+      padding: 10px 8px 0;
       flex-shrink: 0;
       margin-top: 0;
       order: 6;
@@ -452,7 +455,7 @@
     .now-fav:active { transform: scale(0.92); }
     .now-box.expanded .now-progress-wrap {
       width: 100%;
-      padding: 4px 22px 2px;
+      padding: 4px 28px 2px;
       height: auto;
       flex-shrink: 0;
       touch-action: none;
@@ -564,11 +567,28 @@
     /* Tabs */
     .tabs {
       flex-shrink: 0;
-      display: none; gap: 0;
-      padding: 0 12px;
-      border-bottom: 1px solid #222;
+      display: none;
+      gap: 6px;
+      padding: 4px 12px 8px;
+      border-bottom: none;
     }
     .tabs.show { display: flex; }
+    .tabs .tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 6px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    .tabs .tab.active {
+      background: var(--bg-highlight);
+      color: var(--text);
+    }
     .tab {
       flex: 1; padding: 12px 0;
       text-align: center; font-size: 12px; font-weight: 700;
@@ -833,9 +853,9 @@
     </div>
 
     <div class="tabs" id="tabsBar">
-      <div class="tab active" data-tab="playlist">Playlistim</div>
-      <div class="tab" data-tab="favs">Favoriler</div>
-      <div class="tab" data-tab="ready">Listeler</div>
+      <div class="tab active" data-tab="playlist">Listem</div>
+      <div class="tab" data-tab="favs">♥</div>
+      <div class="tab" data-tab="ready">Keşfet</div>
       <div class="tab" data-tab="search">Ara</div>
     </div>
 
@@ -1172,29 +1192,38 @@
       return manualQueue.some(function(x) { return x.id === id; });
     }
 
+    function updateManualChrome() {
+      var isMan = mode === "manual";
+      if (tabsBar) tabsBar.classList.toggle("show", isMan);
+      // Arama sadece Ara sekmesinde
+      if (searchBar) searchBar.classList.toggle("show", isMan && activeTab === "search");
+      // Kategoriler sadece Listeler sekmesinde
+      if (plCats) plCats.classList.toggle("show", isMan && activeTab === "ready");
+    }
+
     function setMode(m) {
       mode = m;
       modeShuffle.classList.toggle("active", m === "shuffle");
       modeManual.classList.toggle("active", m === "manual");
-      searchBar.classList.toggle("show", m === "manual");
-      tabsBar.classList.toggle("show", m === "manual");
-      if (plCats) plCats.classList.toggle("show", m === "manual");
 
       if (m === "shuffle") {
-        listLabel.textContent = "Sıradaki şarkılar";
         activeTab = "playlist";
+        listLabel.textContent = "Sıradaki şarkılar";
+        updateManualChrome();
         sendCommand({ type: "setMode", mode: "shuffle" });
         renderList();
       } else {
+        // Manuel: doğrudan kendi listene — keşfet/arama ayrı sekmelerde
+        activeTab = "playlist";
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === activeTab);
+        });
+        updateManualChrome();
         sendCommand({ type: "setMode", mode: "manual" });
         if (manualQueue.length) {
           sendCommand({ type: "setQueue", queue: manualQueue });
         }
-        activeTab = "ready";
-        document.querySelectorAll(".tab").forEach(function(t) {
-          t.classList.toggle("active", t.dataset.tab === activeTab);
-        });
-        loadReadyPlaylists("populer");
+        renderList();
       }
     }
 
@@ -1668,6 +1697,7 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "playlist");
       });
+      updateManualChrome();
       renderList();
       if (manualQueue.length && added > 0) {
         var first = manualQueue[0];
@@ -1683,6 +1713,7 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "search");
       });
+      updateManualChrome();
       renderList();
       var data = await fetchApi(
         "/api/v1/search?q=" + encodeURIComponent(q) + "&type=video&page=1&region=TR"
@@ -1711,6 +1742,7 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "ready");
       });
+      updateManualChrome();
       if (plCats) {
         plCats.querySelectorAll(".cat").forEach(function(c) {
           c.classList.toggle("active", c.dataset.cat === catKey);
@@ -1763,6 +1795,7 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "ready");
       });
+      updateManualChrome();
       renderList();
 
       var data = await fetchApi(
@@ -2269,9 +2302,11 @@
         document.querySelectorAll(".tab").forEach(function(t) {
           t.classList.toggle("active", t.dataset.tab === activeTab);
         });
+        updateManualChrome();
         updateSearchPlaceholder();
-        if (activeTab === "ready" && !readyPlaylists.length) {
-          loadReadyPlaylists("populer");
+        if (activeTab === "ready") {
+          if (!readyPlaylists.length) loadReadyPlaylists("populer");
+          else renderList();
         } else {
           renderList();
         }
