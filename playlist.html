@@ -6,10 +6,15 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#121212" />
+  <meta name="theme-color" content="#000000" />
   <meta name="robots" content="noindex, nofollow" />
+  <meta name="apple-mobile-web-app-title" content="SuperYT" />
+  <meta name="application-name" content="SuperYT Remote" />
+  <meta name="description" content="SuperYT uzaktan kumanda — ana ekrana ekle, uygulama gibi kullan." />
   <title>SuperYT · Remote</title>
   <link rel="icon" type="image/x-icon" href="superyt-logo.ico">
+  <link rel="apple-touch-icon" href="superyt-logo.png">
+  <link rel="manifest" href="manifest-playlist.webmanifest">
   <style>
     :root {
       --bg: #121212;
@@ -51,6 +56,133 @@
       user-select: none;
     }
     body { display: flex; flex-direction: column; padding-top: var(--safe-t); }
+
+    /* ── Ana ekrana ekle banner (sadece tarayıcı; PWA/standalone gizli) ── */
+    .a2hs-banner {
+      display: none;
+      flex-shrink: 0;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+      padding: 10px 12px 10px 14px;
+      background: #000;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      position: relative;
+      z-index: 40;
+      animation: a2hs-in .35s ease;
+    }
+    .a2hs-banner.show { display: flex; }
+    @keyframes a2hs-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .a2hs-logo-wrap {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: 10px;
+      background: #000;
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .a2hs-logo-wrap img {
+      width: 40px; height: 40px;
+      object-fit: contain;
+      display: block;
+    }
+    .a2hs-body { flex: 1; min-width: 0; }
+    .a2hs-title {
+      font-size: 13px; font-weight: 800; color: #fff;
+      letter-spacing: -0.2px; line-height: 1.2;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .a2hs-platform {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 6px;
+      background: rgba(255,255,255,0.08); color: #bbb;
+      letter-spacing: 0;
+    }
+    .a2hs-platform svg { width: 11px; height: 11px; fill: currentColor; }
+    .a2hs-sub {
+      font-size: 11px; color: #888; margin-top: 3px;
+      line-height: 1.35; font-weight: 500;
+    }
+    .a2hs-actions {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .a2hs-btn {
+      height: 34px; padding: 0 12px;
+      background: var(--green); color: #000;
+      border: none; border-radius: 17px;
+      font-size: 12px; font-weight: 800;
+      cursor: pointer; white-space: nowrap;
+      letter-spacing: 0.1px;
+    }
+    .a2hs-btn:active { background: var(--green-hover); transform: scale(0.97); }
+    .a2hs-close {
+      width: 32px; height: 32px;
+      border: none; border-radius: 50%;
+      background: transparent; color: #666;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0;
+    }
+    .a2hs-close svg { width: 18px; height: 18px; fill: currentColor; }
+    .a2hs-close:active { background: rgba(255,255,255,0.08); color: #ccc; }
+
+    /* iOS / Android talimat modal */
+    .a2hs-guide {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.72);
+      align-items: flex-end; justify-content: center;
+      padding: 16px; padding-bottom: calc(16px + var(--safe-b));
+      box-sizing: border-box;
+    }
+    .a2hs-guide.show { display: flex; }
+    .a2hs-guide-card {
+      width: 100%; max-width: 360px;
+      background: #161616;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px 18px 16px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+    }
+    .a2hs-guide-card h3 {
+      font-size: 16px; font-weight: 800; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .a2hs-guide-card h3 img {
+      width: 28px; height: 28px; border-radius: 6px;
+      object-fit: contain; background: #000;
+    }
+    .a2hs-guide-steps {
+      margin: 14px 0 16px;
+      padding: 0; list-style: none;
+      counter-reset: a2hs;
+    }
+    .a2hs-guide-steps li {
+      counter-increment: a2hs;
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 13px; color: #ccc; line-height: 1.45;
+      margin-bottom: 10px; font-weight: 500;
+    }
+    .a2hs-guide-steps li::before {
+      content: counter(a2hs);
+      flex-shrink: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--green); color: #000;
+      font-size: 12px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .a2hs-guide-steps strong { color: #fff; font-weight: 700; }
+    .a2hs-guide-ok {
+      width: 100%; height: 44px;
+      background: var(--green); color: #000;
+      border: none; border-radius: 22px;
+      font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    .a2hs-guide-ok:active { opacity: 0.9; }
 
     /* ── Header ── */
     .header {
@@ -783,6 +915,34 @@
   </style>
 </head>
 <body>
+
+  <!-- Ana ekrana ekle — yalnızca tarayıcıda (PWA/standalone gizli) -->
+  <div class="a2hs-banner" id="a2hsBanner" role="region" aria-label="Ana ekrana ekle">
+    <div class="a2hs-logo-wrap">
+      <img src="superyt-logo.png" alt="" width="40" height="40" />
+    </div>
+    <div class="a2hs-body">
+      <div class="a2hs-title">
+        SuperYT Remote
+        <span class="a2hs-platform" id="a2hsPlatformBadge" hidden></span>
+      </div>
+      <div class="a2hs-sub" id="a2hsSub">Ana ekrana ekle — uygulama gibi, yer kaplamadan</div>
+    </div>
+    <div class="a2hs-actions">
+      <button type="button" class="a2hs-btn" id="a2hsInstallBtn">Ana ekrana ekle</button>
+      <button type="button" class="a2hs-close" id="a2hsCloseBtn" aria-label="Kapat" title="Kapat">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="a2hs-guide" id="a2hsGuide" aria-hidden="true">
+    <div class="a2hs-guide-card">
+      <h3><img src="superyt-logo.png" alt="" /> Ana ekrana ekle</h3>
+      <ol class="a2hs-guide-steps" id="a2hsGuideSteps"></ol>
+      <button type="button" class="a2hs-guide-ok" id="a2hsGuideOk">Anladım</button>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
   <div class="sheet-backdrop" id="sheetBackdrop"></div>
@@ -2526,6 +2686,179 @@
     plSearch.addEventListener("keydown", function(e) {
       if (e.key === "Enter") runSearch();
     });
+
+    // ── Ana ekrana ekle (A2HS) banner — web tarayıcıda; PWA/standalone gizli ──
+    (function initA2HS() {
+      var DISMISS_KEY = "superyt_a2hs_dismiss_until";
+      var DISMISS_DAYS = 14;
+      var banner = document.getElementById("a2hsBanner");
+      var btn = document.getElementById("a2hsInstallBtn");
+      var closeBtn = document.getElementById("a2hsCloseBtn");
+      var sub = document.getElementById("a2hsSub");
+      var badge = document.getElementById("a2hsPlatformBadge");
+      var guide = document.getElementById("a2hsGuide");
+      var guideSteps = document.getElementById("a2hsGuideSteps");
+      var guideOk = document.getElementById("a2hsGuideOk");
+      if (!banner) return;
+
+      var deferredPrompt = null;
+
+      function isStandalone() {
+        try {
+          if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+          if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+          if (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+        } catch (e) {}
+        if (typeof navigator.standalone === "boolean" && navigator.standalone) return true;
+        // Android TWA / installed webapk
+        try {
+          if (document.referrer && document.referrer.indexOf("android-app://") === 0) return true;
+        } catch (e2) {}
+        return false;
+      }
+
+      function isIOS() {
+        var ua = navigator.userAgent || "";
+        if (/iPad|iPhone|iPod/.test(ua)) return true;
+        // iPadOS 13+ desktop UA
+        if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return true;
+        return false;
+      }
+
+      function isAndroid() {
+        return /Android/i.test(navigator.userAgent || "");
+      }
+
+      function isDismissed() {
+        try {
+          var until = parseInt(localStorage.getItem(DISMISS_KEY) || "0", 10);
+          if (until && Date.now() < until) return true;
+        } catch (e) {}
+        return false;
+      }
+
+      function dismiss(days) {
+        days = days == null ? DISMISS_DAYS : days;
+        try {
+          localStorage.setItem(DISMISS_KEY, String(Date.now() + days * 86400000));
+        } catch (e) {}
+        banner.classList.remove("show");
+      }
+
+      function showGuide(stepsHtml) {
+        if (!guide || !guideSteps) return;
+        guideSteps.innerHTML = stepsHtml;
+        guide.classList.add("show");
+        guide.setAttribute("aria-hidden", "false");
+      }
+
+      function hideGuide() {
+        if (!guide) return;
+        guide.classList.remove("show");
+        guide.setAttribute("aria-hidden", "true");
+      }
+
+      var iosIcon = '<svg viewBox="0 0 24 24"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3z" fill="none"/></svg>';
+      // platform badge icons
+      var badgeAndroid = '<svg viewBox="0 0 24 24"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24A11.46 11.46 0 0012 8.25c-1.53 0-2.98.3-4.32.81L5.8 5.67c-.19-.28-.54-.37-.83-.22-.3.16-.42.54-.26.85L6.55 9.48C3.97 11.03 2.25 13.7 2.25 16.75h19.5c0-3.05-1.72-5.72-4.15-7.27zM7.88 14.4a1.13 1.13 0 110-2.25 1.13 1.13 0 010 2.25zm8.24 0a1.13 1.13 0 110-2.25 1.13 1.13 0 010 2.25z"/></svg> Android';
+      var badgeIOS = '<svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg> iPhone';
+
+      function setupPlatformUI() {
+        if (isIOS()) {
+          if (badge) {
+            badge.hidden = false;
+            badge.innerHTML = badgeIOS;
+          }
+          if (sub) sub.textContent = "Paylaş → Ana Ekrana Ekle — uygulama gibi aç";
+        } else if (isAndroid()) {
+          if (badge) {
+            badge.hidden = false;
+            badge.innerHTML = badgeAndroid;
+          }
+          if (sub) sub.textContent = "Ana ekrana ekle — yer kaplamadan, tek dokunuş";
+        } else {
+          if (badge) badge.hidden = true;
+          if (sub) sub.textContent = "Ana ekrana ekle — uygulama gibi, yer kaplamadan";
+        }
+      }
+
+      function onInstallClick() {
+        // Android Chrome native prompt
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(function(choice) {
+            deferredPrompt = null;
+            if (choice && choice.outcome === "accepted") {
+              dismiss(365);
+            }
+          }).catch(function() {});
+          return;
+        }
+        if (isIOS()) {
+          showGuide(
+            "<li><strong>Paylaş</strong> simgesine dokun <span style=\"opacity:.7\">(Safari alt çubuk)</span></li>" +
+            "<li><strong>Ana Ekrana Ekle</strong> seçeneğini bul ve dokun</li>" +
+            "<li><strong>Ekle</strong> ile onayla — ikon ana ekranında belirir</li>"
+          );
+          return;
+        }
+        if (isAndroid()) {
+          showGuide(
+            "<li>Tarayıcı menüsünü aç <strong>⋮</strong> veya <strong>☰</strong></li>" +
+            "<li><strong>Ana ekrana ekle</strong> / <strong>Uygulamayı yükle</strong> seç</li>" +
+            "<li><strong>Ekle</strong> ile onayla — kısayol ana ekrana gelir</li>"
+          );
+          return;
+        }
+        showGuide(
+          "<li>Tarayıcı menüsünden <strong>Ana ekrana ekle</strong> veya <strong>Install</strong> seç</li>" +
+          "<li>Onayla — kısayol masaüstü / ana ekranda görünür</li>"
+        );
+      }
+
+      // PWA / zaten kurulu → hiç gösterme
+      if (isStandalone()) {
+        banner.classList.remove("show");
+        return;
+      }
+      if (isDismissed()) return;
+
+      setupPlatformUI();
+      banner.classList.add("show");
+
+      window.addEventListener("beforeinstallprompt", function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Native prompt mümkün — banner zaten açık
+        if (sub && isAndroid()) {
+          sub.textContent = "Tek dokunuşla ana ekrana ekle";
+        }
+      });
+
+      window.addEventListener("appinstalled", function() {
+        deferredPrompt = null;
+        dismiss(365);
+      });
+
+      // display-mode değişirse (kurulum sonrası) gizle
+      try {
+        var mq = window.matchMedia("(display-mode: standalone)");
+        if (mq && mq.addEventListener) {
+          mq.addEventListener("change", function() {
+            if (isStandalone()) banner.classList.remove("show");
+          });
+        }
+      } catch (e) {}
+
+      if (btn) btn.addEventListener("click", onInstallClick);
+      if (closeBtn) closeBtn.addEventListener("click", function() { dismiss(DISMISS_DAYS); });
+      if (guideOk) guideOk.addEventListener("click", hideGuide);
+      if (guide) {
+        guide.addEventListener("click", function(e) {
+          if (e.target === guide) hideGuide();
+        });
+      }
+    })();
   </script>
 </body>
 </html>
