@@ -623,31 +623,6 @@
       font-weight: 800;
       color: #1DB954;
     }
-    .sp-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .sp-chip {
-      flex: 1;
-      min-width: 0;
-      padding: 8px 6px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: #2a2a2a;
-      color: #bbb;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      text-align: center;
-    }
-    .sp-chip.active {
-      background: rgba(29,185,84,0.2);
-      border-color: #1DB954;
-      color: #1DB954;
-    }
-    .sp-chip:active { transform: scale(0.97); }
 
     .player-area {
       flex: 1;
@@ -672,31 +647,6 @@
       border: none;
       background: #000;
     }
-    /*
-      Kalite hilesi: YouTube ABR iframe piksel boyutuna bakarak bitrate seçer.
-      Düşük/normal = küçük gerçek çözünürlük + CSS scale ile ekranı doldur.
-    */
-    .player-area.quality-low #ytplayer,
-    .player-area.quality-low #ytplayer-host,
-    .player-area.quality-low iframe {
-      width: 426px !important;
-      height: 240px !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      transform: translate(-50%, -50%) scale(var(--yt-q-scale, 4)) !important;
-      transform-origin: center center !important;
-    }
-    .player-area.quality-normal #ytplayer,
-    .player-area.quality-normal #ytplayer-host,
-    .player-area.quality-normal iframe {
-      width: 854px !important;
-      height: 480px !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      transform: translate(-50%, -50%) scale(var(--yt-q-scale, 2)) !important;
-      transform-origin: center center !important;
-    }
-    /* quality-high: varsayılan full cover kuralları */
 
     .player-loading {
       display: none;
@@ -1010,20 +960,6 @@
               <span class="sp-seconds-val" id="chromeSecondsVal">3 sn</span>
             </div>
             <input type="range" id="chromeSecondsRange" min="1" max="15" value="3" step="1" />
-          </div>
-        </div>
-
-        <div class="sp-section">
-          <div class="sp-row" style="margin-bottom:4px">
-            <div>
-              <div class="sp-row-label">Video kalitesi</div>
-              <div class="sp-row-sub">Mümkün olan en yakın kaliteye sabitler</div>
-            </div>
-          </div>
-          <div class="sp-chips" id="qualityChips">
-            <button type="button" class="sp-chip" data-quality="low">Düşük</button>
-            <button type="button" class="sp-chip active" data-quality="normal">Normal</button>
-            <button type="button" class="sp-chip" data-quality="high">Yüksek</button>
           </div>
         </div>
 
@@ -2535,112 +2471,6 @@
     var ytApiReady = false;
     var ytApiWaiters = [];
     var ytPlayerInstance = null;
-
-    // —— Video kalitesi tercihi ——
-    // YouTube setPlaybackQuality çoğu zaman yok sayılır.
-    // Asıl etki: iframe'i düşük piksel boyutunda tutup CSS scale ile büyütmek (ABR).
-    var KEY_QUALITY = "minimal_muzik_quality";
-    var videoQualityPref = "normal"; // low | normal | high
-    var _qualityEnforceTimer = null;
-    try {
-      var _qSaved = localStorage.getItem(KEY_QUALITY);
-      if (_qSaved === "low" || _qSaved === "normal" || _qSaved === "high") videoQualityPref = _qSaved;
-    } catch (eQ) {}
-
-    function qualityRangeForPref(pref) {
-      if (pref === "low") return { min: "tiny", max: "small" };       // ~144–240p
-      if (pref === "high") return { min: "hd720", max: "highres" };   // ≥720p
-      return { min: "medium", max: "large" };                         // ~360–480p
-    }
-
-    function updateQualityScale() {
-      var area = document.querySelector(".player-area");
-      if (!area) return;
-      var baseW = videoQualityPref === "low" ? 426 : videoQualityPref === "normal" ? 854 : 0;
-      if (!baseW) {
-        area.style.removeProperty("--yt-q-scale");
-        return;
-      }
-      var rect = area.getBoundingClientRect();
-      var scale = Math.max(rect.width / baseW, rect.height / (baseW * 9 / 16)) * 1.02;
-      area.style.setProperty("--yt-q-scale", String(Math.max(1, scale)));
-    }
-
-    function applyPlayerViewportSize() {
-      var area = document.querySelector(".player-area");
-      if (!area) return;
-      area.classList.remove("quality-low", "quality-normal", "quality-high");
-      area.classList.add("quality-" + videoQualityPref);
-      updateQualityScale();
-      // iframe inline style varsa low/normal'de ez
-      try {
-        var iframe = null;
-        if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
-          iframe = ytPlayerInstance.getIframe();
-        }
-        if (!iframe) iframe = document.querySelector(".player-area iframe");
-        if (!iframe) return;
-        if (videoQualityPref === "high") {
-          iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
-        } else {
-          var w = videoQualityPref === "low" ? 426 : 854;
-          var h = videoQualityPref === "low" ? 240 : 480;
-          iframe.style.cssText = "position:absolute;top:50%;left:50%;width:" + w + "px;height:" + h + "px;min-width:0;min-height:0;transform:translate(-50%,-50%) scale(var(--yt-q-scale,2));transform-origin:center center;border:none;background:#000;z-index:1;display:block;";
-        }
-      } catch (e) {}
-    }
-
-    function applyVideoQuality(player) {
-      player = player || ytPlayerInstance;
-      applyPlayerViewportSize();
-      if (!player) return;
-      var range = qualityRangeForPref(videoQualityPref);
-      try {
-        if (typeof player.setPlaybackQualityRange === "function") {
-          player.setPlaybackQualityRange(range.min, range.max);
-        }
-      } catch (e1) {}
-      try {
-        if (typeof player.setPlaybackQuality === "function") {
-          var suggested = videoQualityPref === "low" ? "small"
-            : videoQualityPref === "high" ? "hd1080" : "large";
-          player.setPlaybackQuality(suggested);
-        }
-      } catch (e2) {}
-      // YT bazen birkaç sn sonra kaliteyi yükseltir — periyodik zorla
-      if (_qualityEnforceTimer) {
-        clearInterval(_qualityEnforceTimer);
-        _qualityEnforceTimer = null;
-      }
-      if (videoQualityPref !== "high") {
-        _qualityEnforceTimer = setInterval(function() {
-          if (!ytPlayerInstance) return;
-          try {
-            if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
-              var r = qualityRangeForPref(videoQualityPref);
-              ytPlayerInstance.setPlaybackQualityRange(r.min, r.max);
-            }
-          } catch (e) {}
-        }, 4000);
-      }
-    }
-
-    function setVideoQualityPref(pref) {
-      if (pref !== "low" && pref !== "normal" && pref !== "high") return;
-      videoQualityPref = pref;
-      try { localStorage.setItem(KEY_QUALITY, pref); } catch (e) {}
-      applyVideoQuality(ytPlayerInstance);
-      var chips = document.getElementById("qualityChips");
-      if (chips) {
-        chips.querySelectorAll(".sp-chip").forEach(function(c) {
-          c.classList.toggle("active", c.getAttribute("data-quality") === pref);
-        });
-      }
-    }
-
-    window.addEventListener("resize", function() {
-      try { updateQualityScale(); } catch (e) {}
-    });
     var ytHostId = "ytplayer-host";
 
     // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
@@ -2945,7 +2775,6 @@
         function finishLoadSuccess(target) {
           if (myToken !== _loadToken) return;
           pendingPlayId = null;
-          try { applyVideoQuality(target || ytPlayerInstance); } catch (eQ) {}
           applyMuteAndPlay(target || ytPlayerInstance);
           // Loading KAPATMA — YT ortadaki pause butonu görünmesin;
           // sadece PLAYING (veya watchdog) kapatır
@@ -3094,7 +2923,6 @@
           onReady: function(ev) {
             if (myToken != null && myToken !== _loadToken) return;
             pendingPlayId = null;
-            try { applyVideoQuality(ev.target); } catch (eQ) {}
             applyMuteAndPlayRecreate(ev.target);
             // Loading'i burada kapatma — PLAYING gelene kadar siyah örtü YT pause butonunu gizler
             try {
@@ -3102,8 +2930,8 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
-                applyPlayerViewportSize();
               }
             } catch (e3) {}
             bindMediaSessionHandlers();
@@ -3134,7 +2962,6 @@
                 // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
                 markMediaUnlocked();
                 try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
-                try { applyVideoQuality(event.target || ytPlayerInstance); } catch (eQ) {}
                 bumpMediaSessionPlaying();
                 // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
                 if (currentPlayingId) startSponsorCheck(currentPlayingId);
@@ -3773,21 +3600,6 @@
       var hideTimer = null;
       var chromeHideOn = true;
       var hideSec = 3;
-
-      // Kalite chip UI senkron
-      (function syncQualityChips() {
-        var chips = document.getElementById("qualityChips");
-        if (!chips) return;
-        chips.querySelectorAll(".sp-chip").forEach(function(c) {
-          c.classList.toggle("active", c.getAttribute("data-quality") === videoQualityPref);
-          c.addEventListener("click", function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var q = c.getAttribute("data-quality");
-            setVideoQualityPref(q);
-          });
-        });
-      })();
 
       try {
         var hs = localStorage.getItem(KEY_HIDE);
