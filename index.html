@@ -908,7 +908,32 @@
       return code;
     }
 
+    var _remotePlaying = false;
+    var _remotePos = 0;
+    var _remoteDur = 0;
+
+    function samplePlayerProgress() {
+      try {
+        if (ytPlayerInstance && typeof YT !== "undefined") {
+          if (typeof ytPlayerInstance.getPlayerState === "function") {
+            var st = ytPlayerInstance.getPlayerState();
+            _remotePlaying = st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING;
+          }
+          if (typeof ytPlayerInstance.getCurrentTime === "function") {
+            _remotePos = ytPlayerInstance.getCurrentTime() || 0;
+          }
+          if (typeof ytPlayerInstance.getDuration === "function") {
+            var d = ytPlayerInstance.getDuration() || 0;
+            if (d > 0) _remoteDur = d;
+          }
+        }
+      } catch (e) {}
+      if (_remoteDur <= 0 && window._ytDuration) _remoteDur = window._ytDuration;
+      if (_remotePos <= 0 && window._ytLastKnownTime) _remotePos = window._ytLastKnownTime;
+    }
+
     function buildSyncState() {
+      samplePlayerProgress();
       return {
         room: roomCode,
         now: currentPlayingId
@@ -922,6 +947,9 @@
           return { id: x.id, title: x.title || "", author: x.author || "" };
         }),
         index: playIndex,
+        playing: !!_remotePlaying,
+        position: Math.max(0, Number(_remotePos) || 0),
+        duration: Math.max(0, Number(_remoteDur) || 0),
         updated: Date.now()
       };
     }
@@ -965,10 +993,11 @@
 
     function startSyncHeartbeat() {
       if (_syncHeartbeatTimer) clearInterval(_syncHeartbeatTimer);
+      // Daha sık: remote progress bar akıcı olsun
       _syncHeartbeatTimer = setInterval(function() {
         if (!roomCode) return;
         broadcastState();
-      }, 2000);
+      }, 1000);
     }
 
     function cmdDedupeKey(cmd) {
@@ -1008,6 +1037,41 @@
       }
       if (cmd.type === "prev") {
         playPrev();
+        return;
+      }
+      if (cmd.type === "pause") {
+        msPause();
+        _remotePlaying = false;
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "resume" || cmd.type === "playPause") {
+        // playPause = toggle
+        if (cmd.type === "playPause") {
+          samplePlayerProgress();
+          if (_remotePlaying) {
+            msPause();
+            _remotePlaying = false;
+          } else {
+            msPlay();
+            _remotePlaying = true;
+          }
+        } else {
+          msPlay();
+          _remotePlaying = true;
+        }
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "seek" && typeof cmd.position === "number") {
+        try {
+          var sec = Math.max(0, cmd.position);
+          if (ytPlayerInstance && typeof ytPlayerInstance.seekTo === "function") {
+            ytPlayerInstance.seekTo(sec, true);
+            _remotePos = sec;
+          }
+        } catch (e) {}
+        broadcastState();
         return;
       }
       if (cmd.type === "setMode") {
@@ -2559,12 +2623,14 @@
               }
               if (event.data === YT.PlayerState.PLAYING) {
                 setPlayerLoading(false);
+                _remotePlaying = true;
                 // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
                 markMediaUnlocked();
                 try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
                 bumpMediaSessionPlaying();
                 // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
                 if (currentPlayingId) startSponsorCheck(currentPlayingId);
+                try { broadcastState(); } catch (eB) {}
               }
               if (event.data === YT.PlayerState.PAUSED) {
                 stopSponsorCheck();
@@ -2579,6 +2645,9 @@
                         }
                       } catch (eR) {}
                     }, 120);
+                  } else {
+                    _remotePlaying = false;
+                    try { broadcastState(); } catch (eB2) {}
                   }
                 } catch (eP) {}
               }

@@ -144,41 +144,67 @@
     }
     .mode-btn:active { transform: scale(0.97); }
 
-    /* Sticky mini-player — Spotify bottom bar (listeyi ezmez) */
+    /* Sticky mini-player */
     .now-box {
       flex-shrink: 0;
       margin: 0;
-      padding: 10px 12px calc(8px + var(--safe-b));
-      background: linear-gradient(180deg, #242424 0%, #181818 100%);
-      border-top: 1px solid #2a2a2a;
-      display: flex; align-items: center; gap: 10px;
-      box-shadow: 0 -8px 28px rgba(0,0,0,0.45);
+      padding: 0 0 calc(4px + var(--safe-b));
+      background: linear-gradient(180deg, #2a2a2a 0%, #181818 55%);
+      border-top: 1px solid #333;
+      box-shadow: 0 -10px 32px rgba(0,0,0,0.5);
       position: relative;
-      touch-action: pan-y;
       user-select: none;
       transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .2s;
     }
-    .now-box.swipe-left { transform: translateX(-18px); opacity: 0.85; }
-    .now-box.swipe-right { transform: translateX(18px); opacity: 0.85; }
-    .now-box::before {
+    .now-box.swipe-left { transform: translateX(-14px); opacity: 0.88; }
+    .now-box.swipe-right { transform: translateX(14px); opacity: 0.88; }
+    .now-progress-wrap {
+      padding: 0 12px;
+      height: 14px;
+      display: flex; align-items: center;
+      cursor: pointer;
+    }
+    .now-progress-track {
+      flex: 1; height: 3px; border-radius: 2px;
+      background: #404040; position: relative;
+      overflow: visible;
+    }
+    .now-progress-fill {
+      height: 100%; border-radius: 2px;
+      background: var(--green);
+      width: 0%;
+      transition: width .35s linear;
+      position: relative;
+    }
+    .now-progress-fill::after {
       content: "";
-      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-      width: 36px; height: 3px; border-radius: 2px;
-      background: #3a3a3a;
+      position: absolute; right: -5px; top: 50%;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #fff;
+      transform: translateY(-50%);
+      box-shadow: 0 0 6px rgba(0,0,0,0.5);
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .now-progress-wrap:active .now-progress-fill::after { opacity: 1; }
+    .now-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 12px 4px;
+      touch-action: pan-y;
     }
     .now-art {
-      width: 48px; height: 48px; border-radius: 6px;
+      width: 46px; height: 46px; border-radius: 6px;
       background: var(--bg-highlight) center/cover no-repeat;
       flex-shrink: 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
       display: flex; align-items: center; justify-content: center;
       color: var(--text-muted); overflow: hidden;
     }
-    .now-art svg { width: 22px; height: 22px; fill: currentColor; opacity: 0.5; }
-    .now-meta { flex: 1; min-width: 0; padding-top: 2px; }
-    .now-label {
-      font-size: 9px; color: var(--green); text-transform: uppercase;
-      letter-spacing: 1.2px; margin-bottom: 2px; font-weight: 800;
+    .now-art svg { width: 20px; height: 20px; fill: currentColor; opacity: 0.5; }
+    .now-meta { flex: 1; min-width: 0; }
+    .now-times {
+      font-size: 9px; color: var(--text-muted); font-weight: 600;
+      margin-bottom: 1px; letter-spacing: 0.2px;
     }
     .now-title {
       font-size: 13px; font-weight: 700; color: var(--text);
@@ -189,44 +215,145 @@
       font-size: 11px; color: var(--text-sub);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-
-    /* Transport — mini player içinde, dikey yer yemez */
     .controls {
       flex-shrink: 0;
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center; gap: 2px;
     }
     .controls button {
-      width: 40px; height: 40px;
+      width: 38px; height: 38px;
       background: transparent; border: none; border-radius: 50%;
       color: var(--text); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: transform .12s, background .15s, color .15s;
+      transition: transform .12s, background .15s;
     }
-    .controls button svg {
-      width: 22px; height: 22px; fill: currentColor;
-    }
-    .controls button:active {
-      transform: scale(0.88);
-      background: var(--bg-highlight);
-    }
+    .controls button svg { width: 22px; height: 22px; fill: currentColor; }
+    .controls button:active { transform: scale(0.88); background: var(--bg-highlight); }
     .controls button.primary {
-      width: 44px; height: 44px;
+      width: 42px; height: 42px;
       background: var(--green); color: #000;
       box-shadow: 0 3px 12px rgba(29,185,84,0.4);
     }
-    .controls button.primary svg { width: 20px; height: 20px; }
-    .controls button.primary:active {
-      background: var(--green-hover);
-      transform: scale(0.9);
-    }
-
-    /* Swipe ipucu animasyonu (ilk açılışta) */
+    .controls button.primary svg { width: 22px; height: 22px; }
+    .controls button.primary:active { background: var(--green-hover); transform: scale(0.9); }
     @keyframes hint-swipe {
       0%, 100% { transform: translateX(0); }
       30% { transform: translateX(-12px); }
       60% { transform: translateX(12px); }
     }
     .now-box.hint { animation: hint-swipe 1.2s ease-in-out 1; }
+
+    /* Drag handle */
+    .q-drag {
+      width: 28px; height: 40px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #555; cursor: grab; touch-action: none;
+    }
+    .q-drag svg { width: 18px; height: 18px; fill: currentColor; }
+    .q-item.dragging {
+      opacity: 0.55; background: var(--bg-highlight);
+      transform: scale(1.02);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .q-item.drag-over {
+      border-top: 2px solid var(--green);
+    }
+    .q-fav {
+      color: #555; flex-shrink: 0;
+      width: 32px; height: 32px; border: none; background: transparent;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    .q-fav svg { width: 18px; height: 18px; fill: currentColor; }
+    .q-fav.on { color: var(--green); }
+    .q-fav:active { background: var(--bg-highlight); }
+
+    /* Action sheet (uzun bas) */
+    .sheet-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .sheet-backdrop.show { display: block; }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 101;
+      background: #282828; border-radius: 16px 16px 0 0;
+      padding: 8px 0 calc(16px + var(--safe-b));
+      transform: translateY(110%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 -12px 40px rgba(0,0,0,0.5);
+    }
+    .sheet.show { transform: translateY(0); }
+    .sheet-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: #555; margin: 6px auto 12px;
+    }
+    .sheet-song {
+      display: flex; align-items: center; gap: 12px;
+      padding: 4px 20px 14px; border-bottom: 1px solid #333;
+      margin-bottom: 6px;
+    }
+    .sheet-song-art {
+      width: 48px; height: 48px; border-radius: 6px;
+      background: #333 center/cover no-repeat; flex-shrink: 0;
+    }
+    .sheet-song-title {
+      font-size: 14px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sheet-song-author { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .sheet-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; font-size: 15px; font-weight: 600;
+      color: var(--text); cursor: pointer; border: none;
+      background: transparent; width: 100%; text-align: left;
+    }
+    .sheet-item:active { background: #333; }
+    .sheet-item svg { width: 22px; height: 22px; fill: currentColor; flex-shrink: 0; opacity: 0.9; }
+    .sheet-item.danger { color: #ff6b6b; }
+
+    /* Gece parlaklık */
+    .dim-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      background: #000; pointer-events: none;
+      opacity: 0; transition: opacity .2s;
+    }
+    .bright-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: none; background: var(--bg-highlight); color: var(--text-sub);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .bright-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .bright-btn:active { background: #333; color: var(--green); }
+    .bright-panel {
+      display: none; position: absolute; right: 12px; top: 52px;
+      background: #282828; border-radius: 14px; padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 50;
+      width: 200px; border: 1px solid #333;
+    }
+    .bright-panel.show { display: block; }
+    .bright-panel label {
+      font-size: 11px; font-weight: 700; color: var(--text-sub);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      display: block; margin-bottom: 10px;
+    }
+    .bright-panel input[type=range] {
+      width: 100%; accent-color: var(--green); height: 4px;
+    }
+    .header { position: relative; }
+
+    /* Toast */
+    .toast {
+      position: fixed; left: 50%; bottom: 120px; z-index: 120;
+      transform: translateX(-50%) translateY(20px);
+      background: #282828; color: #fff; padding: 10px 18px;
+      border-radius: 24px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* Search */
     .search-bar {
@@ -457,6 +584,36 @@
 </head>
 <body>
 
+  <div class="dim-overlay" id="dimOverlay"></div>
+  <div class="toast" id="toast"></div>
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet" id="actionSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-song">
+      <div class="sheet-song-art" id="sheetArt"></div>
+      <div style="min-width:0;flex:1">
+        <div class="sheet-song-title" id="sheetTitle">—</div>
+        <div class="sheet-song-author" id="sheetAuthor">—</div>
+      </div>
+    </div>
+    <button type="button" class="sheet-item" data-act="play">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      Şimdi çal
+    </button>
+    <button type="button" class="sheet-item" data-act="next">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      Sonrakine ekle
+    </button>
+    <button type="button" class="sheet-item" data-act="fav" id="sheetFavBtn">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      Favorilere ekle
+    </button>
+    <button type="button" class="sheet-item danger" data-act="remove" id="sheetRmBtn">
+      <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      Listeden çıkar
+    </button>
+  </div>
+
   <div class="header">
     <div class="header-brand">
       <img class="header-logo" src="superyt-logo.png" alt="SuperYT" />
@@ -467,6 +624,13 @@
         </h1>
         <div class="sub" id="statusText">Bağlantı bekleniyor…</div>
       </div>
+      <button type="button" class="bright-btn" id="brightBtn" title="Ekran parlaklığı" aria-label="Parlaklık">
+        <svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
+      </button>
+    </div>
+    <div class="bright-panel" id="brightPanel">
+      <label for="brightRange">Gece parlaklığı</label>
+      <input type="range" id="brightRange" min="0" max="75" value="0" />
     </div>
   </div>
 
@@ -513,30 +677,41 @@
 
     <div class="tabs" id="tabsBar">
       <div class="tab active" data-tab="playlist">Playlistim</div>
-      <div class="tab" data-tab="ready">Hazır Listeler</div>
-      <div class="tab" data-tab="search">Şarkı Ara</div>
+      <div class="tab" data-tab="favs">Favoriler</div>
+      <div class="tab" data-tab="ready">Listeler</div>
+      <div class="tab" data-tab="search">Ara</div>
     </div>
 
     <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
     <div class="scroll-area" id="scrollArea"></div>
 
-    <!-- Spotify tarzı alt mini-player: kaydır = prev/next, listeyi yukarı iter -->
     <div class="now-box" id="nowBox">
-      <div class="now-art" id="nowArt">
-        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      <div class="now-progress-wrap" id="progressWrap" title="İlerlet">
+        <div class="now-progress-track">
+          <div class="now-progress-fill" id="progressFill"></div>
+        </div>
       </div>
-      <div class="now-meta">
-        <div class="now-label">Şimdi çalıyor · kaydır</div>
-        <div class="now-title" id="nowTitle">—</div>
-        <div class="now-author" id="nowAuthor">—</div>
-      </div>
-      <div class="controls">
-        <button type="button" id="prevBtn" title="Önceki" aria-label="Önceki">
-          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-        </button>
-        <button type="button" class="primary" id="nextBtn" title="Sonraki" aria-label="Sonraki">
-          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-        </button>
+      <div class="now-row" id="nowRow">
+        <div class="now-art" id="nowArt">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        </div>
+        <div class="now-meta">
+          <div class="now-times" id="nowTimes">0:00 / 0:00</div>
+          <div class="now-title" id="nowTitle">—</div>
+          <div class="now-author" id="nowAuthor">—</div>
+        </div>
+        <div class="controls">
+          <button type="button" id="prevBtn" title="Önceki" aria-label="Önceki">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button type="button" class="primary" id="playPauseBtn" title="Oynat / Duraklat" aria-label="Oynat">
+            <svg id="iconPlay" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button type="button" id="nextBtn" title="Sonraki" aria-label="Sonraki">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -553,6 +728,8 @@
     const BC_NAME = "minimal_muzik_bc";
     const SEARCH_INSTANCES = ["https://invidious.f5.si"];
     const MANUAL_KEY = "minimal_muzik_manual_pl";
+    const FAV_KEY = "minimal_muzik_favs";
+    const BRIGHT_KEY = "minimal_muzik_dim";
 
     const YT_MUSIC_CHANNEL = "UC-9-kyTW8ZkZNDHQJ6FgpwQ";
     const YT_CHARTS_AUTHOR = "YouTube Music Global Charts";
@@ -625,10 +802,16 @@
     let mode = "shuffle";
     let activeTab = "playlist";
     let manualQueue = [];
+    let favorites = [];
     let searchResults = [];
     let readyPlaylists = [];
     let searchLoading = false;
     let importing = false;
+    let isPlayingRemote = false;
+    let remotePos = 0;
+    let remoteDur = 0;
+    let sheetItem = null;
+    let _progressDragging = false;
 
     const connectScreen = document.getElementById("connectScreen");
     const mainScreen = document.getElementById("mainScreen");
@@ -653,10 +836,38 @@
     const plCats = document.getElementById("plCats");
     const modeShuffle = document.getElementById("modeShuffle");
     const modeManual = document.getElementById("modeManual");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    const iconPlay = document.getElementById("iconPlay");
+    const iconPause = document.getElementById("iconPause");
+    const progressFill = document.getElementById("progressFill");
+    const progressWrap = document.getElementById("progressWrap");
+    const nowTimes = document.getElementById("nowTimes");
+    const dimOverlay = document.getElementById("dimOverlay");
+    const brightBtn = document.getElementById("brightBtn");
+    const brightPanel = document.getElementById("brightPanel");
+    const brightRange = document.getElementById("brightRange");
+    const toastEl = document.getElementById("toast");
+    const sheetBackdrop = document.getElementById("sheetBackdrop");
+    const actionSheet = document.getElementById("actionSheet");
 
     function thumbUrl(id) {
       if (!id) return "";
       return "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+    }
+
+    function fmtTime(sec) {
+      sec = Math.max(0, Math.floor(Number(sec) || 0));
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function showToast(msg) {
+      if (!toastEl) return;
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(function() { toastEl.classList.remove("show"); }, 1800);
     }
 
     function setNowArt(id) {
@@ -669,6 +880,75 @@
         nowArt.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>';
       }
     }
+
+    function updatePlayPauseUI(playing) {
+      isPlayingRemote = !!playing;
+      if (iconPlay) iconPlay.style.display = playing ? "none" : "block";
+      if (iconPause) iconPause.style.display = playing ? "block" : "none";
+    }
+
+    function updateProgressUI(pos, dur) {
+      if (_progressDragging) return;
+      remotePos = Number(pos) || 0;
+      remoteDur = Number(dur) || 0;
+      var pct = remoteDur > 0 ? Math.min(100, (remotePos / remoteDur) * 100) : 0;
+      if (progressFill) progressFill.style.width = pct + "%";
+      if (nowTimes) nowTimes.textContent = fmtTime(remotePos) + " / " + fmtTime(remoteDur);
+    }
+
+    function loadFavs() {
+      try { favorites = JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); }
+      catch (e) { favorites = []; }
+      if (!Array.isArray(favorites)) favorites = [];
+    }
+    function saveFavs() {
+      try { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); } catch (e) {}
+    }
+    function isFav(id) {
+      return favorites.some(function(x) { return x.id === id; });
+    }
+    function toggleFav(item) {
+      if (!item || !item.id) return;
+      if (isFav(item.id)) {
+        favorites = favorites.filter(function(x) { return x.id !== item.id; });
+        showToast("Favorilerden çıkarıldı");
+      } else {
+        favorites.unshift({ id: item.id, title: item.title || "", author: item.author || "" });
+        if (favorites.length > 200) favorites = favorites.slice(0, 200);
+        showToast("Favorilere eklendi");
+      }
+      saveFavs();
+      renderList();
+    }
+    loadFavs();
+
+    // Gece parlaklığı
+    (function initBright() {
+      var v = 0;
+      try { v = parseInt(localStorage.getItem(BRIGHT_KEY) || "0", 10) || 0; } catch (e) {}
+      if (brightRange) brightRange.value = String(v);
+      if (dimOverlay) dimOverlay.style.opacity = String(Math.min(0.75, v / 100));
+      if (brightBtn) {
+        brightBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          if (brightPanel) brightPanel.classList.toggle("show");
+        });
+      }
+      if (brightRange) {
+        brightRange.addEventListener("input", function() {
+          var n = parseInt(brightRange.value, 10) || 0;
+          if (dimOverlay) dimOverlay.style.opacity = String(Math.min(0.75, n / 100));
+          try { localStorage.setItem(BRIGHT_KEY, String(n)); } catch (e) {}
+        });
+      }
+      document.addEventListener("click", function(e) {
+        if (brightPanel && brightPanel.classList.contains("show")) {
+          if (!brightPanel.contains(e.target) && e.target !== brightBtn && !brightBtn.contains(e.target)) {
+            brightPanel.classList.remove("show");
+          }
+        }
+      });
+    })();
 
     (function() {
       var params = new URLSearchParams(location.search);
@@ -768,9 +1048,11 @@
 
     function applyState(state) {
       if (!state) return;
+      var prevId = lastState && lastState.now && lastState.now.id;
+      var prevQlen = lastState && lastState.queue ? lastState.queue.length : -1;
       lastState = state;
-      if (state.now && state.now.title) {
-        nowTitle.textContent = state.now.title;
+      if (state.now && (state.now.title || state.now.id)) {
+        nowTitle.textContent = state.now.title || "—";
         nowAuthor.textContent = state.now.author || "YouTube";
         setNowArt(state.now.id);
       } else {
@@ -778,7 +1060,124 @@
         nowAuthor.textContent = "Hazır listeden seç veya ara";
         setNowArt("");
       }
-      renderList();
+      if (typeof state.playing === "boolean") updatePlayPauseUI(state.playing);
+      if (state.position != null || state.duration != null) {
+        updateProgressUI(state.position, state.duration || remoteDur);
+      }
+      var newId = state.now && state.now.id;
+      var newQlen = state.queue ? state.queue.length : 0;
+      if (newId !== prevId || newQlen !== prevQlen || !applyState._rendered) {
+        applyState._rendered = true;
+        renderList();
+      }
+    }
+
+    function openSheet(item, fromManual) {
+      if (!item || !item.id) return;
+      sheetItem = { id: item.id, title: item.title || "", author: item.author || "", fromManual: !!fromManual };
+      var art = document.getElementById("sheetArt");
+      var st = document.getElementById("sheetTitle");
+      var sa = document.getElementById("sheetAuthor");
+      var fb = document.getElementById("sheetFavBtn");
+      var rb = document.getElementById("sheetRmBtn");
+      if (art) art.style.backgroundImage = "url(" + thumbUrl(item.id) + ")";
+      if (st) st.textContent = item.title || "—";
+      if (sa) sa.textContent = item.author || "";
+      if (fb) fb.innerHTML = isFav(item.id)
+        ? '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> Favorilerden çıkar'
+        : '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> Favorilere ekle';
+      if (rb) rb.style.display = fromManual || (mode === "manual" && activeTab === "playlist") ? "flex" : "none";
+      if (sheetBackdrop) sheetBackdrop.classList.add("show");
+      if (actionSheet) actionSheet.classList.add("show");
+    }
+    function closeSheet() {
+      sheetItem = null;
+      if (sheetBackdrop) sheetBackdrop.classList.remove("show");
+      if (actionSheet) actionSheet.classList.remove("show");
+    }
+
+    function bindLongPress(el, item, fromManual) {
+      var timer = null;
+      var startX = 0, startY = 0;
+      function clear() {
+        if (timer) { clearTimeout(timer); timer = null; }
+      }
+      el.addEventListener("touchstart", function(e) {
+        if (!e.touches || !e.touches[0]) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        clear();
+        timer = setTimeout(function() {
+          timer = null;
+          openSheet(item, fromManual);
+        }, 480);
+      }, { passive: true });
+      el.addEventListener("touchmove", function(e) {
+        if (!timer || !e.touches || !e.touches[0]) return;
+        if (Math.abs(e.touches[0].clientX - startX) > 12 || Math.abs(e.touches[0].clientY - startY) > 12) clear();
+      }, { passive: true });
+      el.addEventListener("touchend", clear);
+      el.addEventListener("touchcancel", clear);
+      el.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+        openSheet(item, fromManual);
+      });
+    }
+
+    function bindDragReorder() {
+      var items = scrollArea.querySelectorAll(".q-item[data-idx]");
+      items.forEach(function(row) {
+        var handle = row.querySelector(".q-drag");
+        if (!handle) return;
+        var startY = 0, fromIdx = -1, current = null;
+
+        function onStart(y, targetRow) {
+          fromIdx = parseInt(targetRow.dataset.idx, 10);
+          if (isNaN(fromIdx)) return;
+          current = targetRow;
+          startY = y;
+          current.classList.add("dragging");
+        }
+        function onMove(y) {
+          if (!current) return;
+          var over = document.elementFromPoint(handle.getBoundingClientRect().left + 10, y);
+          var row = over && over.closest ? over.closest(".q-item[data-idx]") : null;
+          scrollArea.querySelectorAll(".q-item").forEach(function(r) { r.classList.remove("drag-over"); });
+          if (row && row !== current) row.classList.add("drag-over");
+        }
+        function onEnd(y) {
+          if (!current) return;
+          current.classList.remove("dragging");
+          scrollArea.querySelectorAll(".q-item").forEach(function(r) { r.classList.remove("drag-over"); });
+          var over = document.elementFromPoint(handle.getBoundingClientRect().left + 10, y || startY);
+          var row = over && over.closest ? over.closest(".q-item[data-idx]") : null;
+          var toIdx = row ? parseInt(row.dataset.idx, 10) : -1;
+          current = null;
+          if (isNaN(toIdx) || toIdx < 0 || toIdx === fromIdx) return;
+          var moved = manualQueue.splice(fromIdx, 1)[0];
+          if (!moved) return;
+          manualQueue.splice(toIdx, 0, moved);
+          saveManual();
+          sendCommand({ type: "setQueue", queue: manualQueue });
+          renderList();
+          showToast("Sıra güncellendi");
+        }
+
+        handle.addEventListener("touchstart", function(e) {
+          if (!e.touches[0]) return;
+          e.preventDefault();
+          onStart(e.touches[0].clientY, row);
+        }, { passive: false });
+        handle.addEventListener("touchmove", function(e) {
+          if (!e.touches[0] || !current) return;
+          e.preventDefault();
+          onMove(e.touches[0].clientY);
+        }, { passive: false });
+        handle.addEventListener("touchend", function(e) {
+          var y = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : startY;
+          onEnd(y);
+        });
+      });
     }
 
     function artHtml(id, fallbackNum) {
@@ -793,7 +1192,7 @@
 
       if (mode === "shuffle") {
         var queue = (lastState && lastState.queue) ? lastState.queue : [];
-        listLabel.textContent = "Sıradaki şarkılar";
+        listLabel.textContent = "Sıradaki şarkılar · uzun bas = menü";
         if (!queue.length) {
           scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>Ana uygulamada kategori seç veya ara.</div>';
           return;
@@ -808,13 +1207,79 @@
             '<div class="q-info">' +
             '<div class="q-title">' + escapeHtml(item.title || "—") + '</div>' +
             '<div class="q-author">' + escapeHtml(item.author || "") + '</div>' +
-            '</div></div>';
+            '</div>' +
+            '<button type="button" class="q-fav' + (isFav(item.id) ? " on" : "") + '" data-favi="' + i + '" aria-label="Favori">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+            '</button></div>';
         }
         scrollArea.innerHTML = html;
-        scrollArea.querySelectorAll(".q-item").forEach(function(el) {
-          el.addEventListener("click", function() {
+        scrollArea.querySelectorAll(".q-item").forEach(function(el, idx) {
+          el.addEventListener("click", function(e) {
+            if (e.target.closest(".q-fav")) return;
             sendCommand({ type: "play", id: el.dataset.id });
           });
+          bindLongPress(el, queue[idx], false);
+        });
+        scrollArea.querySelectorAll("[data-favi]").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var it = queue[parseInt(btn.dataset.favi, 10)];
+            if (it) toggleFav(it);
+          });
+        });
+        return;
+      }
+
+      if (activeTab === "favs") {
+        listLabel.innerHTML = "Favoriler (" + favorites.length + ")" +
+          (favorites.length ? ' <button type="button" id="clearFavBtn">Temizle</button>' : "");
+        if (!favorites.length) {
+          scrollArea.innerHTML = '<div class="empty-q">Henüz favori yok.<br>Şarkıya uzun bas → Favorilere ekle.</div>';
+          return;
+        }
+        var htmlF = "";
+        for (var f = 0; f < favorites.length; f++) {
+          var itemF = favorites[f];
+          var isPF = itemF.id === currentId;
+          htmlF +=
+            '<div class="q-item' + (isPF ? " playing" : "") + '" data-id="' + itemF.id + '">' +
+            artHtml(itemF.id, f + 1) +
+            '<div class="q-info">' +
+            '<div class="q-title">' + escapeHtml(itemF.title || "—") + '</div>' +
+            '<div class="q-author">' + escapeHtml(itemF.author || "") + '</div>' +
+            '</div>' +
+            '<button type="button" class="q-fav on" data-unfav="' + f + '">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+            '</button></div>';
+        }
+        scrollArea.innerHTML = htmlF;
+        scrollArea.querySelectorAll(".q-item").forEach(function(el, idx) {
+          el.addEventListener("click", function(e) {
+            if (e.target.closest(".q-fav")) return;
+            var it = favorites[idx];
+            if (!it) return;
+            if (!isInManual(it.id)) {
+              manualQueue.push({ id: it.id, title: it.title || "", author: it.author || "" });
+              saveManual();
+              sendCommand({ type: "setQueue", queue: manualQueue });
+            }
+            sendCommand({ type: "play", id: it.id, title: it.title || "", author: it.author || "" });
+          });
+          bindLongPress(el, favorites[idx], false);
+        });
+        scrollArea.querySelectorAll("[data-unfav]").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var it = favorites[parseInt(btn.dataset.unfav, 10)];
+            if (it) toggleFav(it);
+          });
+        });
+        var cf = document.getElementById("clearFavBtn");
+        if (cf) cf.addEventListener("click", function() {
+          if (!confirm("Tüm favoriler silinsin mi?")) return;
+          favorites = [];
+          saveFavs();
+          renderList();
         });
         return;
       }
@@ -825,7 +1290,7 @@
             ? ' <button type="button" id="clearPlBtn">Temizle</button>'
             : "");
         if (!manualQueue.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>«Hazır Listeler»den bir playlist seç — tüm şarkılar buraya gelir.</div>';
+          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>«Listeler»den playlist seç veya ara.<br>Sıralamak için ☰ tutup sürükle.</div>';
           return;
         }
         var htmlP = "";
@@ -833,12 +1298,16 @@
           var itemP = manualQueue[p];
           var isPlayingP = itemP.id === currentId;
           htmlP +=
-            '<div class="q-item' + (isPlayingP ? " playing" : "") + '">' +
+            '<div class="q-item' + (isPlayingP ? " playing" : "") + '" data-idx="' + p + '" data-id="' + itemP.id + '">' +
+            '<div class="q-drag" aria-label="Sürükle"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>' +
             artHtml(itemP.id, isPlayingP ? "▶" : (p + 1)) +
             '<div class="q-info" data-play="' + itemP.id + '">' +
             '<div class="q-title">' + escapeHtml(itemP.title || "—") + '</div>' +
             '<div class="q-author">' + escapeHtml(itemP.author || "") + '</div>' +
             '</div>' +
+            '<button type="button" class="q-fav' + (isFav(itemP.id) ? " on" : "") + '" data-favp="' + p + '">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+            '</button>' +
             '<div class="q-actions">' +
             '<button type="button" class="rm" data-rm="' + itemP.id + '" title="Çıkar">✕</button>' +
             '</div></div>';
@@ -855,6 +1324,17 @@
             sendCommand({ type: "play", id: el.dataset.play });
           });
         });
+        scrollArea.querySelectorAll("[data-favp]").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var it = manualQueue[parseInt(btn.dataset.favp, 10)];
+            if (it) toggleFav(it);
+          });
+        });
+        scrollArea.querySelectorAll(".q-item").forEach(function(el, idx) {
+          bindLongPress(el, manualQueue[idx], true);
+        });
+        bindDragReorder();
         var clearBtn = document.getElementById("clearPlBtn");
         if (clearBtn) {
           clearBtn.addEventListener("click", function() {
@@ -1418,10 +1898,80 @@
     });
     prevBtn.addEventListener("click", function() { sendCommand({ type: "prev" }); });
     nextBtn.addEventListener("click", function() { sendCommand({ type: "next" }); });
+    if (playPauseBtn) {
+      playPauseBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        sendCommand({ type: "playPause" });
+        updatePlayPauseUI(!isPlayingRemote);
+      });
+    }
     disconnectBtn.addEventListener("click", disconnect);
 
     modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
     modeManual.addEventListener("click", function() { setMode("manual"); });
+
+    // Progress seek
+    if (progressWrap) {
+      function seekFromEvent(ev) {
+        var rect = progressWrap.getBoundingClientRect();
+        var clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        if (ev.changedTouches && ev.type === "touchend") clientX = ev.changedTouches[0].clientX;
+        var ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        var dur = remoteDur || (lastState && lastState.duration) || 0;
+        if (dur <= 0) return;
+        var pos = ratio * dur;
+        if (progressFill) progressFill.style.width = (ratio * 100) + "%";
+        if (nowTimes) nowTimes.textContent = fmtTime(pos) + " / " + fmtTime(dur);
+        sendCommand({ type: "seek", position: pos });
+      }
+      progressWrap.addEventListener("click", function(e) {
+        e.stopPropagation();
+        seekFromEvent(e);
+      });
+      progressWrap.addEventListener("touchstart", function() { _progressDragging = true; }, { passive: true });
+      progressWrap.addEventListener("touchend", function(e) {
+        _progressDragging = false;
+        e.stopPropagation();
+        seekFromEvent(e);
+      });
+    }
+
+    // Action sheet
+    if (sheetBackdrop) sheetBackdrop.addEventListener("click", closeSheet);
+    if (actionSheet) {
+      actionSheet.querySelectorAll("[data-act]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          if (!sheetItem) return;
+          var act = btn.dataset.act;
+          var it = sheetItem;
+          closeSheet();
+          if (act === "play") {
+            sendCommand({ type: "play", id: it.id, title: it.title, author: it.author });
+            showToast("Çalıyor");
+          } else if (act === "next") {
+            if (!isInManual(it.id)) {
+              // mevcut çalanın hemen arkasına ekle
+              var insertAt = 0;
+              if (lastState && lastState.now && lastState.now.id) {
+                for (var i = 0; i < manualQueue.length; i++) {
+                  if (manualQueue[i].id === lastState.now.id) { insertAt = i + 1; break; }
+                }
+              }
+              manualQueue.splice(insertAt, 0, { id: it.id, title: it.title, author: it.author });
+              saveManual();
+              sendCommand({ type: "setQueue", queue: manualQueue });
+            }
+            showToast("Sonrakine eklendi");
+            renderList();
+          } else if (act === "fav") {
+            toggleFav(it);
+          } else if (act === "remove") {
+            removeFromManual(it.id);
+            showToast("Listeden çıkarıldı");
+          }
+        });
+      });
+    }
 
     // Mini-player: yatay kaydır → önceki / sonraki (Spotify jesti)
     (function() {
