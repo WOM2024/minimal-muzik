@@ -354,6 +354,18 @@
       pointer-events: none;
       transform: translateY(-8px);
     }
+    /* iframe tıklamayı yutar — gizliyken tam ekran yakalayıcı */
+    .player-chrome-tap {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 24;
+      background: transparent;
+      cursor: pointer;
+    }
+    .player-chrome-tap.active {
+      display: block;
+    }
     #playerView {
       /* player-area tam ekran kullanabilsin */
     }
@@ -963,6 +975,7 @@
 
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
+      <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
       <div class="player-loading" id="playerLoading">
         Sonraki şarkı yükleniyor...
       </div>
@@ -3531,21 +3544,44 @@
       }
       syncSecondsUI();
 
+      var tapLayer = document.getElementById("playerChromeTap");
+
+      function setTapLayer(on) {
+        if (!tapLayer) return;
+        if (on) tapLayer.classList.add("active");
+        else tapLayer.classList.remove("active");
+      }
+
       function showChrome() {
         if (!top) return;
         top.classList.remove("chrome-hidden");
+        setTapLayer(false);
         clearTimeout(hideTimer);
         if (!chromeHideOn) return;
         hideTimer = setTimeout(function() {
           if (panel && panel.classList.contains("show")) return;
           if (!view || !view.classList.contains("active")) return;
           top.classList.add("chrome-hidden");
+          setTapLayer(true);
         }, hideSec * 1000);
       }
 
       function onInteract() {
         if (!view || !view.classList.contains("active")) return;
         showChrome();
+      }
+
+      if (tapLayer) {
+        tapLayer.addEventListener("click", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showChrome();
+        });
+        tapLayer.addEventListener("touchend", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showChrome();
+        }, { passive: false });
       }
 
       if (view) {
@@ -3556,6 +3592,7 @@
           else {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setTapLayer(false);
           }
         });
         obs.observe(view, { attributes: true, attributeFilter: ["class"] });
