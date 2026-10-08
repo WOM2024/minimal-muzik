@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#121212" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>SuperYT · Remote</title>
+  <link rel="icon" type="image/x-icon" href="superyt-logo.ico">
+  <style>
+    :root {
+      --bg: #121212;
+      --bg-elevated: #181818;
+      --bg-highlight: #282828;
+      --bg-card: #1a1a1a;
+      --text: #ffffff;
+      --text-sub: #b3b3b3;
+      --text-muted: #6a6a6a;
+      --green: #1DB954;
+      --green-hover: #1ed760;
+      --green-dim: rgba(29, 185, 84, 0.15);
+      --danger: #e91429;
+      --radius: 12px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%; width: 100%;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      overflow: hidden; touch-action: manipulation;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: flex; flex-direction: column; padding-top: var(--safe-t); }
+
+    /* ── Header ── */
+    .header {
+      flex-shrink: 0;
+      padding: 14px 16px 10px;
+      background: linear-gradient(180deg, #1a1a1a 0%, var(--bg) 100%);
+    }
+    .header-brand {
+      display: flex; align-items: center; gap: 12px; min-width: 0;
+    }
+    .header-logo {
+      width: 36px; height: 36px; border-radius: 8px;
+      object-fit: contain; flex-shrink: 0;
+    }
+    .header-text { min-width: 0; flex: 1; }
+    .header h1 {
+      font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #555; flex-shrink: 0;
+    }
+    .status-dot.on {
+      background: var(--green);
+      box-shadow: 0 0 0 3px var(--green-dim), 0 0 10px rgba(29,185,84,0.45);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .status-dot.wait { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    .sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; font-weight: 500; }
+
+    /* ── Connect screen ── */
+    #connectScreen {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 32px 24px; gap: 14px;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(29,185,84,0.18), transparent),
+        var(--bg);
+    }
+    #connectScreen.hidden { display: none; }
+    .connect-logo {
+      width: 72px; height: 72px; border-radius: 18px;
+      margin-bottom: 8px; object-fit: contain;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .connect-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+    .connect-hint {
+      font-size: 13px; color: var(--text-sub); text-align: center;
+      line-height: 1.5; max-width: 280px; margin-bottom: 8px;
+    }
+    #codeInput {
+      width: 100%; max-width: 240px; height: 56px;
+      background: var(--bg-highlight); border: 2px solid transparent;
+      border-radius: 28px; color: var(--text);
+      font-size: 22px; font-weight: 700; letter-spacing: 8px;
+      text-align: center; outline: none; text-transform: uppercase;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    #codeInput:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px var(--green-dim);
+    }
+    #joinBtn {
+      width: 100%; max-width: 240px; height: 52px;
+      background: var(--green); color: #000; border: none;
+      border-radius: 26px; font-size: 15px; font-weight: 800;
+      letter-spacing: 0.5px; cursor: pointer;
+      transition: transform .12s, background .15s;
+    }
+    #joinBtn:active { transform: scale(0.97); background: var(--green-hover); }
+    .err { color: #ff6b6b; font-size: 13px; min-height: 18px; font-weight: 500; }
+
+    /* ── Main screen ── */
+    #mainScreen {
+      flex: 1; display: none; flex-direction: column; min-height: 0;
+    }
+    #mainScreen.show { display: flex; }
+
+    /* Mode pills */
+    .mode-bar {
+      flex-shrink: 0;
+      display: flex; gap: 8px;
+      padding: 8px 16px 4px;
+    }
+    .mode-btn {
+      flex: 1; height: 36px;
+      background: transparent; border: 1px solid #333;
+      border-radius: 20px; color: var(--text-sub);
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all .15s;
+    }
+    .mode-btn.active {
+      background: var(--text); color: #000; border-color: var(--text);
+    }
+    .mode-btn:active { opacity: 0.85; }
+
+    /* Now playing card — Spotify mini-player vibe */
+    .now-box {
+      flex-shrink: 0;
+      margin: 8px 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #1e3a2a 0%, #1a1a1a 60%, #181818 100%);
+      border-radius: 14px;
+      border: 1px solid rgba(29,185,84,0.12);
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    }
+    .now-art {
+      width: 52px; height: 52px; border-radius: 8px;
+      background: var(--bg-highlight) center/cover no-repeat;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--text-muted);
+      overflow: hidden;
+    }
+    .now-meta { flex: 1; min-width: 0; }
+    .now-label {
+      font-size: 10px; color: var(--green); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 3px; font-weight: 700;
+    }
+    .now-title {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      line-height: 1.25; margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .now-author {
+      font-size: 12px; color: var(--text-sub);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Transport controls */
+    .controls {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      gap: 20px; padding: 4px 16px 10px;
+    }
+    .controls button {
+      width: 48px; height: 48px;
+      background: var(--bg-highlight); border: none; border-radius: 50%;
+      color: var(--text); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .12s, background .15s;
+    }
+    .controls button:active {
+      transform: scale(0.92);
+      background: var(--green); color: #000;
+    }
+    .controls button.primary {
+      width: 56px; height: 56px;
+      background: var(--green); color: #000; font-size: 20px;
+      box-shadow: 0 4px 16px rgba(29,185,84,0.35);
+    }
+    .controls button.primary:active { background: var(--green-hover); }
+
+    /* Search */
+    .search-bar {
+      flex-shrink: 0;
+      display: none; gap: 8px;
+      padding: 0 12px 8px;
+    }
+    .search-bar.show { display: flex; }
+    #plSearch {
+      flex: 1; height: 42px;
+      background: var(--bg-highlight); border: none; border-radius: 22px;
+      color: var(--text); font-size: 14px; font-weight: 500;
+      padding: 0 16px 0 40px; outline: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23b3b3b3' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 14px center;
+    }
+    #plSearch::placeholder { color: var(--text-muted); }
+    #plSearch:focus { box-shadow: 0 0 0 2px var(--green); }
+    #plSearchBtn {
+      width: 42px; height: 42px;
+      background: var(--green); color: #000; border: none;
+      border-radius: 50%; font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    #plSearchBtn:active { opacity: 0.85; }
+
+    /* Category chips */
+    .cats {
+      flex-shrink: 0;
+      display: none; gap: 8px;
+      padding: 0 12px 10px;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .cats.show { display: flex; }
+    .cats::-webkit-scrollbar { display: none; }
+    .cat {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      background: var(--bg-highlight);
+      border: none; border-radius: 20px;
+      font-size: 12px; font-weight: 700;
+      color: var(--text); cursor: pointer; white-space: nowrap;
+      transition: background .15s, color .15s;
+    }
+    .cat.active, .cat:active {
+      background: var(--green); color: #000;
+    }
+
+    /* Tabs */
+    .tabs {
+      flex-shrink: 0;
+      display: none; gap: 0;
+      padding: 0 12px;
+      border-bottom: 1px solid #222;
+    }
+    .tabs.show { display: flex; }
+    .tab {
+      flex: 1; padding: 12px 0;
+      text-align: center; font-size: 12px; font-weight: 700;
+      color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .tab.active {
+      color: var(--text);
+      border-bottom-color: var(--green);
+    }
+
+    /* List header */
+    .list-label {
+      flex-shrink: 0;
+      padding: 12px 16px 6px;
+      font-size: 13px; color: var(--text-sub); font-weight: 700;
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      letter-spacing: 0.2px;
+    }
+    .list-label button {
+      padding: 5px 12px; font-size: 11px; font-weight: 700;
+      background: var(--green-dim); color: var(--green);
+      border: none; border-radius: 14px; cursor: pointer;
+    }
+    .list-label button:active { opacity: 0.8; }
+
+    /* Scroll list */
+    .scroll-area {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 4px 8px calc(16px + var(--safe-b));
+      min-height: 0;
+    }
+    .scroll-area::-webkit-scrollbar { width: 3px; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* Track row — Spotify style */
+    .q-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 10px; border-radius: 8px;
+      cursor: pointer; margin-bottom: 2px;
+      transition: background .12s;
+    }
+    .q-item:active { background: var(--bg-highlight); }
+    .q-item.playing {
+      background: var(--green-dim);
+    }
+    .q-art {
+      width: 48px; height: 48px; border-radius: 6px;
+      background: var(--bg-highlight) center/cover no-repeat;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--text-muted); font-weight: 700;
+      overflow: hidden; position: relative;
+    }
+    .q-item.playing .q-art::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.45);
+    }
+    .q-item.playing .q-art::before {
+      content: "▶";
+      position: absolute; z-index: 1;
+      font-size: 14px; color: var(--green);
+      left: 50%; top: 50%; transform: translate(-45%, -50%);
+    }
+    .q-num {
+      width: 22px; text-align: center;
+      font-size: 13px; color: var(--text-muted); flex-shrink: 0;
+      font-weight: 500;
+    }
+    .q-item.playing .q-num { color: var(--green); display: none; }
+    .q-info { flex: 1; min-width: 0; }
+    .q-title {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .q-item.playing .q-title { color: var(--green); }
+    .q-author {
+      font-size: 12px; color: var(--text-sub);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .q-actions {
+      display: flex; gap: 4px; flex-shrink: 0;
+    }
+    .q-actions button {
+      min-width: 36px; height: 36px; padding: 0 8px;
+      border: none; border-radius: 50%;
+      font-size: 16px; cursor: pointer;
+      background: transparent; color: var(--text-sub);
+      font-weight: 600;
+      transition: background .12s, color .12s;
+    }
+    .q-actions button.add { color: var(--green); }
+    .q-actions button.add:active { background: var(--green-dim); }
+    .q-actions button.rm { color: var(--danger); }
+    .q-actions button.rm:active { background: rgba(233,20,41,0.15); }
+    .q-actions button.import {
+      background: var(--green); color: #000; font-size: 12px;
+      min-width: auto; padding: 0 14px; border-radius: 16px; font-weight: 800;
+    }
+
+    /* Playlist cards */
+    .pl-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 12px; border-radius: 10px;
+      margin-bottom: 6px; cursor: pointer;
+      transition: background .12s;
+    }
+    .pl-card:active { background: var(--bg-highlight); }
+    .pl-icon {
+      width: 56px; height: 56px; border-radius: 8px;
+      background: linear-gradient(135deg, #1DB95444, #1a1a1a 70%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .pl-info { flex: 1; min-width: 0; }
+    .pl-title {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pl-meta {
+      font-size: 12px; color: var(--text-sub); margin-top: 3px;
+    }
+    .pl-import {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      background: var(--green); color: #000;
+      border: none; border-radius: 18px;
+      font-size: 12px; font-weight: 800; cursor: pointer;
+    }
+    .pl-import:active { opacity: 0.85; }
+    .pl-import:disabled { opacity: 0.45; pointer-events: none; }
+
+    .empty-q, .loading-q {
+      text-align: center; color: var(--text-muted);
+      font-size: 14px; padding: 48px 20px; line-height: 1.6; font-weight: 500;
+    }
+    .loading-q {
+      color: var(--text-sub);
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .loading-q::before {
+      content: "";
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 3px solid var(--bg-highlight);
+      border-top-color: var(--green);
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    .footer {
+      flex-shrink: 0;
+      padding: 10px 16px calc(12px + var(--safe-b));
+      border-top: 1px solid #1f1f1f;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: var(--text-muted); font-weight: 600;
+      background: var(--bg-elevated);
+    }
+    .footer button {
+      background: transparent; border: 1px solid #333; color: var(--text-sub);
+      padding: 7px 14px; border-radius: 16px; font-size: 12px;
+      font-weight: 700; cursor: pointer;
+    }
+    .footer button:active {
+      border-color: var(--danger); color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-brand">
+      <img class="header-logo" src="superyt-logo.png" alt="SuperYT" />
+      <div class="header-text">
+        <h1>
+          <span class="status-dot" id="statusDot"></span>
+          SuperYT
+        </h1>
+        <div class="sub" id="statusText">Bağlantı bekleniyor…</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="connectScreen">
+    <img class="connect-logo" src="superyt-logo.png" alt="" />
+    <div class="connect-title">Odaya bağlan</div>
+    <div class="connect-hint">
+      Ana uygulamadaki 6 haneli kodu gir.<br>
+      Bir kez bağlandıktan sonra kod telefonunda saklanır — tekrar yazmana gerek yok.
+    </div>
+    <input id="codeInput" type="text" maxlength="6" placeholder="A3K9X2" autocomplete="off" autocapitalize="characters" inputmode="text" />
+    <button id="joinBtn" type="button">BAĞLAN</button>
+    <div class="err" id="joinErr"></div>
+  </div>
+
+  <div id="mainScreen">
+    <div class="mode-bar">
+      <button type="button" class="mode-btn active" id="modeShuffle" data-mode="shuffle">🔀 Shuffle</button>
+      <button type="button" class="mode-btn" id="modeManual" data-mode="manual">✋ Manuel</button>
+    </div>
+
+    <div class="now-box">
+      <div class="now-art" id="nowArt">🎵</div>
+      <div class="now-meta">
+        <div class="now-label">Şimdi çalıyor</div>
+        <div class="now-title" id="nowTitle">—</div>
+        <div class="now-author" id="nowAuthor">—</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="prevBtn" title="Önceki">⏮</button>
+      <button type="button" class="primary" id="nextBtn" title="Sonraki">⏭</button>
+    </div>
+
+    <div class="search-bar" id="searchBar">
+      <input id="plSearch" type="search" placeholder="Ne dinlemek istiyorsun?" enterkeyhint="search" />
+      <button type="button" id="plSearchBtn">Ara</button>
+    </div>
+
+    <div class="cats" id="plCats">
+      <div class="cat" data-cat="turkce-pop">Türkçe Pop</div>
+      <div class="cat" data-cat="turkce-rock">Türkçe Rock</div>
+      <div class="cat" data-cat="arabesk">Arabesk</div>
+      <div class="cat" data-cat="rap">Rap</div>
+      <div class="cat" data-cat="slow">Slow</div>
+      <div class="cat" data-cat="yabanci-pop">Yabancı Pop</div>
+      <div class="cat" data-cat="klasik">Klasik</div>
+      <div class="cat" data-cat="lofi">Lofi</div>
+      <div class="cat" data-cat="populer">Popüler</div>
+    </div>
+
+    <div class="tabs" id="tabsBar">
+      <div class="tab active" data-tab="playlist">Playlistim</div>
+      <div class="tab" data-tab="ready">Hazır Listeler</div>
+      <div class="tab" data-tab="search">Şarkı Ara</div>
+    </div>
+
+    <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
+    <div class="scroll-area" id="scrollArea"></div>
+
+    <div class="footer">
+      <span id="roomLabel">Kod: —</span>
+      <button type="button" id="disconnectBtn">Bağlantıyı kes</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    const ROOM_PREFIX = "mm-";
+    const STORAGE_KEY = "minimal_muzik_sync";
+    const BC_NAME = "minimal_muzik_bc";
+    const SEARCH_INSTANCES = ["https://invidious.f5.si"];
+    const MANUAL_KEY = "minimal_muzik_manual_pl";
+
+    const YT_MUSIC_CHANNEL = "UC-9-kyTW8ZkZNDHQJ6FgpwQ";
+    const YT_CHARTS_AUTHOR = "YouTube Music Global Charts";
+
+    const CATEGORY_PLAYLISTS = {
+      "populer": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn48eLKe4-ToW1youy18Othb", title: "Weekly Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
+      ],
+      "turkce-pop": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "turkce-rock": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye (Rock karışık chart)", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "arabesk": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "rap": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn59hyJwXYE-_65OUiNdtnjO", title: "Daily Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
+      ],
+      "slow": [
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "yabanci-pop": [
+        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn50iCQRUVmgUjOrCggCQ9nR", title: "Top 100 Music Videos — France", author: YT_CHARTS_AUTHOR, videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn5BPviUFX4a3IMnAgyknC68", title: "Top 100 Music Videos — Italy", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "klasik": [
+        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ],
+      "lofi": [
+        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      ]
+    };
+
+    const CATEGORY_PLAYLIST_SEARCH = {
+      "turkce-pop": "türkçe pop playlist",
+      "turkce-rock": "türkçe rock playlist",
+      "arabesk": "arabesk playlist",
+      "rap": "türkçe rap playlist",
+      "slow": "slow şarkılar playlist",
+      "yabanci-pop": "pop hits playlist 2025",
+      "klasik": "classical music playlist",
+      "lofi": "lofi hip hop playlist",
+      "populer": "türkiye top 100 playlist"
+    };
+
+    let roomCode = "";
+    let peer = null;
+    let conn = null;
+    let bc = null;
+    let lastState = null;
+    let pollTimer = null;
+    let heartbeatTimer = null;
+    let peerRetryTimer = null;
+    let peerRetryDelay = 1500;
+    let lastAliveAt = 0;
+    let lastPongAt = 0;
+    let _cmdSeq = 0;
+    const LAST_ROOM_KEY = "minimal_muzik_last_room";
+
+    let mode = "shuffle";
+    let activeTab = "playlist";
+    let manualQueue = [];
+    let searchResults = [];
+    let readyPlaylists = [];
+    let searchLoading = false;
+    let importing = false;
+
+    const connectScreen = document.getElementById("connectScreen");
+    const mainScreen = document.getElementById("mainScreen");
+    const codeInput = document.getElementById("codeInput");
+    const joinBtn = document.getElementById("joinBtn");
+    const joinErr = document.getElementById("joinErr");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const nowTitle = document.getElementById("nowTitle");
+    const nowAuthor = document.getElementById("nowAuthor");
+    const nowArt = document.getElementById("nowArt");
+    const scrollArea = document.getElementById("scrollArea");
+    const listLabel = document.getElementById("listLabel");
+    const roomLabel = document.getElementById("roomLabel");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const searchBar = document.getElementById("searchBar");
+    const tabsBar = document.getElementById("tabsBar");
+    const plSearch = document.getElementById("plSearch");
+    const plSearchBtn = document.getElementById("plSearchBtn");
+    const plCats = document.getElementById("plCats");
+    const modeShuffle = document.getElementById("modeShuffle");
+    const modeManual = document.getElementById("modeManual");
+
+    function thumbUrl(id) {
+      if (!id) return "";
+      return "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+    }
+
+    function setNowArt(id) {
+      if (!nowArt) return;
+      if (id) {
+        nowArt.style.backgroundImage = "url(" + thumbUrl(id) + ")";
+        nowArt.textContent = "";
+      } else {
+        nowArt.style.backgroundImage = "";
+        nowArt.textContent = "🎵";
+      }
+    }
+
+    (function() {
+      var params = new URLSearchParams(location.search);
+      var c = (params.get("c") || params.get("code") || "").trim().toUpperCase();
+      if (c.length >= 4) {
+        codeInput.value = c.slice(0, 6);
+        setTimeout(function() { joinRoom(c.slice(0, 6)); }, 300);
+        return;
+      }
+      try {
+        var last = (localStorage.getItem(LAST_ROOM_KEY) || "").trim().toUpperCase();
+        if (/^[A-Z0-9]{4,6}$/.test(last)) {
+          codeInput.value = last;
+          setStatus("wait", "Son oda: " + last + " · bağlanılıyor…");
+          joinErr.textContent = "";
+          setTimeout(function() {
+            var current = (codeInput.value || "").trim().toUpperCase();
+            if (current === last) joinRoom(last);
+          }, 350);
+        }
+      } catch (e) {}
+    })();
+
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden || !roomCode) return;
+      sendPing();
+      ensurePeerClient();
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
+        if (raw) onStateMessage(JSON.parse(raw));
+      } catch (e) {}
+    });
+    window.addEventListener("focus", function() {
+      if (!roomCode) return;
+      sendPing();
+      ensurePeerClient();
+    });
+    window.addEventListener("online", function() {
+      if (!roomCode) return;
+      peerRetryDelay = 1500;
+      ensurePeerClient();
+      sendPing();
+    });
+
+    function loadManual() {
+      try { manualQueue = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]"); }
+      catch (e) { manualQueue = []; }
+    }
+    function saveManual() {
+      try { localStorage.setItem(MANUAL_KEY, JSON.stringify(manualQueue)); }
+      catch (e) {}
+    }
+    loadManual();
+
+    function setStatus(modeS, text) {
+      statusDot.className = "status-dot" + (modeS === "on" ? " on" : modeS === "wait" ? " wait" : "");
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function isInManual(id) {
+      return manualQueue.some(function(x) { return x.id === id; });
+    }
+
+    function setMode(m) {
+      mode = m;
+      modeShuffle.classList.toggle("active", m === "shuffle");
+      modeManual.classList.toggle("active", m === "manual");
+      searchBar.classList.toggle("show", m === "manual");
+      tabsBar.classList.toggle("show", m === "manual");
+      if (plCats) plCats.classList.toggle("show", m === "manual");
+
+      if (m === "shuffle") {
+        listLabel.textContent = "Sıradaki şarkılar";
+        activeTab = "playlist";
+        sendCommand({ type: "setMode", mode: "shuffle" });
+        renderList();
+      } else {
+        sendCommand({ type: "setMode", mode: "manual" });
+        if (manualQueue.length) {
+          sendCommand({ type: "setQueue", queue: manualQueue });
+        }
+        activeTab = "ready";
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === activeTab);
+        });
+        loadReadyPlaylists("populer");
+      }
+    }
+
+    function applyState(state) {
+      if (!state) return;
+      lastState = state;
+      if (state.now && state.now.title) {
+        nowTitle.textContent = state.now.title;
+        nowAuthor.textContent = state.now.author || "YouTube";
+        setNowArt(state.now.id);
+      } else {
+        nowTitle.textContent = "Şarkı seçilmedi";
+        nowAuthor.textContent = "Hazır listeden seç veya ara";
+        setNowArt("");
+      }
+      renderList();
+    }
+
+    function artHtml(id, fallbackNum) {
+      if (id) {
+        return '<div class="q-art" style="background-image:url(' + thumbUrl(id) + ')"></div>';
+      }
+      return '<div class="q-num">' + (fallbackNum || "") + '</div>';
+    }
+
+    function renderList() {
+      var currentId = lastState && lastState.now && lastState.now.id ? lastState.now.id : "";
+
+      if (mode === "shuffle") {
+        var queue = (lastState && lastState.queue) ? lastState.queue : [];
+        listLabel.textContent = "Sıradaki şarkılar";
+        if (!queue.length) {
+          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>Ana uygulamada kategori seç veya ara.</div>';
+          return;
+        }
+        var html = "";
+        for (var i = 0; i < queue.length; i++) {
+          var item = queue[i];
+          var isPlaying = item.id === currentId;
+          html +=
+            '<div class="q-item' + (isPlaying ? " playing" : "") + '" data-id="' + item.id + '">' +
+            artHtml(item.id, isPlaying ? "▶" : (i + 1)) +
+            '<div class="q-info">' +
+            '<div class="q-title">' + escapeHtml(item.title || "—") + '</div>' +
+            '<div class="q-author">' + escapeHtml(item.author || "") + '</div>' +
+            '</div></div>';
+        }
+        scrollArea.innerHTML = html;
+        scrollArea.querySelectorAll(".q-item").forEach(function(el) {
+          el.addEventListener("click", function() {
+            sendCommand({ type: "play", id: el.dataset.id });
+          });
+        });
+        return;
+      }
+
+      if (activeTab === "playlist") {
+        listLabel.innerHTML = "Playlistim (" + manualQueue.length + ")" +
+          (manualQueue.length
+            ? ' <button type="button" id="clearPlBtn">Temizle</button>'
+            : "");
+        if (!manualQueue.length) {
+          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>«Hazır Listeler»den bir playlist seç — tüm şarkılar buraya gelir.</div>';
+          return;
+        }
+        var htmlP = "";
+        for (var p = 0; p < manualQueue.length; p++) {
+          var itemP = manualQueue[p];
+          var isPlayingP = itemP.id === currentId;
+          htmlP +=
+            '<div class="q-item' + (isPlayingP ? " playing" : "") + '">' +
+            artHtml(itemP.id, isPlayingP ? "▶" : (p + 1)) +
+            '<div class="q-info" data-play="' + itemP.id + '">' +
+            '<div class="q-title">' + escapeHtml(itemP.title || "—") + '</div>' +
+            '<div class="q-author">' + escapeHtml(itemP.author || "") + '</div>' +
+            '</div>' +
+            '<div class="q-actions">' +
+            '<button type="button" class="rm" data-rm="' + itemP.id + '" title="Çıkar">✕</button>' +
+            '</div></div>';
+        }
+        scrollArea.innerHTML = htmlP;
+        scrollArea.querySelectorAll("[data-rm]").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            removeFromManual(btn.dataset.rm);
+          });
+        });
+        scrollArea.querySelectorAll("[data-play]").forEach(function(el) {
+          el.addEventListener("click", function() {
+            sendCommand({ type: "play", id: el.dataset.play });
+          });
+        });
+        var clearBtn = document.getElementById("clearPlBtn");
+        if (clearBtn) {
+          clearBtn.addEventListener("click", function() {
+            if (!confirm("Playlist temizlensin mi?")) return;
+            manualQueue = [];
+            saveManual();
+            sendCommand({ type: "setQueue", queue: [] });
+            renderList();
+          });
+        }
+        return;
+      }
+
+      if (activeTab === "ready") {
+        listLabel.textContent = importing
+          ? "İçe aktarılıyor…"
+          : "YouTube Music listeleri";
+        if (searchLoading) {
+          scrollArea.innerHTML = '<div class="loading-q">Playlistler yükleniyor…</div>';
+          return;
+        }
+        if (!readyPlaylists.length) {
+          scrollArea.innerHTML = '<div class="empty-q">Kategori seç → listeler gelsin.<br>Listeye basınca tüm şarkılar eklenir.</div>';
+          return;
+        }
+        var htmlR = "";
+        for (var r = 0; r < readyPlaylists.length; r++) {
+          var pl = readyPlaylists[r];
+          htmlR +=
+            '<div class="pl-card" data-plid="' + escapeHtml(pl.playlistId) + '">' +
+            '<div class="pl-icon">🎵</div>' +
+            '<div class="pl-info">' +
+            '<div class="pl-title">' + escapeHtml(pl.title || "Playlist") + '</div>' +
+            '<div class="pl-meta">' +
+            (pl.videoCount ? pl.videoCount + " şarkı" : "") +
+            (pl.author ? " · " + escapeHtml(pl.author) : "") +
+            '</div></div>' +
+            '<button type="button" class="pl-import" data-import="' + r + '">Ekle</button>' +
+            '</div>';
+        }
+        scrollArea.innerHTML = htmlR;
+        scrollArea.querySelectorAll("[data-import]").forEach(function(btn) {
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var idx = parseInt(btn.dataset.import, 10);
+            var pl = readyPlaylists[idx];
+            if (pl) importFullPlaylist(pl.playlistId, pl.title, btn);
+          });
+        });
+        scrollArea.querySelectorAll(".pl-card").forEach(function(card) {
+          card.addEventListener("click", function(e) {
+            if (e.target.closest("[data-import]")) return;
+            var btn = card.querySelector("[data-import]");
+            if (btn) btn.click();
+          });
+        });
+        return;
+      }
+
+      listLabel.textContent = "Şarkı sonuçları";
+      if (searchLoading) {
+        scrollArea.innerHTML = '<div class="loading-q">Aranıyor…</div>';
+        return;
+      }
+      if (!searchResults.length) {
+        scrollArea.innerHTML = '<div class="empty-q">Şarkı adı yazıp ara.<br>Veya «Hazır Listeler»den playlist seç.</div>';
+        return;
+      }
+      var htmlS = "";
+      for (var s = 0; s < searchResults.length; s++) {
+        var it = searchResults[s];
+        var added = isInManual(it.id);
+        var isPlay = it.id === currentId;
+        htmlS +=
+          '<div class="q-item' + (isPlay ? " playing" : "") + '">' +
+          artHtml(it.id, s + 1) +
+          '<div class="q-info" data-play="' + it.id + '">' +
+          '<div class="q-title">' + escapeHtml(it.title || "—") + '</div>' +
+          '<div class="q-author">' + escapeHtml(it.author || "") + '</div>' +
+          '</div>' +
+          '<div class="q-actions">';
+        if (added) {
+          htmlS += '<button type="button" class="rm" data-rm="' + it.id + '">✕</button>';
+        } else {
+          htmlS += '<button type="button" class="add" data-add="' + s + '">＋</button>';
+        }
+        htmlS += '</div></div>';
+      }
+      scrollArea.innerHTML = htmlS;
+      scrollArea.querySelectorAll("[data-add]").forEach(function(btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var item = searchResults[parseInt(btn.dataset.add, 10)];
+          if (!item || isInManual(item.id)) return;
+          manualQueue.push({ id: item.id, title: item.title || "", author: item.author || "" });
+          saveManual();
+          sendCommand({ type: "setQueue", queue: manualQueue });
+          renderList();
+        });
+      });
+      scrollArea.querySelectorAll("[data-rm]").forEach(function(btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          removeFromManual(btn.dataset.rm);
+        });
+      });
+      scrollArea.querySelectorAll("[data-play]").forEach(function(el) {
+        el.addEventListener("click", function() {
+          var id = el.dataset.play;
+          var found = searchResults.filter(function(x) { return x.id === id; })[0];
+          if (found && !isInManual(id)) {
+            manualQueue.push({ id: found.id, title: found.title || "", author: found.author || "" });
+            saveManual();
+            sendCommand({ type: "setQueue", queue: manualQueue });
+          }
+          sendCommand({ type: "play", id: id, title: found ? found.title : "", author: found ? found.author : "" });
+        });
+      });
+    }
+
+    function removeFromManual(id) {
+      manualQueue = manualQueue.filter(function(x) { return x.id !== id; });
+      saveManual();
+      sendCommand({ type: "setQueue", queue: manualQueue });
+      renderList();
+    }
+
+    async function fetchApi(path) {
+      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
+        try {
+          var res = await fetch(SEARCH_INSTANCES[i] + path, {
+            signal: AbortSignal.timeout(15000)
+          });
+          if (!res.ok) continue;
+          return await res.json();
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      return null;
+    }
+
+    async function importFullPlaylist(playlistId, title, btn) {
+      if (importing || !playlistId) return;
+      importing = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "…";
+      }
+      listLabel.textContent = "İçe aktarılıyor: " + (title || "");
+
+      var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId));
+      importing = false;
+
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Ekle";
+      }
+
+      if (!data || !Array.isArray(data.videos)) {
+        listLabel.textContent = "İçe aktarma başarısız";
+        return;
+      }
+
+      var added = 0;
+      data.videos.forEach(function(v) {
+        if (!v.videoId) return;
+        if (isInManual(v.videoId)) return;
+        manualQueue.push({
+          id: v.videoId,
+          title: v.title || "",
+          author: v.author || ""
+        });
+        added++;
+      });
+      saveManual();
+      sendCommand({ type: "setQueue", queue: manualQueue });
+      activeTab = "playlist";
+      document.querySelectorAll(".tab").forEach(function(t) {
+        t.classList.toggle("active", t.dataset.tab === "playlist");
+      });
+      renderList();
+      if (manualQueue.length && added > 0) {
+        var first = manualQueue[0];
+        sendCommand({ type: "play", id: first.id, title: first.title, author: first.author });
+      }
+    }
+
+    async function doSongSearch(q) {
+      q = (q || "").trim();
+      if (!q) return;
+      searchLoading = true;
+      activeTab = "search";
+      document.querySelectorAll(".tab").forEach(function(t) {
+        t.classList.toggle("active", t.dataset.tab === "search");
+      });
+      renderList();
+      var data = await fetchApi(
+        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=video&page=1&region=TR"
+      );
+      searchLoading = false;
+      searchResults = [];
+      if (Array.isArray(data)) {
+        searchResults = data
+          .filter(function(item) { return item.type === "video" && item.videoId; })
+          .slice(0, 30)
+          .map(function(item) {
+            return {
+              id: item.videoId,
+              title: item.title || "",
+              author: item.author || ""
+            };
+          });
+      }
+      renderList();
+    }
+
+    async function loadReadyPlaylists(catKey) {
+      catKey = catKey || "populer";
+      searchLoading = true;
+      activeTab = "ready";
+      document.querySelectorAll(".tab").forEach(function(t) {
+        t.classList.toggle("active", t.dataset.tab === "ready");
+      });
+      if (plCats) {
+        plCats.querySelectorAll(".cat").forEach(function(c) {
+          c.classList.toggle("active", c.dataset.cat === catKey);
+        });
+      }
+      renderList();
+
+      var found = (CATEGORY_PLAYLISTS[catKey] || CATEGORY_PLAYLISTS["populer"] || []).map(function(p) {
+        return {
+          playlistId: p.playlistId,
+          title: p.title,
+          author: p.author || YT_CHARTS_AUTHOR,
+          videoCount: p.videoCount || 0
+        };
+      });
+
+      var q = CATEGORY_PLAYLIST_SEARCH[catKey] || (catKey + " playlist");
+      var data = await fetchApi(
+        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
+      );
+
+      var seen = {};
+      found.forEach(function(p) { seen[p.playlistId] = true; });
+
+      if (Array.isArray(data)) {
+        data.forEach(function(item) {
+          if (item.type !== "playlist" || !item.playlistId) return;
+          if (seen[item.playlistId]) return;
+          if (item.videoCount && item.videoCount < 5) return;
+          seen[item.playlistId] = true;
+          found.push({
+            playlistId: item.playlistId,
+            title: item.title || "Playlist",
+            author: item.author || "",
+            videoCount: item.videoCount || 0
+          });
+        });
+      }
+
+      readyPlaylists = found.slice(0, 12);
+      searchLoading = false;
+      renderList();
+    }
+
+    async function doSmartSearch(q) {
+      q = (q || "").trim();
+      if (!q) return;
+      searchLoading = true;
+      activeTab = "ready";
+      document.querySelectorAll(".tab").forEach(function(t) {
+        t.classList.toggle("active", t.dataset.tab === "ready");
+      });
+      renderList();
+
+      var data = await fetchApi(
+        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
+      );
+      searchLoading = false;
+      readyPlaylists = [];
+      if (Array.isArray(data)) {
+        readyPlaylists = data
+          .filter(function(item) {
+            return item.type === "playlist" && item.playlistId &&
+              (!item.videoCount || item.videoCount >= 5);
+          })
+          .slice(0, 12)
+          .map(function(item) {
+            return {
+              playlistId: item.playlistId,
+              title: item.title || "Playlist",
+              author: item.author || "",
+              videoCount: item.videoCount || 0
+            };
+          });
+      }
+      renderList();
+    }
+
+    function sendCommand(cmd) {
+      if (!cmd) return;
+      cmd.ts = Date.now();
+      cmd.seq = ++_cmdSeq;
+      if (cmd.type === "play" || cmd.type === "next" || cmd.type === "prev" || cmd.type === "setQueue") {
+        cmd.forceFs = true;
+      }
+      function push(msg) {
+        try { if (bc) bc.postMessage({ kind: "cmd", room: roomCode, cmd: msg }); } catch (e) {}
+        try {
+          localStorage.setItem(STORAGE_KEY + "_cmd_" + roomCode, JSON.stringify(msg));
+          localStorage.removeItem(STORAGE_KEY + "_cmd_" + roomCode);
+        } catch (e) {}
+        try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: msg }); } catch (e) {}
+      }
+      push(cmd);
+      if (cmd.type === "play" || cmd.type === "setQueue" || cmd.type === "next" || cmd.type === "prev") {
+        setTimeout(function() {
+          try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: cmd }); } catch (e) {}
+          try { if (bc) bc.postMessage({ kind: "cmd", room: roomCode, cmd: cmd }); } catch (e) {}
+        }, 120);
+      }
+      if (cmd.forceFs) {
+        push({ type: "fullscreen", ts: Date.now(), seq: ++_cmdSeq });
+      }
+    }
+
+    function sendPing() {
+      if (!roomCode) return;
+      var ping = { kind: "ping", room: roomCode, ts: Date.now() };
+      try { if (bc) bc.postMessage(ping); } catch (e) {}
+      try {
+        localStorage.setItem(STORAGE_KEY + "_ping_" + roomCode, String(Date.now()));
+        localStorage.removeItem(STORAGE_KEY + "_ping_" + roomCode);
+      } catch (e) {}
+      try {
+        if (conn && conn.open) {
+          conn.send(ping);
+          conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
+        }
+      } catch (e) {}
+    }
+
+    function updateLinkStatus() {
+      var now = Date.now();
+      var peerOk = !!(conn && conn.open);
+      var recent = (lastAliveAt && now - lastAliveAt < 6000) || (lastPongAt && now - lastPongAt < 6000);
+      if (peerOk && recent) {
+        setStatus("on", "Bağlı · canlı");
+      } else if (peerOk) {
+        setStatus("on", "Bağlı · uzaktan");
+      } else if (recent) {
+        setStatus("on", "Bağlı · yerel");
+      } else if (roomCode) {
+        setStatus("wait", "Senkron aranıyor…");
+      }
+    }
+
+    function onStateMessage(state) {
+      if (!state) return;
+      if (state.room && state.room !== roomCode) return;
+      lastAliveAt = Date.now();
+      applyState(state);
+      updateLinkStatus();
+    }
+
+    function onPong(data) {
+      lastPongAt = Date.now();
+      if (data && data.state) onStateMessage(data.state);
+      else updateLinkStatus();
+    }
+
+    function startLocalSync() {
+      try {
+        if (bc) { try { bc.close(); } catch (e) {} }
+        bc = new BroadcastChannel(BC_NAME);
+        bc.onmessage = function(ev) {
+          var d = ev.data;
+          if (!d) return;
+          if (d.room && d.room !== roomCode) return;
+          if (d.kind === "state" && d.state) onStateMessage(d.state);
+          if (d.kind === "pong") onPong(d);
+          if (d.kind === "reply" && d.state) onStateMessage(d.state);
+        };
+      } catch (e) { bc = null; }
+
+      window.addEventListener("storage", function(ev) {
+        if (!roomCode) return;
+        if (ev.key === STORAGE_KEY + "_" + roomCode && ev.newValue) {
+          try { onStateMessage(JSON.parse(ev.newValue)); } catch (e) {}
+        }
+        if (ev.key === STORAGE_KEY + "_reply_" + roomCode && ev.newValue) {
+          try {
+            var msg = JSON.parse(ev.newValue);
+            if (msg.kind === "pong") onPong(msg);
+            if (msg.state) onStateMessage(msg.state);
+          } catch (e) {}
+        }
+      });
+
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(function() {
+        if (!roomCode) return;
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
+          if (raw) onStateMessage(JSON.parse(raw));
+        } catch (e) {}
+        try {
+          var alive = localStorage.getItem(STORAGE_KEY + "_alive_" + roomCode);
+          if (alive) {
+            var t = parseInt(alive, 10);
+            if (t && Date.now() - t < 8000) lastAliveAt = t;
+          }
+        } catch (e) {}
+        updateLinkStatus();
+      }, 1500);
+
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(function() {
+        sendPing();
+        updateLinkStatus();
+      }, 3000);
+    }
+
+    function teardownPeer() {
+      if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
+      try { if (conn) { conn.close(); } } catch (e) {}
+      conn = null;
+      try { if (peer) { peer.destroy(); } } catch (e) {}
+      peer = null;
+    }
+
+    function schedulePeerRetry() {
+      if (peerRetryTimer) clearTimeout(peerRetryTimer);
+      peerRetryTimer = setTimeout(function() {
+        peerRetryTimer = null;
+        if (!roomCode) return;
+        ensurePeerClient();
+      }, peerRetryDelay);
+      peerRetryDelay = Math.min(peerRetryDelay * 1.5, 12000);
+    }
+
+    function ensurePeerClient() {
+      if (!roomCode || typeof Peer === "undefined") return;
+      if (conn && conn.open) return;
+      startPeerClient();
+    }
+
+    function startPeerClient() {
+      if (typeof Peer === "undefined" || !roomCode) return;
+      teardownPeer();
+      try {
+        var myId = ROOM_PREFIX + "pl-" + roomCode + "-" + Math.random().toString(36).slice(2, 8);
+        peer = new Peer(myId, { debug: 0 });
+        peer.on("open", function() {
+          var hostId = ROOM_PREFIX + roomCode;
+          conn = peer.connect(hostId, { reliable: true });
+          conn.on("open", function() {
+            peerRetryDelay = 1500;
+            setStatus("on", "Bağlı · uzaktan");
+            try { conn.send({ kind: "hello", room: roomCode }); } catch (e) {}
+            sendPing();
+          });
+          conn.on("data", function(data) {
+            if (!data) return;
+            if (data.kind === "state" && data.state) onStateMessage(data.state);
+            if (data.kind === "pong") onPong(data);
+          });
+          conn.on("close", function() {
+            setStatus("wait", "Yerel bağlantı · peer yeniden");
+            schedulePeerRetry();
+          });
+          conn.on("error", function() {
+            setStatus("wait", "Yerel bağlantı · peer yeniden");
+            schedulePeerRetry();
+          });
+        });
+        peer.on("error", function() {
+          setStatus("wait", "Yerel bağlantı · peer yeniden");
+          schedulePeerRetry();
+        });
+        peer.on("disconnected", function() {
+          try { peer.reconnect(); } catch (e) { schedulePeerRetry(); }
+        });
+      } catch (e) {
+        setStatus("wait", "Yerel bağlantı aktif");
+        schedulePeerRetry();
+      }
+    }
+
+    function joinRoom(code) {
+      code = (code || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (code.length < 4) {
+        joinErr.textContent = "En az 4 karakter gir";
+        return;
+      }
+      roomCode = code.slice(0, 6);
+      try { localStorage.setItem(LAST_ROOM_KEY, roomCode); } catch (e) {}
+      joinErr.textContent = "";
+      lastAliveAt = 0;
+      lastPongAt = 0;
+      peerRetryDelay = 1500;
+      setStatus("wait", "Bağlanıyor…");
+      connectScreen.classList.add("hidden");
+      mainScreen.classList.add("show");
+      roomLabel.textContent = "Kod: " + roomCode;
+      startLocalSync();
+      startPeerClient();
+      sendPing();
+      setMode("shuffle");
+    }
+
+    function disconnect() {
+      var kept = "";
+      try { kept = (localStorage.getItem(LAST_ROOM_KEY) || roomCode || "").trim().toUpperCase(); } catch (e) {}
+      roomCode = "";
+      lastState = null;
+      lastAliveAt = 0;
+      lastPongAt = 0;
+      if (bc) { try { bc.close(); } catch (e) {} bc = null; }
+      teardownPeer();
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
+      mainScreen.classList.remove("show");
+      connectScreen.classList.remove("hidden");
+      if (/^[A-Z0-9]{4,6}$/.test(kept)) {
+        codeInput.value = kept;
+        setStatus("", "Son oda hazır · Bağlan’a bas");
+      } else {
+        codeInput.value = "";
+        setStatus("", "Bağlantı bekleniyor…");
+      }
+      codeInput.focus();
+    }
+
+    joinBtn.addEventListener("click", function() { joinRoom(codeInput.value); });
+    codeInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") joinRoom(codeInput.value);
+    });
+    prevBtn.addEventListener("click", function() { sendCommand({ type: "prev" }); });
+    nextBtn.addEventListener("click", function() { sendCommand({ type: "next" }); });
+    disconnectBtn.addEventListener("click", disconnect);
+
+    modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
+    modeManual.addEventListener("click", function() { setMode("manual"); });
+
+    function updateSearchPlaceholder() {
+      if (!plSearch) return;
+      if (activeTab === "search") {
+        plSearch.placeholder = "Şarkı adı yaz…";
+      } else if (activeTab === "ready") {
+        plSearch.placeholder = "Playlist ara…";
+      } else {
+        plSearch.placeholder = "Ne dinlemek istiyorsun?";
+      }
+    }
+
+    document.querySelectorAll(".tab").forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        activeTab = tab.dataset.tab;
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === activeTab);
+        });
+        updateSearchPlaceholder();
+        if (activeTab === "ready" && !readyPlaylists.length) {
+          loadReadyPlaylists("populer");
+        } else {
+          renderList();
+        }
+      });
+    });
+
+    if (plCats) {
+      plCats.querySelectorAll(".cat").forEach(function(cat) {
+        cat.addEventListener("click", function() {
+          loadReadyPlaylists(cat.dataset.cat);
+        });
+      });
+    }
+
+    function runSearch() {
+      var q = (plSearch.value || "").trim();
+      if (!q) return;
+      if (activeTab === "search") doSongSearch(q);
+      else doSmartSearch(q);
+    }
+    plSearchBtn.addEventListener("click", runSearch);
+    plSearch.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") runSearch();
+    });
+  </script>
+</body>
+</html>
