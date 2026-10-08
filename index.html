@@ -1445,18 +1445,28 @@
     }
 
     function attachPeerConnection(c) {
-      peerConns.push(c);
+      if (peerConns.indexOf(c) === -1) peerConns.push(c);
+      function pushState() {
+        try {
+          var st = buildSyncState();
+          c.send({ kind: "state", state: st });
+          c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: st });
+        } catch (e) {}
+      }
       c.on("open", function() {
-        try { c.send({ kind: "state", state: buildSyncState() }); } catch (e) {}
+        console.log("[MM] Peer conn open");
+        pushState();
       });
+      // Bazı ortamlarda open kaçabiliyor — hemen de dene
+      if (c.open) pushState();
       c.on("data", function(data) {
         if (!data) return;
-        if (data.kind === "cmd" && data.cmd) handleRemoteCommand(data.cmd);
+        if (data.kind === "cmd" && data.cmd) {
+          handleRemoteCommand(data.cmd);
+          return;
+        }
         if (data.kind === "hello" || data.kind === "ping" || data.kind === "sync") {
-          try {
-            c.send({ kind: "state", state: buildSyncState() });
-            c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: buildSyncState() });
-          } catch (e) {}
+          pushState();
         }
       });
       c.on("close", function() {
@@ -1468,7 +1478,10 @@
     }
 
     function startPeerHost() {
-      if (typeof Peer === "undefined" || !roomCode) return;
+      if (typeof Peer === "undefined" || !roomCode) {
+        console.warn("[MM] PeerJS yok veya roomCode boş — uzaktan bağlanılamaz");
+        return;
+      }
       try {
         if (peerHost) {
           try { peerHost.destroy(); } catch (e) {}
@@ -1476,17 +1489,24 @@
         }
         peerConns = [];
         var hostId = ROOM_PREFIX + roomCode.toLowerCase();
+        console.log("[MM] Peer host başlatılıyor:", hostId);
         peerHost = new Peer(hostId);
-        peerHost.on("open", function() {
+        peerHost.on("open", function(id) {
+          console.log("[MM] Peer host açık:", id);
           if (_peerHostRetryTimer) {
             clearTimeout(_peerHostRetryTimer);
             _peerHostRetryTimer = null;
           }
+          // Host hazır — remote'a taze state
+          try { broadcastState(); } catch (e) {}
         });
         peerHost.on("connection", function(c) {
+          console.log("[MM] Peer bağlantı geldi");
           attachPeerConnection(c);
         });
         peerHost.on("error", function(err) {
+          var msg = (err && (err.type || err.message)) || String(err);
+          console.warn("[MM] Peer host hata:", msg);
           // id-taken / network — biraz sonra tekrar dene
           if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
           _peerHostRetryTimer = setTimeout(function() {
@@ -1494,12 +1514,14 @@
           }, 4000);
         });
         peerHost.on("disconnected", function() {
+          console.warn("[MM] Peer host koptu, reconnect…");
           try { peerHost.reconnect(); } catch (e) {
             if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
             _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 3000);
           }
         });
       } catch (e) {
+        console.warn("[MM] Peer host exception", e);
         if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
         _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 5000);
       }
@@ -1577,6 +1599,9 @@
             toast.classList.add("show");
             setTimeout(function() { toast.classList.remove("show"); }, 2000);
           }
+          // Kritik: Peer host eski ID'de kalmasın — yeniden başlat
+          try { startPeerHost(); } catch (ePH) {}
+          try { broadcastState(); } catch (eBS) {}
         });
       }
 

@@ -2125,6 +2125,7 @@
         peer.on("open", function() {
           // index hostId = ROOM_PREFIX + roomCode.toLowerCase() — birebir aynı olmalı
           var hostId = ROOM_PREFIX + roomCode.toLowerCase();
+          console.log("[PL] Peer client open, host'a bağlanıyor:", hostId);
           conn = peer.connect(hostId, { reliable: true });
           conn.on("open", function() {
             peerRetryDelay = 1500;
@@ -2132,6 +2133,7 @@
             try {
               conn.send({ kind: "hello", room: roomCode });
               conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
+              conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
             } catch (e) {}
           });
           conn.on("data", function(data) {
@@ -2143,11 +2145,13 @@
             setStatus("wait", "Uzaktan koptu · yeniden bağlanıyor");
             schedulePeerRetry();
           });
-          conn.on("error", function() {
+          conn.on("error", function(err) {
+            console.warn("[PL] Peer conn error", err);
             schedulePeerRetry();
           });
         });
-        peer.on("error", function() {
+        peer.on("error", function(err) {
+          console.warn("[PL] Peer error", err);
           setStatus("wait", "Yerel bağlantı · peer yeniden");
           schedulePeerRetry();
         });
@@ -2155,6 +2159,7 @@
           try { peer.reconnect(); } catch (e) { schedulePeerRetry(); }
         });
       } catch (e) {
+        console.warn("[PL] Peer client exception", e);
         setStatus("wait", "Yerel bağlantı aktif");
         schedulePeerRetry();
       }
