@@ -1140,7 +1140,7 @@
     let pollTimer = null;
     let heartbeatTimer = null;
     let peerRetryTimer = null;
-    let peerRetryDelay = 1500;
+    let peerRetryDelay = 1200;
     let lastAliveAt = 0;
     let lastPongAt = 0;
     let _cmdSeq = 0;
@@ -1148,7 +1148,11 @@
     let _statusText = "";
     let _lastGoodLinkAt = 0;   // en son sağlıklı bağlantı anı (debounce)
     let _peerConnecting = false;
-    let LINK_GRACE_MS = 10000; // kopuk görünmeden önce tolerans
+    let LINK_GRACE_MS = 12000; // kopuk görünmeden önce tolerans
+    let _linkWatchdogTimer = null;
+    let _forceReconnectLockUntil = 0;
+    var PEER_MAX_BACKOFF = 5000;      // max 5 sn (eskiden 12 — uzun boşluk kalmasın)
+    var STALE_PEER_MS = 14000;        // peer açık görünse bile pong yoksa yenile
     const LAST_ROOM_KEY = "minimal_muzik_last_room";
 
     let mode = "shuffle";
@@ -1321,12 +1325,20 @@
 
     document.addEventListener("visibilitychange", function() {
       if (document.hidden || !roomCode) return;
+      peerRetryDelay = 1200;
       sendPing();
-      ensurePeerClient();
+      if (!conn || !conn.open) forcePeerReconnect("visible");
+      else ensurePeerClient();
       try {
         var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
         if (raw) onStateMessage(JSON.parse(raw));
       } catch (e) {}
+    });
+    window.addEventListener("online", function() {
+      if (!roomCode) return;
+      peerRetryDelay = 1000;
+      forcePeerReconnect("online");
+      sendPing();
     });
     window.addEventListener("focus", function() {
       if (!roomCode) return;
@@ -2279,12 +2291,37 @@
           ensurePeerClient();
         }
         updateLinkStatus();
-      }, 3000);
+      }, 2500);
+
+      // Arka plan link watchdog — kullanıcıya görünmeden toparla
+      if (_linkWatchdogTimer) clearInterval(_linkWatchdogTimer);
+      _linkWatchdogTimer = setInterval(function() {
+        if (!roomCode) return;
+        var now = Date.now();
+        var peerOk = !!(conn && conn.open);
+        var recent = (lastAliveAt && now - lastAliveAt < STALE_PEER_MS) ||
+                     (lastPongAt && now - lastPongAt < STALE_PEER_MS);
+
+        if (peerOk && !recent) {
+          // Socket açık görünüyor ama state/pong gelmiyor → yenile
+          forcePeerReconnect("stale");
+          return;
+        }
+        if (!peerOk) {
+          ensurePeerClient();
+          // Retry timer takılı kaldıysa zorla
+          if (!_peerConnecting && !peerRetryTimer) {
+            forcePeerReconnect("down");
+          }
+        }
+        // Yerel kanallar (BC / storage) hâlâ çalışıyorsa status grace ile "Bağlı" kalır
+        updateLinkStatus();
+      }, 3500);
     }
 
     function teardownPeer() {
       _peerConnecting = false;
-      try { if (conn) conn.close(); } catch (e) {}
+      try { if (conn) { conn.close(); } } catch (e) {}
       conn = null;
       try { if (peer) peer.destroy(); } catch (e) {}
       peer = null;
@@ -2293,22 +2330,35 @@
     function ensurePeerClient() {
       if (typeof Peer === "undefined" || !roomCode) return;
       if (conn && conn.open) return;
-      // Zaten bağlanma sürecindeyse yeniden destroy etme
       if (_peerConnecting) return;
       if (peerRetryTimer) return;
       startPeerClient();
     }
 
-    function schedulePeerRetry() {
+    function schedulePeerRetry(forceDelay) {
       if (peerRetryTimer) clearTimeout(peerRetryTimer);
-      var delay = peerRetryDelay;
-      peerRetryDelay = Math.min(peerRetryDelay * 1.6, 12000);
+      var delay = forceDelay != null ? forceDelay : peerRetryDelay;
+      peerRetryDelay = Math.min(Math.max(peerRetryDelay * 1.45, 1000), PEER_MAX_BACKOFF);
       peerRetryTimer = setTimeout(function() {
         peerRetryTimer = null;
         if (!roomCode) return;
         teardownPeer();
         startPeerClient();
       }, delay);
+    }
+
+    /** Peer "open" görünse bile stale ise zorla yenile (sessiz) */
+    function forcePeerReconnect(reason) {
+      var now = Date.now();
+      if (now < _forceReconnectLockUntil) return;
+      _forceReconnectLockUntil = now + 2500;
+      peerRetryDelay = 1200;
+      if (peerRetryTimer) {
+        clearTimeout(peerRetryTimer);
+        peerRetryTimer = null;
+      }
+      teardownPeer();
+      startPeerClient();
     }
 
     function startPeerClient() {
@@ -2323,8 +2373,10 @@
           conn = peer.connect(hostId, { reliable: true });
           conn.on("open", function() {
             _peerConnecting = false;
-            peerRetryDelay = 1500;
+            peerRetryDelay = 1200;
+            _forceReconnectLockUntil = 0;
             lastPongAt = Date.now();
+            lastAliveAt = Date.now();
             _lastGoodLinkAt = Date.now();
             updateLinkStatus();
             try {
@@ -2340,14 +2392,13 @@
           });
           conn.on("close", function() {
             _peerConnecting = false;
-            // Anında "kopuk" yazma — updateLinkStatus grace uygular
-            schedulePeerRetry();
+            schedulePeerRetry(1200);
             updateLinkStatus();
           });
           conn.on("error", function(err) {
             console.warn("[PL] Peer conn error", err);
             _peerConnecting = false;
-            schedulePeerRetry();
+            schedulePeerRetry(1500);
           });
         });
         peer.on("error", function(err) {
@@ -2703,6 +2754,13 @@
 
       var deferredPrompt = null;
 
+      // Service worker: Android Chrome tek-tık yükleme için gerekli
+      if ("serviceWorker" in navigator) {
+        try {
+          navigator.serviceWorker.register("./sw-playlist.js", { scope: "./" }).catch(function() {});
+        } catch (eSW) {}
+      }
+
       function isStandalone() {
         try {
           if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
@@ -2769,16 +2827,20 @@
             badge.hidden = false;
             badge.innerHTML = badgeIOS;
           }
-          if (sub) sub.textContent = "Paylaş → Ana Ekrana Ekle — uygulama gibi aç";
+          // iOS: tek tık API yok — Apple kısıtı
+          if (sub) sub.textContent = "iPhone’da tek tık yok — paylaş menüsünden eklenir";
+          if (btn) btn.textContent = "Nasıl eklenir?";
         } else if (isAndroid()) {
           if (badge) {
             badge.hidden = false;
             badge.innerHTML = badgeAndroid;
           }
-          if (sub) sub.textContent = "Ana ekrana ekle — yer kaplamadan, tek dokunuş";
+          if (sub) sub.textContent = "Tek dokunuşla ana ekrana ekle";
+          if (btn) btn.textContent = "Ana ekrana ekle";
         } else {
           if (badge) badge.hidden = true;
-          if (sub) sub.textContent = "Ana ekrana ekle — uygulama gibi, yer kaplamadan";
+          if (sub) sub.textContent = "Ana ekrana ekle — uygulama gibi kullan";
+          if (btn) btn.textContent = "Ana ekrana ekle";
         }
       }
 
@@ -2804,9 +2866,9 @@
         }
         if (isAndroid()) {
           showGuide(
-            "<li>Tarayıcı menüsünü aç <strong>⋮</strong> veya <strong>☰</strong></li>" +
-            "<li><strong>Ana ekrana ekle</strong> / <strong>Uygulamayı yükle</strong> seç</li>" +
-            "<li><strong>Ekle</strong> ile onayla — kısayol ana ekrana gelir</li>"
+            "<li>Sayfayı <strong>HTTPS</strong> ile aç (kurulum için gerekir)</li>" +
+            "<li>Tarayıcı menüsü <strong>⋮</strong> → <strong>Uygulamayı yükle</strong> / <strong>Ana ekrana ekle</strong></li>" +
+            "<li>Chrome bazen butonu birkaç saniye / bir sonraki ziyarette tek tık yapar</li>"
           );
           return;
         }
@@ -2829,10 +2891,10 @@
       window.addEventListener("beforeinstallprompt", function(e) {
         e.preventDefault();
         deferredPrompt = e;
-        // Native prompt mümkün — banner zaten açık
-        if (sub && isAndroid()) {
-          sub.textContent = "Tek dokunuşla ana ekrana ekle";
-        }
+        // Native tek-tık hazır
+        if (btn) btn.textContent = "Ana ekrana ekle";
+        if (sub) sub.textContent = "Tek dokunuşla ekle — tarayıcı menüsüne gerek yok";
+        banner.classList.add("show");
       });
 
       window.addEventListener("appinstalled", function() {

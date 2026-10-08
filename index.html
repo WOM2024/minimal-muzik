@@ -1132,8 +1132,10 @@
     let peerConns = [];
     let _syncHeartbeatTimer = null;
     let _peerHostRetryTimer = null;
+    let _peerWatchdogTimer = null;
     let _lastCmdTs = 0;
     let _seenCmdKeys = {};
+    let _hostRestartBusy = false;
 
     var ROOM_CODE_KEY = "minimal_muzik_room_code";
 
@@ -1477,11 +1479,30 @@
       });
     }
 
+    function isPeerHostAlive() {
+      try {
+        return !!(peerHost && !peerHost.destroyed && peerHost.id && peerHost.open !== false);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function scheduleHostRestart(delayMs) {
+      delayMs = delayMs == null ? 2500 : delayMs;
+      if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
+      _peerHostRetryTimer = setTimeout(function() {
+        _peerHostRetryTimer = null;
+        startPeerHost();
+      }, delayMs);
+    }
+
     function startPeerHost() {
       if (typeof Peer === "undefined" || !roomCode) {
         console.warn("[MM] PeerJS yok veya roomCode boş — uzaktan bağlanılamaz");
         return;
       }
+      if (_hostRestartBusy) return;
+      _hostRestartBusy = true;
       try {
         if (peerHost) {
           try { peerHost.destroy(); } catch (e) {}
@@ -1489,42 +1510,76 @@
         }
         peerConns = [];
         var hostId = ROOM_PREFIX + roomCode.toLowerCase();
-        console.log("[MM] Peer host başlatılıyor:", hostId);
         peerHost = new Peer(hostId);
         peerHost.on("open", function(id) {
-          console.log("[MM] Peer host açık:", id);
+          _hostRestartBusy = false;
           if (_peerHostRetryTimer) {
             clearTimeout(_peerHostRetryTimer);
             _peerHostRetryTimer = null;
           }
-          // Host hazır — remote'a taze state
           try { broadcastState(); } catch (e) {}
         });
         peerHost.on("connection", function(c) {
-          console.log("[MM] Peer bağlantı geldi");
           attachPeerConnection(c);
         });
         peerHost.on("error", function(err) {
+          _hostRestartBusy = false;
           var msg = (err && (err.type || err.message)) || String(err);
           console.warn("[MM] Peer host hata:", msg);
-          // id-taken / network — biraz sonra tekrar dene
-          if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
-          _peerHostRetryTimer = setTimeout(function() {
-            startPeerHost();
-          }, 4000);
+          // id-taken: kısa bekle; network: biraz daha uzun
+          var d = (String(msg).indexOf("taken") >= 0 || String(msg).indexOf("unavailable-id") >= 0) ? 3500 : 2500;
+          scheduleHostRestart(d);
         });
         peerHost.on("disconnected", function() {
-          console.warn("[MM] Peer host koptu, reconnect…");
-          try { peerHost.reconnect(); } catch (e) {
-            if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
-            _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 3000);
-          }
+          // Önce soft reconnect; olmazsa full restart
+          try {
+            if (peerHost && !peerHost.destroyed) {
+              peerHost.reconnect();
+              // 4 sn içinde open olmazsa full restart
+              setTimeout(function() {
+                if (!isPeerHostAlive()) scheduleHostRestart(500);
+              }, 4000);
+              return;
+            }
+          } catch (e) {}
+          _hostRestartBusy = false;
+          scheduleHostRestart(2000);
+        });
+        peerHost.on("close", function() {
+          _hostRestartBusy = false;
+          scheduleHostRestart(2000);
         });
       } catch (e) {
         console.warn("[MM] Peer host exception", e);
-        if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
-        _peerHostRetryTimer = setTimeout(function() { startPeerHost(); }, 5000);
+        _hostRestartBusy = false;
+        scheduleHostRestart(3000);
       }
+    }
+
+    /** Arka plan: host düştüyse sessizce ayağa kaldır */
+    function ensurePeerHost() {
+      if (!roomCode || typeof Peer === "undefined") return;
+      if (isPeerHostAlive()) return;
+      if (_peerHostRetryTimer || _hostRestartBusy) return;
+      startPeerHost();
+    }
+
+    function startPeerWatchdog() {
+      if (_peerWatchdogTimer) clearInterval(_peerWatchdogTimer);
+      _peerWatchdogTimer = setInterval(function() {
+        if (!roomCode) return;
+        ensurePeerHost();
+        // Canlı host + state yayını (remote poll / peer için)
+        try {
+          if (isPeerHostAlive()) broadcastState();
+        } catch (e) {}
+        // Ölü peer bağlantılarını temizle
+        try {
+          peerConns = peerConns.filter(function(c) {
+            try { return c && c.open; } catch (e2) { return false; }
+          });
+        } catch (e3) {}
+      }, 4000);
     }
 
     function initRoomSync() {
@@ -1561,13 +1616,23 @@
       // PeerJS host — farklı cihazlar + kopunca yeniden
       startPeerHost();
       startSyncHeartbeat();
+      startPeerWatchdog();
 
-      // Sekme görünür olunca state taze gönder
+      // Sekme görünür / ağ geri gelince host'u zorla ayakta tut
       document.addEventListener("visibilitychange", function() {
-        if (!document.hidden && roomCode) broadcastState();
+        if (document.hidden || !roomCode) return;
+        ensurePeerHost();
+        broadcastState();
       });
       window.addEventListener("focus", function() {
-        if (roomCode) broadcastState();
+        if (!roomCode) return;
+        ensurePeerHost();
+        broadcastState();
+      });
+      window.addEventListener("online", function() {
+        if (!roomCode) return;
+        // Ağ koptu-geldi: soft değil full restart daha güvenilir
+        scheduleHostRestart(800);
       });
 
       var badge = document.getElementById("roomBadge");

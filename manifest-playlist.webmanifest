@@ -1,25 +1,31 @@
 {
   "name": "SuperYT Remote",
   "short_name": "SuperYT",
-  "description": "SuperYT uzaktan kumanda",
+  "description": "SuperYT uzaktan kumanda — ana ekrandan aç",
   "start_url": "./playlist.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "superyt-logo.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "superyt-logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "superyt-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
