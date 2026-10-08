@@ -1196,86 +1196,106 @@
           if (d.room && d.room !== roomCode) return;
           if (d.kind === "state" && d.state) onStateMessage(d.state);
           if (d.kind === "pong") onPong(d);
-          if (d.kind === "reply" && d.state) onStateMessage(d.state);
         };
-      } catch (e) { bc = null; }
+      } catch (e) {}
 
       window.addEventListener("storage", function(ev) {
         if (!roomCode) return;
         if (ev.key === STORAGE_KEY + "_" + roomCode && ev.newValue) {
           try { onStateMessage(JSON.parse(ev.newValue)); } catch (e) {}
         }
+        if (ev.key === STORAGE_KEY + "_alive_" + roomCode && ev.newValue) {
+          lastAliveAt = Date.now();
+          updateLinkStatus();
+        }
         if (ev.key === STORAGE_KEY + "_reply_" + roomCode && ev.newValue) {
           try {
-            var msg = JSON.parse(ev.newValue);
-            if (msg.kind === "pong") onPong(msg);
-            if (msg.state) onStateMessage(msg.state);
+            var rep = JSON.parse(ev.newValue);
+            if (rep.kind === "pong") onPong(rep);
+            else if (rep.state) onStateMessage(rep.state);
           } catch (e) {}
         }
       });
+
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
+        if (raw) onStateMessage(JSON.parse(raw));
+      } catch (e) {}
 
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(function() {
         if (!roomCode) return;
         try {
           var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
-          if (raw) onStateMessage(JSON.parse(raw));
-        } catch (e) {}
-        try {
+          if (raw) {
+            var state = JSON.parse(raw);
+            if (!lastState || state.updated !== lastState.updated) onStateMessage(state);
+            else if (state.updated) {
+              lastAliveAt = Math.max(lastAliveAt, state.updated);
+            }
+          }
           var alive = localStorage.getItem(STORAGE_KEY + "_alive_" + roomCode);
           if (alive) {
             var t = parseInt(alive, 10);
-            if (t && Date.now() - t < 8000) lastAliveAt = t;
+            if (t) lastAliveAt = Math.max(lastAliveAt, t);
           }
         } catch (e) {}
         updateLinkStatus();
-      }, 1500);
+      }, 800);
 
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(function() {
+        if (!roomCode) return;
         sendPing();
+        if (!conn || !conn.open) {
+          ensurePeerClient();
+        }
         updateLinkStatus();
-      }, 3000);
+      }, 2500);
     }
 
     function teardownPeer() {
-      if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
-      try { if (conn) { conn.close(); } } catch (e) {}
+      try { if (conn) conn.close(); } catch (e) {}
       conn = null;
-      try { if (peer) { peer.destroy(); } } catch (e) {}
+      try { if (peer) peer.destroy(); } catch (e) {}
       peer = null;
+    }
+
+    function ensurePeerClient() {
+      if (typeof Peer === "undefined" || !roomCode) return;
+      if (conn && conn.open) return;
+      if (peerRetryTimer) return;
+      startPeerClient();
     }
 
     function schedulePeerRetry() {
       if (peerRetryTimer) clearTimeout(peerRetryTimer);
+      var delay = peerRetryDelay;
+      peerRetryDelay = Math.min(peerRetryDelay * 1.6, 12000);
       peerRetryTimer = setTimeout(function() {
         peerRetryTimer = null;
         if (!roomCode) return;
-        ensurePeerClient();
-      }, peerRetryDelay);
-      peerRetryDelay = Math.min(peerRetryDelay * 1.5, 12000);
-    }
-
-    function ensurePeerClient() {
-      if (!roomCode || typeof Peer === "undefined") return;
-      if (conn && conn.open) return;
-      startPeerClient();
+        teardownPeer();
+        startPeerClient();
+      }, delay);
     }
 
     function startPeerClient() {
       if (typeof Peer === "undefined" || !roomCode) return;
-      teardownPeer();
       try {
-        var myId = ROOM_PREFIX + "pl-" + roomCode + "-" + Math.random().toString(36).slice(2, 8);
-        peer = new Peer(myId, { debug: 0 });
+        teardownPeer();
+        peer = new Peer();
         peer.on("open", function() {
-          var hostId = ROOM_PREFIX + roomCode;
+          // index hostId = ROOM_PREFIX + roomCode.toLowerCase() — birebir aynı olmalı
+          var hostId = ROOM_PREFIX + roomCode.toLowerCase();
           conn = peer.connect(hostId, { reliable: true });
           conn.on("open", function() {
             peerRetryDelay = 1500;
             setStatus("on", "Bağlı · uzaktan");
-            try { conn.send({ kind: "hello", room: roomCode }); } catch (e) {}
-            sendPing();
+            try {
+              conn.send({ kind: "hello", room: roomCode });
+              conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
+            } catch (e) {}
           });
           conn.on("data", function(data) {
             if (!data) return;
@@ -1283,11 +1303,10 @@
             if (data.kind === "pong") onPong(data);
           });
           conn.on("close", function() {
-            setStatus("wait", "Yerel bağlantı · peer yeniden");
+            setStatus("wait", "Uzaktan koptu · yeniden bağlanıyor");
             schedulePeerRetry();
           });
           conn.on("error", function() {
-            setStatus("wait", "Yerel bağlantı · peer yeniden");
             schedulePeerRetry();
           });
         });
