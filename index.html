@@ -623,6 +623,31 @@
       font-weight: 800;
       color: #1DB954;
     }
+    .sp-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .sp-chip {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #2a2a2a;
+      color: #bbb;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+    .sp-chip.active {
+      background: rgba(29,185,84,0.2);
+      border-color: #1DB954;
+      color: #1DB954;
+    }
+    .sp-chip:active { transform: scale(0.97); }
 
     .player-area {
       flex: 1;
@@ -960,6 +985,20 @@
               <span class="sp-seconds-val" id="chromeSecondsVal">3 sn</span>
             </div>
             <input type="range" id="chromeSecondsRange" min="1" max="15" value="3" step="1" />
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <div class="sp-row" style="margin-bottom:4px">
+            <div>
+              <div class="sp-row-label">Video kalitesi</div>
+              <div class="sp-row-sub">Mümkün olan en yakın kaliteye sabitler</div>
+            </div>
+          </div>
+          <div class="sp-chips" id="qualityChips">
+            <button type="button" class="sp-chip" data-quality="low">Düşük</button>
+            <button type="button" class="sp-chip active" data-quality="normal">Normal</button>
+            <button type="button" class="sp-chip" data-quality="high">Yüksek</button>
           </div>
         </div>
 
@@ -2471,6 +2510,55 @@
     var ytApiReady = false;
     var ytApiWaiters = [];
     var ytPlayerInstance = null;
+
+    // —— Video kalitesi tercihi (YouTube API sınırları içinde) ——
+    var KEY_QUALITY = "minimal_muzik_quality";
+    var videoQualityPref = "normal"; // low | normal | high
+    try {
+      var _qSaved = localStorage.getItem(KEY_QUALITY);
+      if (_qSaved === "low" || _qSaved === "normal" || _qSaved === "high") videoQualityPref = _qSaved;
+    } catch (eQ) {}
+
+    function qualityRangeForPref(pref) {
+      // setPlaybackQualityRange(minQuality, maxQuality)
+      // small≈240 medium≈360 large≈480 hd720 hd1080 highres
+      if (pref === "low") return { min: "small", max: "medium" };      // ≤360p
+      if (pref === "high") return { min: "hd720", max: "highres" };   // ≥720p
+      return { min: "large", max: "hd720" };                           // ~480–720
+    }
+
+    function applyVideoQuality(player) {
+      player = player || ytPlayerInstance;
+      if (!player) return;
+      var range = qualityRangeForPref(videoQualityPref);
+      try {
+        if (typeof player.setPlaybackQualityRange === "function") {
+          player.setPlaybackQualityRange(range.min, range.max);
+        }
+      } catch (e1) {}
+      // Eski API (çoğu tarayıcıda yok sayılır ama zararsız)
+      try {
+        if (typeof player.setPlaybackQuality === "function") {
+          var suggested = videoQualityPref === "low" ? "medium"
+            : videoQualityPref === "high" ? "hd1080" : "large";
+          player.setPlaybackQuality(suggested);
+        }
+      } catch (e2) {}
+    }
+
+    function setVideoQualityPref(pref) {
+      if (pref !== "low" && pref !== "normal" && pref !== "high") return;
+      videoQualityPref = pref;
+      try { localStorage.setItem(KEY_QUALITY, pref); } catch (e) {}
+      applyVideoQuality(ytPlayerInstance);
+      // UI
+      var chips = document.getElementById("qualityChips");
+      if (chips) {
+        chips.querySelectorAll(".sp-chip").forEach(function(c) {
+          c.classList.toggle("active", c.getAttribute("data-quality") === pref);
+        });
+      }
+    }
     var ytHostId = "ytplayer-host";
 
     // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
@@ -2775,6 +2863,7 @@
         function finishLoadSuccess(target) {
           if (myToken !== _loadToken) return;
           pendingPlayId = null;
+          try { applyVideoQuality(target || ytPlayerInstance); } catch (eQ) {}
           applyMuteAndPlay(target || ytPlayerInstance);
           // Loading KAPATMA — YT ortadaki pause butonu görünmesin;
           // sadece PLAYING (veya watchdog) kapatır
@@ -2923,6 +3012,7 @@
           onReady: function(ev) {
             if (myToken != null && myToken !== _loadToken) return;
             pendingPlayId = null;
+            try { applyVideoQuality(ev.target); } catch (eQ) {}
             applyMuteAndPlayRecreate(ev.target);
             // Loading'i burada kapatma — PLAYING gelene kadar siyah örtü YT pause butonunu gizler
             try {
@@ -2962,6 +3052,7 @@
                 // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
                 markMediaUnlocked();
                 try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
+                try { applyVideoQuality(event.target || ytPlayerInstance); } catch (eQ) {}
                 bumpMediaSessionPlaying();
                 // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
                 if (currentPlayingId) startSponsorCheck(currentPlayingId);
@@ -3600,6 +3691,21 @@
       var hideTimer = null;
       var chromeHideOn = true;
       var hideSec = 3;
+
+      // Kalite chip UI senkron
+      (function syncQualityChips() {
+        var chips = document.getElementById("qualityChips");
+        if (!chips) return;
+        chips.querySelectorAll(".sp-chip").forEach(function(c) {
+          c.classList.toggle("active", c.getAttribute("data-quality") === videoQualityPref);
+          c.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var q = c.getAttribute("data-quality");
+            setVideoQualityPref(q);
+          });
+        });
+      })();
 
       try {
         var hs = localStorage.getItem(KEY_HIDE);

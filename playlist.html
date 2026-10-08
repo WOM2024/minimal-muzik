@@ -984,6 +984,11 @@
     let lastAliveAt = 0;
     let lastPongAt = 0;
     let _cmdSeq = 0;
+    let _statusMode = "";
+    let _statusText = "";
+    let _lastGoodLinkAt = 0;   // en son sağlıklı bağlantı anı (debounce)
+    let _peerConnecting = false;
+    let LINK_GRACE_MS = 10000; // kopuk görünmeden önce tolerans
     const LAST_ROOM_KEY = "minimal_muzik_last_room";
 
     let mode = "shuffle";
@@ -1186,6 +1191,10 @@
     loadManual();
 
     function setStatus(modeS, text) {
+      // Aynı metin/mod tekrar yazılmasın — UI titremesin
+      if (modeS === _statusMode && text === _statusText) return;
+      _statusMode = modeS;
+      _statusText = text;
       statusDot.className = "status-dot" + (modeS === "on" ? " on" : modeS === "wait" ? " wait" : "");
       statusText.textContent = text;
     }
@@ -1997,15 +2006,29 @@
     function updateLinkStatus() {
       var now = Date.now();
       var peerOk = !!(conn && conn.open);
-      var recent = (lastAliveAt && now - lastAliveAt < 6000) || (lastPongAt && now - lastPongAt < 6000);
-      if (peerOk && recent) {
-        setStatus("on", "Bağlı · canlı");
-      } else if (peerOk) {
-        setStatus("on", "Bağlı · uzaktan");
-      } else if (recent) {
-        setStatus("on", "Bağlı · yerel");
-      } else if (roomCode) {
-        setStatus("wait", "Senkron aranıyor…");
+      // 12 sn pencere — index heartbeat 1 sn, poll 0.8 sn; kısa kesintiler yutulur
+      var recent = (lastAliveAt && now - lastAliveAt < 12000) ||
+                   (lastPongAt && now - lastPongAt < 12000);
+      var linked = peerOk || recent;
+
+      if (linked) {
+        _lastGoodLinkAt = now;
+        // Tek stabil metin — saniyelik canlı/yerel/uzaktan geçişleri yok
+        if (peerOk && recent) setStatus("on", "Bağlı");
+        else if (peerOk) setStatus("on", "Bağlı");
+        else setStatus("on", "Bağlı");
+        return;
+      }
+
+      // Grace: kısa süreli boşlukta "kopuk" gösterme
+      if (roomCode && _lastGoodLinkAt && (now - _lastGoodLinkAt) < LINK_GRACE_MS) {
+        setStatus("on", "Bağlı");
+        return;
+      }
+
+      if (roomCode) {
+        if (_peerConnecting) setStatus("wait", "Bağlanıyor…");
+        else setStatus("wait", "Senkron aranıyor…");
       }
     }
 
@@ -2066,19 +2089,27 @@
           var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
           if (raw) {
             var state = JSON.parse(raw);
-            if (!lastState || state.updated !== lastState.updated) onStateMessage(state);
-            else if (state.updated) {
-              lastAliveAt = Math.max(lastAliveAt, state.updated);
+            if (!lastState || state.updated !== lastState.updated) {
+              onStateMessage(state);
+            } else if (state.updated) {
+              // updated değişmediyse bile timestamp taze ise canlı say
+              // (aynı sn içinde birden fazla poll)
+              var age = Date.now() - state.updated;
+              if (age < 12000) {
+                lastAliveAt = Math.max(lastAliveAt, Date.now() - Math.min(age, 500));
+              }
             }
           }
           var alive = localStorage.getItem(STORAGE_KEY + "_alive_" + roomCode);
           if (alive) {
             var t = parseInt(alive, 10);
-            if (t) lastAliveAt = Math.max(lastAliveAt, t);
+            if (t && Date.now() - t < 12000) {
+              lastAliveAt = Math.max(lastAliveAt, t);
+            }
           }
         } catch (e) {}
         updateLinkStatus();
-      }, 800);
+      }, 1000);
 
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(function() {
@@ -2088,10 +2119,11 @@
           ensurePeerClient();
         }
         updateLinkStatus();
-      }, 2500);
+      }, 3000);
     }
 
     function teardownPeer() {
+      _peerConnecting = false;
       try { if (conn) conn.close(); } catch (e) {}
       conn = null;
       try { if (peer) peer.destroy(); } catch (e) {}
@@ -2101,6 +2133,8 @@
     function ensurePeerClient() {
       if (typeof Peer === "undefined" || !roomCode) return;
       if (conn && conn.open) return;
+      // Zaten bağlanma sürecindeyse yeniden destroy etme
+      if (_peerConnecting) return;
       if (peerRetryTimer) return;
       startPeerClient();
     }
@@ -2121,15 +2155,18 @@
       if (typeof Peer === "undefined" || !roomCode) return;
       try {
         teardownPeer();
+        _peerConnecting = true;
         peer = new Peer();
         peer.on("open", function() {
-          // index hostId = ROOM_PREFIX + roomCode.toLowerCase() — birebir aynı olmalı
           var hostId = ROOM_PREFIX + roomCode.toLowerCase();
           console.log("[PL] Peer client open, host'a bağlanıyor:", hostId);
           conn = peer.connect(hostId, { reliable: true });
           conn.on("open", function() {
+            _peerConnecting = false;
             peerRetryDelay = 1500;
-            setStatus("on", "Bağlı · uzaktan");
+            lastPongAt = Date.now();
+            _lastGoodLinkAt = Date.now();
+            updateLinkStatus();
             try {
               conn.send({ kind: "hello", room: roomCode });
               conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
@@ -2142,26 +2179,34 @@
             if (data.kind === "pong") onPong(data);
           });
           conn.on("close", function() {
-            setStatus("wait", "Uzaktan koptu · yeniden bağlanıyor");
+            _peerConnecting = false;
+            // Anında "kopuk" yazma — updateLinkStatus grace uygular
             schedulePeerRetry();
+            updateLinkStatus();
           });
           conn.on("error", function(err) {
             console.warn("[PL] Peer conn error", err);
+            _peerConnecting = false;
             schedulePeerRetry();
           });
         });
         peer.on("error", function(err) {
           console.warn("[PL] Peer error", err);
-          setStatus("wait", "Yerel bağlantı · peer yeniden");
+          _peerConnecting = false;
           schedulePeerRetry();
+          updateLinkStatus();
         });
         peer.on("disconnected", function() {
-          try { peer.reconnect(); } catch (e) { schedulePeerRetry(); }
+          try { peer.reconnect(); } catch (e) {
+            _peerConnecting = false;
+            schedulePeerRetry();
+          }
         });
       } catch (e) {
         console.warn("[PL] Peer client exception", e);
-        setStatus("wait", "Yerel bağlantı aktif");
+        _peerConnecting = false;
         schedulePeerRetry();
+        updateLinkStatus();
       }
     }
 
