@@ -489,7 +489,7 @@
       z-index: 40;
       transition: opacity .2s;
     }
-    /* Party mode — müzik hissi veren kenar ışıkları */
+    /* Party mode — gece kulübü strob / kenar ışıkları */
     .party-overlay {
       display: none;
       position: absolute;
@@ -499,25 +499,29 @@
       overflow: hidden;
     }
     .party-overlay.on { display: block; }
+    .party-overlay.video-hidden {
+      z-index: 35;
+      background: #000;
+    }
     .party-edge {
       position: absolute;
       opacity: 0;
-      transition: opacity .05s linear;
+      will-change: opacity, filter;
     }
     .party-edge.t {
-      top: 0; left: 0; right: 0; height: 28%;
+      top: 0; left: 0; right: 0; height: 42%;
       background: linear-gradient(180deg, var(--party-c, #ff2d95) 0%, transparent 100%);
     }
     .party-edge.b {
-      bottom: 0; left: 0; right: 0; height: 28%;
+      bottom: 0; left: 0; right: 0; height: 42%;
       background: linear-gradient(0deg, var(--party-c, #00e5ff) 0%, transparent 100%);
     }
     .party-edge.l {
-      top: 0; bottom: 0; left: 0; width: 22%;
+      top: 0; bottom: 0; left: 0; width: 35%;
       background: linear-gradient(90deg, var(--party-c2, #b388ff) 0%, transparent 100%);
     }
     .party-edge.r {
-      top: 0; bottom: 0; right: 0; width: 22%;
+      top: 0; bottom: 0; right: 0; width: 35%;
       background: linear-gradient(270deg, var(--party-c2, #69f0ae) 0%, transparent 100%);
     }
     .party-flash {
@@ -526,6 +530,32 @@
       background: #fff;
       opacity: 0;
       mix-blend-mode: screen;
+    }
+    .party-overlay.video-hidden .party-flash {
+      mix-blend-mode: normal;
+    }
+    .party-beam {
+      position: absolute;
+      width: 120%;
+      height: 18%;
+      left: -10%;
+      opacity: 0;
+      filter: blur(12px);
+      background: linear-gradient(90deg, transparent, var(--party-c, #fff), transparent);
+      transform-origin: center;
+    }
+    .party-beam.b1 { top: 18%; }
+    .party-beam.b2 { top: 42%; }
+    .party-beam.b3 { top: 66%; }
+    /* Video gizlendiğinde iframe'i de karart */
+    #playerView.party-hide-video .player-area iframe,
+    #playerView.party-hide-video #ytplayer-host,
+    #playerView.party-hide-video #playerPoster {
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+    #playerView.party-hide-video .player-area {
+      background: #000;
     }
     .sp-chips {
       display: flex;
@@ -1043,15 +1073,26 @@
           </div>
           <div class="sp-party-opts" id="partyOpts">
             <div class="sp-chips" id="partyModeChips">
-              <button type="button" class="sp-chip active" data-party="pulse">Pulse</button>
+              <button type="button" class="sp-chip" data-party="pulse">Pulse</button>
               <button type="button" class="sp-chip" data-party="fade">Fade</button>
-              <button type="button" class="sp-chip" data-party="flash">Flash</button>
+              <button type="button" class="sp-chip active" data-party="club">Club</button>
+              <button type="button" class="sp-chip" data-party="flash">Strobe</button>
             </div>
-            <div class="sp-seconds-top" style="margin-top:10px">
-              <span>Yoğunluk</span>
-              <span class="sp-seconds-val" id="partyIntVal">60%</span>
+            <div class="sp-row" style="margin-top:12px;margin-bottom:0">
+              <div>
+                <div class="sp-row-label">Videoyu gizle</div>
+                <div class="sp-row-sub">Sadece ışıklar — siyah zemin</div>
+              </div>
+              <label class="sp-toggle">
+                <input type="checkbox" id="partyHideVideo" />
+                <span class="sp-toggle-track"></span>
+              </label>
             </div>
-            <input type="range" id="partyIntensity" min="20" max="100" value="60" />
+            <div class="sp-seconds-top" style="margin-top:12px">
+              <span>Yoğunluk / hız</span>
+              <span class="sp-seconds-val" id="partyIntVal">80%</span>
+            </div>
+            <input type="range" id="partyIntensity" min="30" max="100" value="80" />
           </div>
         </div>
 
@@ -1072,6 +1113,9 @@
         <div class="party-edge b" id="partyB"></div>
         <div class="party-edge l" id="partyL"></div>
         <div class="party-edge r" id="partyR"></div>
+        <div class="party-beam b1" id="partyBeam1"></div>
+        <div class="party-beam b2" id="partyBeam2"></div>
+        <div class="party-beam b3" id="partyBeam3"></div>
         <div class="party-flash" id="partyFlash"></div>
       </div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
@@ -3655,7 +3699,7 @@
 
     // Player ayarları + chrome gizleme + parlaklık
 
-    // Party mode — YT iframe sesine erişilemez; çalma + ritim benzeri efekt
+    // Party mode — gece kulübü strob (YT sesine erişilemez; ritim benzeri)
     (function initPartyMode() {
       var overlay = document.getElementById("partyOverlay");
       var partyT = document.getElementById("partyT");
@@ -3663,7 +3707,11 @@
       var partyL = document.getElementById("partyL");
       var partyR = document.getElementById("partyR");
       var partyFlash = document.getElementById("partyFlash");
+      var beam1 = document.getElementById("partyBeam1");
+      var beam2 = document.getElementById("partyBeam2");
+      var beam3 = document.getElementById("partyBeam3");
       var toggle = document.getElementById("partyToggle");
+      var hideVid = document.getElementById("partyHideVideo");
       var opts = document.getElementById("partyOpts");
       var intRange = document.getElementById("partyIntensity");
       var intVal = document.getElementById("partyIntVal");
@@ -3673,22 +3721,29 @@
       var KEY_ON = "minimal_muzik_party_on";
       var KEY_MODE = "minimal_muzik_party_mode";
       var KEY_INT = "minimal_muzik_party_int";
+      var KEY_HIDE = "minimal_muzik_party_hide_vid";
 
       var on = false;
-      var mode = "pulse";
-      var intensity = 0.6;
+      var mode = "club";
+      var intensity = 0.8;
+      var hideVideo = false;
       var raf = 0;
       var lastFlash = 0;
+      var lastStrobe = 0;
       var hue = 0;
+      var strobeOn = false;
 
       try {
         on = localStorage.getItem(KEY_ON) === "1";
-        mode = localStorage.getItem(KEY_MODE) || "pulse";
-        intensity = Math.min(1, Math.max(0.2, (parseInt(localStorage.getItem(KEY_INT) || "60", 10) || 60) / 100));
+        mode = localStorage.getItem(KEY_MODE) || "club";
+        if (mode === "flash") mode = "strobe";
+        intensity = Math.min(1, Math.max(0.3, (parseInt(localStorage.getItem(KEY_INT) || "80", 10) || 80) / 100));
+        hideVideo = localStorage.getItem(KEY_HIDE) === "1";
       } catch (e) {}
 
       function syncUI() {
         if (toggle) toggle.checked = on;
+        if (hideVid) hideVid.checked = hideVideo;
         if (opts) {
           if (on) opts.classList.add("show");
           else opts.classList.remove("show");
@@ -3697,12 +3752,19 @@
         if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
         if (chips) {
           chips.querySelectorAll(".sp-chip").forEach(function(c) {
-            c.classList.toggle("active", c.getAttribute("data-party") === mode);
+            var m = c.getAttribute("data-party");
+            c.classList.toggle("active", m === mode || (mode === "strobe" && m === "flash"));
           });
         }
         if (overlay) {
           if (on) overlay.classList.add("on");
           else overlay.classList.remove("on");
+          if (on && hideVideo) overlay.classList.add("video-hidden");
+          else overlay.classList.remove("video-hidden");
+        }
+        if (view) {
+          if (on && hideVideo) view.classList.add("party-hide-video");
+          else view.classList.remove("party-hide-video");
         }
       }
       syncUI();
@@ -3717,57 +3779,136 @@
         return !!_remotePlaying;
       }
 
-      function setEdges(op, c1, c2) {
-        var edges = [partyT, partyB, partyL, partyR];
-        for (var i = 0; i < edges.length; i++) {
-          if (!edges[i]) continue;
-          edges[i].style.setProperty("--party-c", c1);
-          edges[i].style.setProperty("--party-c2", c2 || c1);
-          edges[i].style.opacity = String(op);
-        }
+      function hsl(h, a) {
+        return "hsla(" + (Math.floor(h) % 360) + ",100%,55%," + a + ")";
+      }
+
+      function setEdge(el, op, c) {
+        if (!el) return;
+        el.style.setProperty("--party-c", c);
+        el.style.setProperty("--party-c2", c);
+        el.style.opacity = String(op);
+      }
+
+      function setBeam(el, op, c, rot) {
+        if (!el) return;
+        el.style.setProperty("--party-c", c);
+        el.style.opacity = String(op);
+        el.style.transform = "rotate(" + (rot || 0) + "deg)";
       }
 
       function tick(ts) {
         if (!on || !view || !view.classList.contains("active")) {
-          setEdges(0, "#000");
+          setEdge(partyT, 0, "#000");
+          setEdge(partyB, 0, "#000");
+          setEdge(partyL, 0, "#000");
+          setEdge(partyR, 0, "#000");
+          setBeam(beam1, 0, "#000", 0);
+          setBeam(beam2, 0, "#000", 0);
+          setBeam(beam3, 0, "#000", 0);
           if (partyFlash) partyFlash.style.opacity = "0";
           raf = requestAnimationFrame(tick);
           return;
         }
+
         var playing = isPlaying();
         var t = ts * 0.001;
-        // Sahte "beat": 2–3 katmanlı sinüs (bass + mid hissi)
-        var bass = Math.pow(Math.max(0, Math.sin(t * 4.2)), 2);
-        var mid = Math.pow(Math.max(0, Math.sin(t * 7.1 + 1.2)), 2);
-        var energy = playing ? (0.35 * bass + 0.25 * mid + 0.15) : 0.05;
-        energy *= intensity;
+        // Hızlı, kıpır kıpır katmanlar
+        var speed = 1.2 + intensity * 2.2;
+        var bass = Math.pow(Math.max(0, Math.sin(t * (5.5 * speed))), 4);
+        var kick = Math.pow(Math.max(0, Math.sin(t * (9.0 * speed) + 0.7)), 8);
+        var hat = Math.pow(Math.max(0, Math.sin(t * (17 * speed) + 2.1)), 2);
+        var chaos = Math.pow(Math.max(0, Math.sin(t * 23.3 + Math.sin(t * 3.1))), 3);
 
-        hue = (hue + (playing ? 0.8 : 0.15)) % 360;
-        var c1 = "hsl(" + Math.floor(hue) + " 100% 55%)";
-        var c2 = "hsl(" + Math.floor((hue + 120) % 360) + " 100% 55%)";
+        hue = (hue + (playing ? 3.5 * intensity : 0.3)) % 360;
+        var cA = hsl(hue, 1);
+        var cB = hsl(hue + 90, 1);
+        var cC = hsl(hue + 180, 1);
+        var cD = hsl(hue + 270, 1);
+
+        if (!playing) {
+          setEdge(partyT, 0.06, cA);
+          setEdge(partyB, 0.06, cB);
+          setEdge(partyL, 0.04, cC);
+          setEdge(partyR, 0.04, cD);
+          setBeam(beam1, 0, cA, 0);
+          setBeam(beam2, 0, cB, 0);
+          setBeam(beam3, 0, cC, 0);
+          if (partyFlash) partyFlash.style.opacity = "0";
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+
+        var boost = hideVideo ? 1.35 : 1;
 
         if (mode === "fade") {
-          var op = playing ? (0.25 + energy * 0.55) : 0.08;
-          setEdges(op, c1, c2);
+          var op = (0.35 + bass * 0.5) * intensity * boost;
+          setEdge(partyT, op, cA);
+          setEdge(partyB, op * 0.9, cB);
+          setEdge(partyL, op * 0.85, cC);
+          setEdge(partyR, op * 0.85, cD);
+          setBeam(beam1, op * 0.4, cA, Math.sin(t * 2) * 8);
+          setBeam(beam2, op * 0.35, cB, Math.sin(t * 2.4) * -10);
+          setBeam(beam3, op * 0.3, cC, Math.sin(t * 1.7) * 6);
           if (partyFlash) partyFlash.style.opacity = "0";
-        } else if (mode === "flash") {
-          setEdges(playing ? 0.12 + energy * 0.2 : 0.04, c1, c2);
-          if (partyFlash) {
-            if (playing && bass > 0.85 && ts - lastFlash > 180) {
-              partyFlash.style.opacity = String(0.15 + intensity * 0.25);
-              lastFlash = ts;
-            } else {
-              var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
-              partyFlash.style.opacity = String(Math.max(0, cur * 0.82));
-            }
+        } else if (mode === "pulse") {
+          var beat = Math.max(bass, kick);
+          var o = (0.2 + beat * 0.85) * intensity * boost;
+          setEdge(partyT, o, cA);
+          setEdge(partyB, o, cB);
+          setEdge(partyL, o * 0.9, cC);
+          setEdge(partyR, o * 0.9, cD);
+          setBeam(beam1, kick * 0.7 * intensity, cA, 0);
+          setBeam(beam2, bass * 0.5 * intensity, cB, 5);
+          setBeam(beam3, hat * 0.45 * intensity, cC, -5);
+          if (partyFlash) partyFlash.style.opacity = kick > 0.7 ? String(0.12 * intensity * boost) : "0";
+        } else if (mode === "strobe" || mode === "flash") {
+          // Anlık çakma
+          var interval = 40 + (1 - intensity) * 90;
+          if (ts - lastStrobe > interval) {
+            strobeOn = !strobeOn;
+            lastStrobe = ts;
+            hue = (hue + 40) % 360;
+          }
+          if (strobeOn) {
+            setEdge(partyT, 0.95 * intensity * boost, cA);
+            setEdge(partyB, 0.95 * intensity * boost, cB);
+            setEdge(partyL, 0.9 * intensity * boost, cC);
+            setEdge(partyR, 0.9 * intensity * boost, cD);
+            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.55 : 0.22) * intensity);
+            setBeam(beam1, 0.8 * intensity, "#fff", 0);
+            setBeam(beam2, 0.6 * intensity, cA, 12);
+            setBeam(beam3, 0.6 * intensity, cB, -12);
+          } else {
+            setEdge(partyT, 0.05, cA);
+            setEdge(partyB, 0.05, cB);
+            setEdge(partyL, 0.05, cC);
+            setEdge(partyR, 0.05, cD);
+            if (partyFlash) partyFlash.style.opacity = "0";
+            setBeam(beam1, 0, cA, 0);
+            setBeam(beam2, 0, cB, 0);
+            setBeam(beam3, 0, cC, 0);
           }
         } else {
-          // pulse (default)
-          var beat = playing ? (bass > 0.55 ? 1 : energy) : 0.06;
-          var op2 = 0.1 + beat * 0.7 * intensity;
-          setEdges(op2, c1, c2);
-          if (partyFlash) {
-            partyFlash.style.opacity = playing && bass > 0.9 ? String(0.08 * intensity) : "0";
+          // club — en agresif, kıpır kıpır
+          var oT = (0.25 + kick * 0.75 + chaos * 0.3) * intensity * boost;
+          var oB = (0.25 + bass * 0.7 + hat * 0.25) * intensity * boost;
+          var oL = (0.2 + hat * 0.8 + kick * 0.2) * intensity * boost;
+          var oR = (0.2 + chaos * 0.85 + bass * 0.2) * intensity * boost;
+          setEdge(partyT, Math.min(1, oT), cA);
+          setEdge(partyB, Math.min(1, oB), cB);
+          setEdge(partyL, Math.min(1, oL), cC);
+          setEdge(partyR, Math.min(1, oR), cD);
+          setBeam(beam1, (kick * 0.9 + chaos * 0.3) * intensity * boost, cA, Math.sin(t * 11) * 25);
+          setBeam(beam2, (bass * 0.7 + hat * 0.4) * intensity * boost, cB, Math.cos(t * 9) * 20);
+          setBeam(beam3, (hat * 0.8 + kick * 0.3) * intensity * boost, cC, Math.sin(t * 13) * -22);
+          // sık flaş
+          if (kick > 0.75 || (chaos > 0.85 && ts - lastFlash > 90)) {
+            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.45 : 0.18) * intensity);
+            lastFlash = ts;
+          } else if (partyFlash) {
+            var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
+            partyFlash.style.opacity = String(Math.max(0, cur * 0.55));
           }
         }
 
@@ -3782,9 +3923,16 @@
           syncUI();
         });
       }
+      if (hideVid) {
+        hideVid.addEventListener("change", function() {
+          hideVideo = !!hideVid.checked;
+          try { localStorage.setItem(KEY_HIDE, hideVideo ? "1" : "0"); } catch (e) {}
+          syncUI();
+        });
+      }
       if (intRange) {
         intRange.addEventListener("input", function() {
-          intensity = Math.min(1, Math.max(0.2, (parseInt(intRange.value, 10) || 60) / 100));
+          intensity = Math.min(1, Math.max(0.3, (parseInt(intRange.value, 10) || 80) / 100));
           if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
           try { localStorage.setItem(KEY_INT, String(Math.round(intensity * 100))); } catch (e) {}
         });
@@ -3792,7 +3940,8 @@
       if (chips) {
         chips.querySelectorAll(".sp-chip").forEach(function(chip) {
           chip.addEventListener("click", function() {
-            mode = chip.getAttribute("data-party") || "pulse";
+            mode = chip.getAttribute("data-party") || "club";
+            if (mode === "flash") mode = "strobe";
             try { localStorage.setItem(KEY_MODE, mode); } catch (e) {}
             syncUI();
           });
