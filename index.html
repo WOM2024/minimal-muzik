@@ -345,7 +345,7 @@
       border-bottom: none;
       position: absolute;
       top: 0; left: 0; right: 0;
-      z-index: 25;
+      z-index: 50; /* party ışıklarının üstünde — butonlar kaybolmasın */
       transition: opacity .35s ease, transform .35s ease, visibility .35s;
     }
     .player-top.chrome-hidden {
@@ -500,7 +500,7 @@
     }
     .party-overlay.on { display: block; }
     .party-overlay.video-hidden {
-      z-index: 35;
+      z-index: 30; /* player-top (50) altında */
       background: #000;
     }
     .party-edge {
@@ -596,7 +596,7 @@
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 16px;
       padding: 16px 18px 14px;
-      z-index: 50;
+      z-index: 60;
       width: min(300px, 92vw);
       box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
       backdrop-filter: blur(12px);
@@ -3699,7 +3699,7 @@
 
     // Player ayarları + chrome gizleme + parlaklık
 
-    // Party mode — gece kulübü strob (YT sesine erişilemez; ritim benzeri)
+    // Party mode — video currentTime'a kilitli ritim (kayma yok)
     (function initPartyMode() {
       var overlay = document.getElementById("partyOverlay");
       var partyT = document.getElementById("partyT");
@@ -3722,16 +3722,15 @@
       var KEY_MODE = "minimal_muzik_party_mode";
       var KEY_INT = "minimal_muzik_party_int";
       var KEY_HIDE = "minimal_muzik_party_hide_vid";
+      var KEY_BPM = "minimal_muzik_party_bpm";
 
       var on = false;
       var mode = "club";
       var intensity = 0.8;
       var hideVideo = false;
+      var bpm = 128;
       var raf = 0;
-      var lastFlash = 0;
-      var lastStrobe = 0;
       var hue = 0;
-      var strobeOn = false;
 
       try {
         on = localStorage.getItem(KEY_ON) === "1";
@@ -3739,6 +3738,7 @@
         if (mode === "flash") mode = "strobe";
         intensity = Math.min(1, Math.max(0.3, (parseInt(localStorage.getItem(KEY_INT) || "80", 10) || 80) / 100));
         hideVideo = localStorage.getItem(KEY_HIDE) === "1";
+        bpm = Math.min(180, Math.max(70, parseInt(localStorage.getItem(KEY_BPM) || "128", 10) || 128));
       } catch (e) {}
 
       function syncUI() {
@@ -3772,11 +3772,19 @@
       function isPlaying() {
         try {
           if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
-            var st = ytPlayerInstance.getPlayerState();
-            return st === YT.PlayerState.PLAYING;
+            return ytPlayerInstance.getPlayerState() === YT.PlayerState.PLAYING;
           }
         } catch (e) {}
         return !!_remotePlaying;
+      }
+
+      function mediaTime() {
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === "function") {
+            return ytPlayerInstance.getCurrentTime() || 0;
+          }
+        } catch (e) {}
+        return 0;
       }
 
       function hsl(h, a) {
@@ -3787,17 +3795,27 @@
         if (!el) return;
         el.style.setProperty("--party-c", c);
         el.style.setProperty("--party-c2", c);
-        el.style.opacity = String(op);
+        el.style.opacity = String(Math.max(0, Math.min(1, op)));
       }
 
       function setBeam(el, op, c, rot) {
         if (!el) return;
         el.style.setProperty("--party-c", c);
-        el.style.opacity = String(op);
+        el.style.opacity = String(Math.max(0, Math.min(1, op)));
         el.style.transform = "rotate(" + (rot || 0) + "deg)";
       }
 
-      function tick(ts) {
+      // Şarkı zamanına kilitli envelope (0..1) — wall clock değil
+      function beatEnv(ct, beatsPerBar, width) {
+        var bps = bpm / 60;
+        var phase = (ct * bps / beatsPerBar) % 1;
+        // dar darbe
+        var w = width || 0.12;
+        if (phase < w) return 1 - phase / w;
+        return 0;
+      }
+
+      function tick() {
         if (!on || !view || !view.classList.contains("active")) {
           setEdge(partyT, 0, "#000");
           setEdge(partyB, 0, "#000");
@@ -3812,23 +3830,25 @@
         }
 
         var playing = isPlaying();
-        var t = ts * 0.001;
-        // Hızlı, kıpır kıpır katmanlar
-        var speed = 1.2 + intensity * 2.2;
-        var bass = Math.pow(Math.max(0, Math.sin(t * (5.5 * speed))), 4);
-        var kick = Math.pow(Math.max(0, Math.sin(t * (9.0 * speed) + 0.7)), 8);
-        var hat = Math.pow(Math.max(0, Math.sin(t * (17 * speed) + 2.1)), 2);
-        var chaos = Math.pow(Math.max(0, Math.sin(t * 23.3 + Math.sin(t * 3.1))), 3);
+        var ct = mediaTime();
+        var boost = hideVideo ? 1.4 : 1;
+        var bps = bpm / 60;
 
-        hue = (hue + (playing ? 3.5 * intensity : 0.3)) % 360;
+        // 1/4, 1/8, 1/2 bar — video zamanına kilitli
+        var kick = beatEnv(ct, 1, 0.14);           // her vuruş
+        var kick4 = beatEnv(ct, 4, 0.1);           // her 4 vuruş (bar)
+        var hat = beatEnv(ct * 2, 1, 0.18);        // double-time
+        var off = beatEnv(ct + 0.5 / bps, 1, 0.12); // off-beat
+
+        hue = (ct * 40 + kick4 * 80) % 360;
         var cA = hsl(hue, 1);
         var cB = hsl(hue + 90, 1);
         var cC = hsl(hue + 180, 1);
         var cD = hsl(hue + 270, 1);
 
         if (!playing) {
-          setEdge(partyT, 0.06, cA);
-          setEdge(partyB, 0.06, cB);
+          setEdge(partyT, 0.05, cA);
+          setEdge(partyB, 0.05, cB);
           setEdge(partyL, 0.04, cC);
           setEdge(partyR, 0.04, cD);
           setBeam(beam1, 0, cA, 0);
@@ -3839,76 +3859,66 @@
           return;
         }
 
-        var boost = hideVideo ? 1.35 : 1;
-
         if (mode === "fade") {
-          var op = (0.35 + bass * 0.5) * intensity * boost;
+          var slow = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(ct * bps * Math.PI * 0.5));
+          var op = slow * intensity * boost;
           setEdge(partyT, op, cA);
           setEdge(partyB, op * 0.9, cB);
           setEdge(partyL, op * 0.85, cC);
           setEdge(partyR, op * 0.85, cD);
-          setBeam(beam1, op * 0.4, cA, Math.sin(t * 2) * 8);
-          setBeam(beam2, op * 0.35, cB, Math.sin(t * 2.4) * -10);
-          setBeam(beam3, op * 0.3, cC, Math.sin(t * 1.7) * 6);
+          setBeam(beam1, op * 0.35, cA, Math.sin(ct * 2) * 6);
+          setBeam(beam2, op * 0.3, cB, Math.cos(ct * 2) * -6);
+          setBeam(beam3, op * 0.25, cC, 0);
           if (partyFlash) partyFlash.style.opacity = "0";
         } else if (mode === "pulse") {
-          var beat = Math.max(bass, kick);
-          var o = (0.2 + beat * 0.85) * intensity * boost;
+          var o = (0.15 + kick * 0.9 + kick4 * 0.25) * intensity * boost;
           setEdge(partyT, o, cA);
           setEdge(partyB, o, cB);
           setEdge(partyL, o * 0.9, cC);
           setEdge(partyR, o * 0.9, cD);
-          setBeam(beam1, kick * 0.7 * intensity, cA, 0);
-          setBeam(beam2, bass * 0.5 * intensity, cB, 5);
-          setBeam(beam3, hat * 0.45 * intensity, cC, -5);
-          if (partyFlash) partyFlash.style.opacity = kick > 0.7 ? String(0.12 * intensity * boost) : "0";
+          setBeam(beam1, kick * intensity * boost, cA, 0);
+          setBeam(beam2, kick4 * intensity * boost, cB, 4);
+          setBeam(beam3, hat * 0.6 * intensity, cC, -4);
+          if (partyFlash) partyFlash.style.opacity = kick > 0.85 ? String(0.2 * intensity * boost) : "0";
         } else if (mode === "strobe" || mode === "flash") {
-          // Anlık çakma
-          var interval = 40 + (1 - intensity) * 90;
-          if (ts - lastStrobe > interval) {
-            strobeOn = !strobeOn;
-            lastStrobe = ts;
-            hue = (hue + 40) % 360;
-          }
-          if (strobeOn) {
-            setEdge(partyT, 0.95 * intensity * boost, cA);
-            setEdge(partyB, 0.95 * intensity * boost, cB);
-            setEdge(partyL, 0.9 * intensity * boost, cC);
-            setEdge(partyR, 0.9 * intensity * boost, cD);
-            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.55 : 0.22) * intensity);
-            setBeam(beam1, 0.8 * intensity, "#fff", 0);
-            setBeam(beam2, 0.6 * intensity, cA, 12);
-            setBeam(beam3, 0.6 * intensity, cB, -12);
+          // Her 1/8 notada sert çak (video zamanı)
+          var eighth = beatEnv(ct * 2, 1, 0.35);
+          var onBeat = eighth > 0.4;
+          if (onBeat) {
+            setEdge(partyT, 1 * intensity * boost, cA);
+            setEdge(partyB, 1 * intensity * boost, cB);
+            setEdge(partyL, 0.95 * intensity * boost, cC);
+            setEdge(partyR, 0.95 * intensity * boost, cD);
+            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.65 : 0.28) * intensity);
+            setBeam(beam1, 0.9 * intensity, "#fff", 0);
+            setBeam(beam2, 0.7 * intensity, cA, 10);
+            setBeam(beam3, 0.7 * intensity, cB, -10);
           } else {
-            setEdge(partyT, 0.05, cA);
-            setEdge(partyB, 0.05, cB);
-            setEdge(partyL, 0.05, cC);
-            setEdge(partyR, 0.05, cD);
+            setEdge(partyT, 0.02, cA);
+            setEdge(partyB, 0.02, cB);
+            setEdge(partyL, 0.02, cC);
+            setEdge(partyR, 0.02, cD);
             if (partyFlash) partyFlash.style.opacity = "0";
             setBeam(beam1, 0, cA, 0);
             setBeam(beam2, 0, cB, 0);
             setBeam(beam3, 0, cC, 0);
           }
         } else {
-          // club — en agresif, kıpır kıpır
-          var oT = (0.25 + kick * 0.75 + chaos * 0.3) * intensity * boost;
-          var oB = (0.25 + bass * 0.7 + hat * 0.25) * intensity * boost;
-          var oL = (0.2 + hat * 0.8 + kick * 0.2) * intensity * boost;
-          var oR = (0.2 + chaos * 0.85 + bass * 0.2) * intensity * boost;
-          setEdge(partyT, Math.min(1, oT), cA);
-          setEdge(partyB, Math.min(1, oB), cB);
-          setEdge(partyL, Math.min(1, oL), cC);
-          setEdge(partyR, Math.min(1, oR), cD);
-          setBeam(beam1, (kick * 0.9 + chaos * 0.3) * intensity * boost, cA, Math.sin(t * 11) * 25);
-          setBeam(beam2, (bass * 0.7 + hat * 0.4) * intensity * boost, cB, Math.cos(t * 9) * 20);
-          setBeam(beam3, (hat * 0.8 + kick * 0.3) * intensity * boost, cC, Math.sin(t * 13) * -22);
-          // sık flaş
-          if (kick > 0.75 || (chaos > 0.85 && ts - lastFlash > 90)) {
-            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.45 : 0.18) * intensity);
-            lastFlash = ts;
-          } else if (partyFlash) {
-            var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
-            partyFlash.style.opacity = String(Math.max(0, cur * 0.55));
+          // club — vuruş + off-beat + hat, hepsi currentTime kilitli
+          setEdge(partyT, (0.12 + kick * 0.88) * intensity * boost, cA);
+          setEdge(partyB, (0.12 + kick4 * 0.5 + off * 0.55) * intensity * boost, cB);
+          setEdge(partyL, (0.1 + hat * 0.9) * intensity * boost, cC);
+          setEdge(partyR, (0.1 + off * 0.85 + kick * 0.2) * intensity * boost, cD);
+          setBeam(beam1, kick * intensity * boost, cA, kick4 * 15);
+          setBeam(beam2, hat * intensity * boost, cB, off * -18);
+          setBeam(beam3, off * intensity * boost, cC, hat * 12);
+          if (partyFlash) {
+            if (kick > 0.9 || kick4 > 0.9) {
+              partyFlash.style.opacity = String((hideVideo ? 0.5 : 0.2) * intensity);
+            } else {
+              var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
+              partyFlash.style.opacity = String(Math.max(0, cur * 0.4));
+            }
           }
         }
 
@@ -3948,6 +3958,7 @@
         });
       }
     })();
+
 
     (function initPlayerSettings() {
       var top = document.querySelector(".player-top");
