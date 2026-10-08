@@ -1064,7 +1064,7 @@
           <div class="sp-row">
             <div>
               <div class="sp-row-label">Party modu</div>
-              <div class="sp-row-sub">Kenar ışıkları ritme yakın yanıp söner</div>
+              <div class="sp-row-sub">Kenar ışıkları — zaman kilitli veya ses reaktif</div>
             </div>
             <label class="sp-toggle">
               <input type="checkbox" id="partyToggle" />
@@ -1077,6 +1077,16 @@
               <button type="button" class="sp-chip" data-party="fade">Fade</button>
               <button type="button" class="sp-chip active" data-party="club">Club</button>
               <button type="button" class="sp-chip" data-party="flash">Strobe</button>
+            </div>
+            <div class="sp-row" style="margin-top:12px;margin-bottom:0">
+              <div>
+                <div class="sp-row-label">Ses reaktif</div>
+                <div class="sp-row-sub" id="partyAudioSub">Mikrofon ile gerçek ritim (hoparlör sesi)</div>
+              </div>
+              <label class="sp-toggle">
+                <input type="checkbox" id="partyAudioReactive" />
+                <span class="sp-toggle-track"></span>
+              </label>
             </div>
             <div class="sp-row" style="margin-top:12px;margin-bottom:0">
               <div>
@@ -1093,6 +1103,11 @@
               <span class="sp-seconds-val" id="partyIntVal">80%</span>
             </div>
             <input type="range" id="partyIntensity" min="30" max="100" value="80" />
+            <div class="sp-seconds-top" style="margin-top:12px">
+              <span>Ses hassasiyeti</span>
+              <span class="sp-seconds-val" id="partySensVal">60%</span>
+            </div>
+            <input type="range" id="partySensitivity" min="20" max="100" value="60" />
           </div>
         </div>
 
@@ -3699,7 +3714,7 @@
 
     // Player ayarları + chrome gizleme + parlaklık
 
-    // Party mode — video currentTime'a kilitli ritim (kayma yok)
+    // Party mode — zaman kilitli + Web Audio API ses reaktif
     (function initPartyMode() {
       var overlay = document.getElementById("partyOverlay");
       var partyT = document.getElementById("partyT");
@@ -3712,9 +3727,13 @@
       var beam3 = document.getElementById("partyBeam3");
       var toggle = document.getElementById("partyToggle");
       var hideVid = document.getElementById("partyHideVideo");
+      var audioToggle = document.getElementById("partyAudioReactive");
       var opts = document.getElementById("partyOpts");
       var intRange = document.getElementById("partyIntensity");
       var intVal = document.getElementById("partyIntVal");
+      var sensRange = document.getElementById("partySensitivity");
+      var sensVal = document.getElementById("partySensVal");
+      var audioSub = document.getElementById("partyAudioSub");
       var chips = document.getElementById("partyModeChips");
       var view = document.getElementById("playerView");
 
@@ -3723,14 +3742,30 @@
       var KEY_INT = "minimal_muzik_party_int";
       var KEY_HIDE = "minimal_muzik_party_hide_vid";
       var KEY_BPM = "minimal_muzik_party_bpm";
+      var KEY_AUDIO = "minimal_muzik_party_audio";
+      var KEY_SENS = "minimal_muzik_party_sens";
 
       var on = false;
       var mode = "club";
       var intensity = 0.8;
       var hideVideo = false;
+      var audioReactive = false;
+      var sensitivity = 0.6;
       var bpm = 128;
       var raf = 0;
       var hue = 0;
+
+      // Web Audio
+      var audioCtx = null;
+      var analyser = null;
+      var micStream = null;
+      var freqData = null;
+      var audioReady = false;
+      var audioError = null;
+
+      // Smoothed band energies (0..1)
+      var bass = 0, mid = 0, treble = 0, overall = 0;
+      var bassPeak = 0; // short peak hold for flash/kick feel
 
       try {
         on = localStorage.getItem(KEY_ON) === "1";
@@ -3738,18 +3773,27 @@
         if (mode === "flash") mode = "strobe";
         intensity = Math.min(1, Math.max(0.3, (parseInt(localStorage.getItem(KEY_INT) || "80", 10) || 80) / 100));
         hideVideo = localStorage.getItem(KEY_HIDE) === "1";
+        audioReactive = localStorage.getItem(KEY_AUDIO) === "1";
+        sensitivity = Math.min(1, Math.max(0.2, (parseInt(localStorage.getItem(KEY_SENS) || "60", 10) || 60) / 100));
         bpm = Math.min(180, Math.max(70, parseInt(localStorage.getItem(KEY_BPM) || "128", 10) || 128));
       } catch (e) {}
+
+      function setAudioSub(msg) {
+        if (audioSub) audioSub.textContent = msg;
+      }
 
       function syncUI() {
         if (toggle) toggle.checked = on;
         if (hideVid) hideVid.checked = hideVideo;
+        if (audioToggle) audioToggle.checked = audioReactive;
         if (opts) {
           if (on) opts.classList.add("show");
           else opts.classList.remove("show");
         }
         if (intRange) intRange.value = String(Math.round(intensity * 100));
         if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
+        if (sensRange) sensRange.value = String(Math.round(sensitivity * 100));
+        if (sensVal) sensVal.textContent = Math.round(sensitivity * 100) + "%";
         if (chips) {
           chips.querySelectorAll(".sp-chip").forEach(function(c) {
             var m = c.getAttribute("data-party");
@@ -3766,8 +3810,87 @@
           if (on && hideVideo) view.classList.add("party-hide-video");
           else view.classList.remove("party-hide-video");
         }
+        if (audioReactive && audioReady) setAudioSub("Mikrofon aktif — hoparlör sesini dinliyor");
+        else if (audioReactive && audioError) setAudioSub(audioError);
+        else if (audioReactive) setAudioSub("Mikrofon izni bekleniyor…");
+        else setAudioSub("Kapalıyken zaman kilitli ritim kullanılır");
       }
       syncUI();
+
+      function stopMic() {
+        audioReady = false;
+        if (micStream) {
+          try { micStream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
+          micStream = null;
+        }
+        if (audioCtx) {
+          try { audioCtx.close(); } catch (e) {}
+          audioCtx = null;
+        }
+        analyser = null;
+        freqData = null;
+        bass = mid = treble = overall = bassPeak = 0;
+      }
+
+      function startMic() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          audioError = "Bu tarayıcı mikrofonu desteklemiyor";
+          audioReady = false;
+          syncUI();
+          return;
+        }
+        // Önceki akışı kapat
+        stopMic();
+        audioError = null;
+        setAudioSub("Mikrofon izni isteniyor…");
+
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) {
+          audioError = "Web Audio desteklenmiyor";
+          syncUI();
+          return;
+        }
+
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          video: false
+        }).then(function(stream) {
+          micStream = stream;
+          audioCtx = new AC();
+          // Autoplay policy: resume
+          if (audioCtx.state === "suspended") {
+            audioCtx.resume().catch(function() {});
+          }
+          var source = audioCtx.createMediaStreamSource(stream);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.55;
+          source.connect(analyser);
+          // Analyser'ı destination'a bağlama — sadece analiz, hoparlöre geri basma (feedback yok)
+          freqData = new Uint8Array(analyser.frequencyBinCount);
+          audioReady = true;
+          audioError = null;
+          syncUI();
+        }).catch(function(err) {
+          audioReady = false;
+          var name = (err && err.name) || "";
+          if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+            audioError = "Mikrofon izni reddedildi";
+          } else if (name === "NotFoundError") {
+            audioError = "Mikrofon bulunamadı";
+          } else {
+            audioError = "Mikrofon açılamadı";
+          }
+          if (audioToggle) audioToggle.checked = false;
+          audioReactive = false;
+          try { localStorage.setItem(KEY_AUDIO, "0"); } catch (e) {}
+          syncUI();
+        });
+      }
 
       function isPlaying() {
         try {
@@ -3805,14 +3928,61 @@
         el.style.transform = "rotate(" + (rot || 0) + "deg)";
       }
 
-      // Şarkı zamanına kilitli envelope (0..1) — wall clock değil
+      // Zaman kilitli envelope (fallback)
       function beatEnv(ct, beatsPerBar, width) {
         var bps = bpm / 60;
         var phase = (ct * bps / beatsPerBar) % 1;
-        // dar darbe
         var w = width || 0.12;
         if (phase < w) return 1 - phase / w;
         return 0;
+      }
+
+      // Frequency bin ortalama → 0..1, hassasiyet ve noise floor ile
+      function bandEnergy(data, fromBin, toBin, floor, sens) {
+        var sum = 0, n = 0;
+        for (var i = fromBin; i < toBin && i < data.length; i++) {
+          sum += data[i];
+          n++;
+        }
+        if (!n) return 0;
+        var avg = sum / n / 255;
+        avg = Math.max(0, avg - floor);
+        // Hassasiyet: daha yüksek sens → daha agresif scale
+        var scaled = avg / Math.max(0.05, 1 - sens * 0.7);
+        return Math.min(1, scaled * (0.6 + sens * 1.2));
+      }
+
+      function sampleAudio() {
+        if (!analyser || !freqData) {
+          bass = mid = treble = overall = 0;
+          bassPeak *= 0.85;
+          return;
+        }
+        // Resume context if needed (iOS / autoplay)
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume().catch(function() {});
+        }
+        analyser.getByteFrequencyData(freqData);
+
+        // ~22kHz / 256 bins ≈ 86 Hz per bin (fftSize 512)
+        // Bass: ~20–150 Hz → bins 1–3
+        // Mid:  ~150–1500 Hz → bins 3–18
+        // Treble: 1500–8k → bins 18–90
+        var b = bandEnergy(freqData, 1, 4, 0.04, sensitivity);
+        var m = bandEnergy(freqData, 4, 20, 0.03, sensitivity);
+        var t = bandEnergy(freqData, 20, 90, 0.025, sensitivity);
+        var o = bandEnergy(freqData, 1, 100, 0.03, sensitivity);
+
+        // EMA smooth
+        var aUp = 0.55, aDown = 0.22;
+        bass = b > bass ? bass + (b - bass) * aUp : bass + (b - bass) * aDown;
+        mid = m > mid ? mid + (m - mid) * aUp : mid + (m - mid) * aDown;
+        treble = t > treble ? treble + (t - treble) * aUp : treble + (t - treble) * aDown;
+        overall = o > overall ? overall + (o - overall) * aUp : overall + (o - overall) * aDown;
+
+        // Peak hold for kick-like flash
+        if (bass > bassPeak) bassPeak = bass;
+        else bassPeak *= 0.88;
       }
 
       function tick() {
@@ -3829,95 +3999,188 @@
           return;
         }
 
-        var playing = isPlaying();
-        var ct = mediaTime();
         var boost = hideVideo ? 1.4 : 1;
-        var bps = bpm / 60;
+        var useAudio = audioReactive && audioReady;
 
-        // 1/4, 1/8, 1/2 bar — video zamanına kilitli
-        var kick = beatEnv(ct, 1, 0.14);           // her vuruş
-        var kick4 = beatEnv(ct, 4, 0.1);           // her 4 vuruş (bar)
-        var hat = beatEnv(ct * 2, 1, 0.18);        // double-time
-        var off = beatEnv(ct + 0.5 / bps, 1, 0.12); // off-beat
-
-        hue = (ct * 40 + kick4 * 80) % 360;
-        var cA = hsl(hue, 1);
-        var cB = hsl(hue + 90, 1);
-        var cC = hsl(hue + 180, 1);
-        var cD = hsl(hue + 270, 1);
-
-        if (!playing) {
-          setEdge(partyT, 0.05, cA);
-          setEdge(partyB, 0.05, cB);
-          setEdge(partyL, 0.04, cC);
-          setEdge(partyR, 0.04, cD);
-          setBeam(beam1, 0, cA, 0);
-          setBeam(beam2, 0, cB, 0);
-          setBeam(beam3, 0, cC, 0);
-          if (partyFlash) partyFlash.style.opacity = "0";
-          raf = requestAnimationFrame(tick);
-          return;
-        }
-
-        if (mode === "fade") {
-          var slow = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(ct * bps * Math.PI * 0.5));
-          var op = slow * intensity * boost;
-          setEdge(partyT, op, cA);
-          setEdge(partyB, op * 0.9, cB);
-          setEdge(partyL, op * 0.85, cC);
-          setEdge(partyR, op * 0.85, cD);
-          setBeam(beam1, op * 0.35, cA, Math.sin(ct * 2) * 6);
-          setBeam(beam2, op * 0.3, cB, Math.cos(ct * 2) * -6);
-          setBeam(beam3, op * 0.25, cC, 0);
-          if (partyFlash) partyFlash.style.opacity = "0";
-        } else if (mode === "pulse") {
-          var o = (0.15 + kick * 0.9 + kick4 * 0.25) * intensity * boost;
-          setEdge(partyT, o, cA);
-          setEdge(partyB, o, cB);
-          setEdge(partyL, o * 0.9, cC);
-          setEdge(partyR, o * 0.9, cD);
-          setBeam(beam1, kick * intensity * boost, cA, 0);
-          setBeam(beam2, kick4 * intensity * boost, cB, 4);
-          setBeam(beam3, hat * 0.6 * intensity, cC, -4);
-          if (partyFlash) partyFlash.style.opacity = kick > 0.85 ? String(0.2 * intensity * boost) : "0";
-        } else if (mode === "strobe" || mode === "flash") {
-          // Her 1/8 notada sert çak (video zamanı)
-          var eighth = beatEnv(ct * 2, 1, 0.35);
-          var onBeat = eighth > 0.4;
-          if (onBeat) {
-            setEdge(partyT, 1 * intensity * boost, cA);
-            setEdge(partyB, 1 * intensity * boost, cB);
-            setEdge(partyL, 0.95 * intensity * boost, cC);
-            setEdge(partyR, 0.95 * intensity * boost, cD);
-            if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.65 : 0.28) * intensity);
-            setBeam(beam1, 0.9 * intensity, "#fff", 0);
-            setBeam(beam2, 0.7 * intensity, cA, 10);
-            setBeam(beam3, 0.7 * intensity, cB, -10);
-          } else {
-            setEdge(partyT, 0.02, cA);
-            setEdge(partyB, 0.02, cB);
-            setEdge(partyL, 0.02, cC);
-            setEdge(partyR, 0.02, cD);
+        if (useAudio) {
+          sampleAudio();
+          // Ses yoksa / çok sessizse hafif idle
+          var silence = overall < 0.02 && bass < 0.02;
+          if (silence) {
+            setEdge(partyT, 0.03 * intensity, hsl(hue, 1));
+            setEdge(partyB, 0.03 * intensity, hsl(hue + 90, 1));
+            setEdge(partyL, 0.02 * intensity, hsl(hue + 180, 1));
+            setEdge(partyR, 0.02 * intensity, hsl(hue + 270, 1));
+            setBeam(beam1, 0, "#000", 0);
+            setBeam(beam2, 0, "#000", 0);
+            setBeam(beam3, 0, "#000", 0);
             if (partyFlash) partyFlash.style.opacity = "0";
+            hue = (hue + 0.15) % 360;
+            raf = requestAnimationFrame(tick);
+            return;
+          }
+
+          // Renkler bas/mid'e göre kayar
+          hue = (hue + 0.4 + bass * 2.5 + mid * 1.2) % 360;
+          var cA = hsl(hue, 1);
+          var cB = hsl(hue + 90, 1);
+          var cC = hsl(hue + 180, 1);
+          var cD = hsl(hue + 270, 1);
+
+          var kick = Math.min(1, bass * 1.15);
+          var kickPeak = Math.min(1, bassPeak * 1.1);
+          var hat = Math.min(1, treble * 1.2);
+          var body = Math.min(1, mid * 1.1);
+          var energy = Math.min(1, overall * 1.05);
+
+          if (mode === "fade") {
+            var op = (0.2 + energy * 0.75) * intensity * boost;
+            setEdge(partyT, op, cA);
+            setEdge(partyB, op * 0.9, cB);
+            setEdge(partyL, op * 0.85, cC);
+            setEdge(partyR, op * 0.85, cD);
+            setBeam(beam1, energy * 0.4 * intensity, cA, (bass - 0.5) * 12);
+            setBeam(beam2, mid * 0.35 * intensity, cB, (treble - 0.5) * -10);
+            setBeam(beam3, treble * 0.3 * intensity, cC, 0);
+            if (partyFlash) partyFlash.style.opacity = "0";
+          } else if (mode === "pulse") {
+            var o = (0.12 + kick * 0.88 + body * 0.2) * intensity * boost;
+            setEdge(partyT, o, cA);
+            setEdge(partyB, o, cB);
+            setEdge(partyL, o * 0.9, cC);
+            setEdge(partyR, o * 0.9, cD);
+            setBeam(beam1, kick * intensity * boost, cA, 0);
+            setBeam(beam2, body * intensity * boost, cB, 4);
+            setBeam(beam3, hat * 0.55 * intensity, cC, -4);
+            if (partyFlash) {
+              partyFlash.style.opacity = kickPeak > 0.72 ? String(0.22 * intensity * boost) : "0";
+            }
+          } else if (mode === "strobe" || mode === "flash") {
+            var onBeat = kickPeak > (0.55 - sensitivity * 0.15) || energy > 0.75;
+            if (onBeat) {
+              setEdge(partyT, 1 * intensity * boost, cA);
+              setEdge(partyB, 1 * intensity * boost, cB);
+              setEdge(partyL, 0.95 * intensity * boost, cC);
+              setEdge(partyR, 0.95 * intensity * boost, cD);
+              if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.65 : 0.28) * intensity);
+              setBeam(beam1, 0.9 * intensity, "#fff", 0);
+              setBeam(beam2, 0.7 * intensity, cA, 10);
+              setBeam(beam3, 0.7 * intensity, cB, -10);
+            } else {
+              setEdge(partyT, 0.02, cA);
+              setEdge(partyB, 0.02, cB);
+              setEdge(partyL, 0.02, cC);
+              setEdge(partyR, 0.02, cD);
+              if (partyFlash) partyFlash.style.opacity = "0";
+              setBeam(beam1, 0, cA, 0);
+              setBeam(beam2, 0, cB, 0);
+              setBeam(beam3, 0, cC, 0);
+            }
+          } else {
+            // club — bass / mid / treble haritalama
+            setEdge(partyT, (0.1 + kick * 0.9) * intensity * boost, cA);
+            setEdge(partyB, (0.1 + body * 0.55 + kickPeak * 0.35) * intensity * boost, cB);
+            setEdge(partyL, (0.08 + hat * 0.92) * intensity * boost, cC);
+            setEdge(partyR, (0.08 + body * 0.7 + kick * 0.25) * intensity * boost, cD);
+            setBeam(beam1, kick * intensity * boost, cA, kickPeak * 14);
+            setBeam(beam2, hat * intensity * boost, cB, body * -16);
+            setBeam(beam3, body * intensity * boost, cC, hat * 10);
+            if (partyFlash) {
+              if (kickPeak > 0.78) {
+                partyFlash.style.opacity = String((hideVideo ? 0.5 : 0.2) * intensity);
+              } else {
+                var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
+                partyFlash.style.opacity = String(Math.max(0, cur * 0.35));
+              }
+            }
+          }
+        } else {
+          // —— Zaman kilitli fallback (eski mantık) ——
+          var playing = isPlaying();
+          var ct = mediaTime();
+          var bps = bpm / 60;
+          var kick = beatEnv(ct, 1, 0.14);
+          var kick4 = beatEnv(ct, 4, 0.1);
+          var hat = beatEnv(ct * 2, 1, 0.18);
+          var off = beatEnv(ct + 0.5 / bps, 1, 0.12);
+
+          hue = (ct * 40 + kick4 * 80) % 360;
+          var cA = hsl(hue, 1);
+          var cB = hsl(hue + 90, 1);
+          var cC = hsl(hue + 180, 1);
+          var cD = hsl(hue + 270, 1);
+
+          if (!playing) {
+            setEdge(partyT, 0.05, cA);
+            setEdge(partyB, 0.05, cB);
+            setEdge(partyL, 0.04, cC);
+            setEdge(partyR, 0.04, cD);
             setBeam(beam1, 0, cA, 0);
             setBeam(beam2, 0, cB, 0);
             setBeam(beam3, 0, cC, 0);
+            if (partyFlash) partyFlash.style.opacity = "0";
+            raf = requestAnimationFrame(tick);
+            return;
           }
-        } else {
-          // club — vuruş + off-beat + hat, hepsi currentTime kilitli
-          setEdge(partyT, (0.12 + kick * 0.88) * intensity * boost, cA);
-          setEdge(partyB, (0.12 + kick4 * 0.5 + off * 0.55) * intensity * boost, cB);
-          setEdge(partyL, (0.1 + hat * 0.9) * intensity * boost, cC);
-          setEdge(partyR, (0.1 + off * 0.85 + kick * 0.2) * intensity * boost, cD);
-          setBeam(beam1, kick * intensity * boost, cA, kick4 * 15);
-          setBeam(beam2, hat * intensity * boost, cB, off * -18);
-          setBeam(beam3, off * intensity * boost, cC, hat * 12);
-          if (partyFlash) {
-            if (kick > 0.9 || kick4 > 0.9) {
-              partyFlash.style.opacity = String((hideVideo ? 0.5 : 0.2) * intensity);
+
+          if (mode === "fade") {
+            var slow = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(ct * bps * Math.PI * 0.5));
+            var op = slow * intensity * boost;
+            setEdge(partyT, op, cA);
+            setEdge(partyB, op * 0.9, cB);
+            setEdge(partyL, op * 0.85, cC);
+            setEdge(partyR, op * 0.85, cD);
+            setBeam(beam1, op * 0.35, cA, Math.sin(ct * 2) * 6);
+            setBeam(beam2, op * 0.3, cB, Math.cos(ct * 2) * -6);
+            setBeam(beam3, op * 0.25, cC, 0);
+            if (partyFlash) partyFlash.style.opacity = "0";
+          } else if (mode === "pulse") {
+            var o = (0.15 + kick * 0.9 + kick4 * 0.25) * intensity * boost;
+            setEdge(partyT, o, cA);
+            setEdge(partyB, o, cB);
+            setEdge(partyL, o * 0.9, cC);
+            setEdge(partyR, o * 0.9, cD);
+            setBeam(beam1, kick * intensity * boost, cA, 0);
+            setBeam(beam2, kick4 * intensity * boost, cB, 4);
+            setBeam(beam3, hat * 0.6 * intensity, cC, -4);
+            if (partyFlash) partyFlash.style.opacity = kick > 0.85 ? String(0.2 * intensity * boost) : "0";
+          } else if (mode === "strobe" || mode === "flash") {
+            var eighth = beatEnv(ct * 2, 1, 0.35);
+            var onBeat = eighth > 0.4;
+            if (onBeat) {
+              setEdge(partyT, 1 * intensity * boost, cA);
+              setEdge(partyB, 1 * intensity * boost, cB);
+              setEdge(partyL, 0.95 * intensity * boost, cC);
+              setEdge(partyR, 0.95 * intensity * boost, cD);
+              if (partyFlash) partyFlash.style.opacity = String((hideVideo ? 0.65 : 0.28) * intensity);
+              setBeam(beam1, 0.9 * intensity, "#fff", 0);
+              setBeam(beam2, 0.7 * intensity, cA, 10);
+              setBeam(beam3, 0.7 * intensity, cB, -10);
             } else {
-              var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
-              partyFlash.style.opacity = String(Math.max(0, cur * 0.4));
+              setEdge(partyT, 0.02, cA);
+              setEdge(partyB, 0.02, cB);
+              setEdge(partyL, 0.02, cC);
+              setEdge(partyR, 0.02, cD);
+              if (partyFlash) partyFlash.style.opacity = "0";
+              setBeam(beam1, 0, cA, 0);
+              setBeam(beam2, 0, cB, 0);
+              setBeam(beam3, 0, cC, 0);
+            }
+          } else {
+            setEdge(partyT, (0.12 + kick * 0.88) * intensity * boost, cA);
+            setEdge(partyB, (0.12 + kick4 * 0.5 + off * 0.55) * intensity * boost, cB);
+            setEdge(partyL, (0.1 + hat * 0.9) * intensity * boost, cC);
+            setEdge(partyR, (0.1 + off * 0.85 + kick * 0.2) * intensity * boost, cD);
+            setBeam(beam1, kick * intensity * boost, cA, kick4 * 15);
+            setBeam(beam2, hat * intensity * boost, cB, off * -18);
+            setBeam(beam3, off * intensity * boost, cC, hat * 12);
+            if (partyFlash) {
+              if (kick > 0.9 || kick4 > 0.9) {
+                partyFlash.style.opacity = String((hideVideo ? 0.5 : 0.2) * intensity);
+              } else {
+                var cur = parseFloat(partyFlash.style.opacity || "0") || 0;
+                partyFlash.style.opacity = String(Math.max(0, cur * 0.4));
+              }
             }
           }
         }
@@ -3930,6 +4193,8 @@
         toggle.addEventListener("change", function() {
           on = !!toggle.checked;
           try { localStorage.setItem(KEY_ON, on ? "1" : "0"); } catch (e) {}
+          if (on && audioReactive && !audioReady) startMic();
+          if (!on) stopMic();
           syncUI();
         });
       }
@@ -3940,11 +4205,27 @@
           syncUI();
         });
       }
+      if (audioToggle) {
+        audioToggle.addEventListener("change", function() {
+          audioReactive = !!audioToggle.checked;
+          try { localStorage.setItem(KEY_AUDIO, audioReactive ? "1" : "0"); } catch (e) {}
+          if (audioReactive && on) startMic();
+          else if (!audioReactive) stopMic();
+          syncUI();
+        });
+      }
       if (intRange) {
         intRange.addEventListener("input", function() {
           intensity = Math.min(1, Math.max(0.3, (parseInt(intRange.value, 10) || 80) / 100));
           if (intVal) intVal.textContent = Math.round(intensity * 100) + "%";
           try { localStorage.setItem(KEY_INT, String(Math.round(intensity * 100))); } catch (e) {}
+        });
+      }
+      if (sensRange) {
+        sensRange.addEventListener("input", function() {
+          sensitivity = Math.min(1, Math.max(0.2, (parseInt(sensRange.value, 10) || 60) / 100));
+          if (sensVal) sensVal.textContent = Math.round(sensitivity * 100) + "%";
+          try { localStorage.setItem(KEY_SENS, String(Math.round(sensitivity * 100))); } catch (e) {}
         });
       }
       if (chips) {
@@ -3956,6 +4237,15 @@
             syncUI();
           });
         });
+      }
+
+      // Sayfa kapanırken mikrofonu bırak
+      window.addEventListener("pagehide", stopMic);
+      // Daha önce açık kayıtlıysa ve party açıksa başlat (user gesture gerekebilir — toggle zaten gesture)
+      if (on && audioReactive) {
+        // Otomatik start riskli (izin prompt); kullanıcı toggle ile açsın diye sadece UI işaretli bırakıyoruz.
+        // İsteğe bağlı: soft try
+        // startMic();
       }
     })();
 
