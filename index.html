@@ -340,10 +340,26 @@
       align-items: center;
       gap: 10px;
       padding: 0 12px;
-      background: linear-gradient(180deg, rgba(18,18,18,0.98) 0%, rgba(10,10,10,0.92) 100%);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      position: relative;
-      z-index: 20;
+      /* Video üzerinde yarı saydam, siyah bar yok */
+      background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 70%, transparent 100%);
+      border-bottom: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 25;
+      transition: opacity .35s ease, transform .35s ease, visibility .35s;
+    }
+    .player-top.chrome-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+    #playerView {
+      /* player-area tam ekran kullanabilsin */
+    }
+    #playerView .player-area {
+      position: absolute;
+      inset: 0;
     }
 
     .back-btn {
@@ -465,37 +481,135 @@
       display: none;
       position: absolute;
       left: 50%;
-      top: 48px;
+      top: 54px;
       transform: translateX(-50%);
-      background: #1c1c1c;
-      border: 1px solid #333;
-      border-radius: 14px;
-      padding: 14px 18px;
+      background: linear-gradient(180deg, #242424 0%, #1a1a1a 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 16px 18px 14px;
       z-index: 50;
-      width: min(260px, 90vw);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+      width: min(300px, 92vw);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
+      backdrop-filter: blur(12px);
     }
-    .bright-panel-idx.show { display: block; }
-    .bright-panel-idx label {
-      display: block;
-      font-size: 11px;
-      font-weight: 700;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 10px;
+    .bright-panel-idx.show { display: block; animation: panel-in .2s ease; }
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .sp-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
       text-align: center;
+      margin-bottom: 14px;
+      letter-spacing: 0.2px;
+    }
+    .sp-section {
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sp-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .sp-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .sp-row-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ddd;
+    }
+    .sp-row-sub {
+      font-size: 11px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .sp-toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .sp-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .sp-toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #3a3a3a;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .sp-toggle-track::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .sp-toggle input:checked + .sp-toggle-track {
+      background: #1DB954;
+    }
+    .sp-toggle input:checked + .sp-toggle-track::after {
+      transform: translateX(18px);
+    }
+    .sp-seconds {
+      display: none;
+      margin-top: 10px;
+    }
+    .sp-seconds.show { display: block; }
+    .sp-seconds-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .sp-seconds-top span {
+      font-size: 11px;
+      color: #999;
+      font-weight: 600;
+    }
+    .sp-seconds-val {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1DB954;
+      font-variant-numeric: tabular-nums;
     }
     .bright-panel-idx input[type=range] {
       width: 100%;
-      accent-color: #3ea6ff;
+      accent-color: #1DB954;
       height: 4px;
+      cursor: pointer;
     }
-    .bright-panel-idx .bright-hint {
-      font-size: 11px;
-      color: #666;
-      text-align: center;
-      margin-top: 8px;
+    .bright-panel-idx label.sp-field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ddd;
+      margin-bottom: 8px;
+    }
+    .sp-dim-val {
+      float: right;
+      font-size: 12px;
+      font-weight: 800;
+      color: #1DB954;
     }
 
     .player-area {
@@ -743,19 +857,13 @@
         <input
           type="search"
           id="searchInput"
-          placeholder="Mikrofona bas → klavyede 🎤 ile söyle"
+          placeholder="Arama"
           autocomplete="off"
           enterkeyhint="search"
           inputmode="search"
           lang="tr"
         />
 
-        <button
-          class="mic-btn"
-          id="micBtn"
-          type="button"
-          title="Sesle ara"
-        >🎤</button>
       </div>
       <div class="room-badge" id="roomBadge" title="Playlist bağlantı kodu — dokun, kopyala">
         <div>
@@ -821,9 +929,35 @@
         </button>
       </div>
       <div class="bright-panel-idx" id="brightPanelIdx">
-        <label for="brightRangeIdx">Gece parlaklığı</label>
-        <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
-        <div class="bright-hint">Sürüşte ekranı kıs · 0 = normal</div>
+        <div class="sp-title">Ayarlar</div>
+
+        <div class="sp-section">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Kontrolleri gizle</div>
+              <div class="sp-row-sub">Hareketsizken üst bar kaybolsun</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="chromeHideToggle" checked />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-seconds show" id="chromeSecondsWrap">
+            <div class="sp-seconds-top">
+              <span>Gizlenme süresi</span>
+              <span class="sp-seconds-val" id="chromeSecondsVal">3 sn</span>
+            </div>
+            <input type="range" id="chromeSecondsRange" min="1" max="15" value="3" step="1" />
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <label class="sp-field-label" for="brightRangeIdx">
+            Gece parlaklığı
+            <span class="sp-dim-val" id="brightValLabel">0%</span>
+          </label>
+          <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
+        </div>
       </div>
     </div>
 
@@ -1510,7 +1644,7 @@
     var searchInput = document.getElementById("searchInput");
     var resultsEl = document.getElementById("results");
     var cats = document.getElementById("cats");
-    var micBtn = document.getElementById("micBtn");
+    var micBtn = document.getElementById("micBtn"); // removed from UI
 
     function runVoiceSearch(q) {
       q = (q || "").trim();
@@ -1573,7 +1707,7 @@
       }
     });
 
-    micBtn.addEventListener("click", function(e) {
+    if (micBtn) micBtn.addEventListener("click", function(e) {
       e.preventDefault();
       e.stopPropagation();
       searchInput.value = "";
@@ -3357,34 +3491,129 @@
       } catch (e2) {}
     });
 
-    // Gece parlaklığı (sadece player ekranı)
-    (function initPlayerBrightness() {
+
+    // Player ayarları + chrome gizleme + parlaklık
+    (function initPlayerSettings() {
+      var top = document.querySelector(".player-top");
+      var view = document.getElementById("playerView");
       var panel = document.getElementById("brightPanelIdx");
       var range = document.getElementById("brightRangeIdx");
       var dim = document.getElementById("playerDimOverlay");
       var btn = document.getElementById("settingsBtn");
-      var KEY = "minimal_muzik_player_dim";
+      var hideToggle = document.getElementById("chromeHideToggle");
+      var secRange = document.getElementById("chromeSecondsRange");
+      var secVal = document.getElementById("chromeSecondsVal");
+      var secWrap = document.getElementById("chromeSecondsWrap");
+      var brightLabel = document.getElementById("brightValLabel");
+
+      var KEY_DIM = "minimal_muzik_player_dim";
+      var KEY_HIDE = "minimal_muzik_chrome_hide";
+      var KEY_SEC = "minimal_muzik_chrome_sec";
+
+      var hideTimer = null;
+      var chromeHideOn = true;
+      var hideSec = 3;
+
+      try {
+        var hs = localStorage.getItem(KEY_HIDE);
+        if (hs === "0") chromeHideOn = false;
+        hideSec = Math.max(1, Math.min(15, parseInt(localStorage.getItem(KEY_SEC) || "3", 10) || 3));
+      } catch (e) {}
+
+      function syncSecondsUI() {
+        if (secRange) secRange.value = String(hideSec);
+        if (secVal) secVal.textContent = hideSec + " sn";
+        if (secWrap) {
+          if (chromeHideOn) secWrap.classList.add("show");
+          else secWrap.classList.remove("show");
+        }
+        if (hideToggle) hideToggle.checked = chromeHideOn;
+      }
+      syncSecondsUI();
+
+      function showChrome() {
+        if (!top) return;
+        top.classList.remove("chrome-hidden");
+        clearTimeout(hideTimer);
+        if (!chromeHideOn) return;
+        hideTimer = setTimeout(function() {
+          if (panel && panel.classList.contains("show")) return;
+          if (!view || !view.classList.contains("active")) return;
+          top.classList.add("chrome-hidden");
+        }, hideSec * 1000);
+      }
+
+      function onInteract() {
+        if (!view || !view.classList.contains("active")) return;
+        showChrome();
+      }
+
+      if (view) {
+        view.addEventListener("click", onInteract, true);
+        view.addEventListener("touchstart", onInteract, { capture: true, passive: true });
+        var obs = new MutationObserver(function() {
+          if (view.classList.contains("active")) showChrome();
+          else {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+          }
+        });
+        obs.observe(view, { attributes: true, attributeFilter: ["class"] });
+      }
+
+      if (hideToggle) {
+        hideToggle.addEventListener("change", function() {
+          chromeHideOn = !!hideToggle.checked;
+          try { localStorage.setItem(KEY_HIDE, chromeHideOn ? "1" : "0"); } catch (e) {}
+          syncSecondsUI();
+          if (!chromeHideOn) {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+          } else {
+            showChrome();
+          }
+        });
+      }
+      if (secRange) {
+        secRange.addEventListener("input", function() {
+          hideSec = Math.max(1, Math.min(15, parseInt(secRange.value, 10) || 3));
+          if (secVal) secVal.textContent = hideSec + " sn";
+          try { localStorage.setItem(KEY_SEC, String(hideSec)); } catch (e) {}
+          showChrome();
+        });
+      }
+
+      // Parlaklık
       var v = 0;
-      try { v = parseInt(localStorage.getItem(KEY) || "0", 10) || 0; } catch (e) {}
+      try { v = parseInt(localStorage.getItem(KEY_DIM) || "0", 10) || 0; } catch (e) {}
       if (range) range.value = String(v);
       if (dim) dim.style.opacity = String(Math.min(0.85, v / 100));
+      if (brightLabel) brightLabel.textContent = v + "%";
       if (btn) {
         btn.addEventListener("click", function(e) {
           e.stopPropagation();
           if (panel) panel.classList.toggle("show");
+          if (panel && panel.classList.contains("show")) {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+          } else {
+            showChrome();
+          }
         });
       }
       if (range) {
         range.addEventListener("input", function() {
           var n = parseInt(range.value, 10) || 0;
           if (dim) dim.style.opacity = String(Math.min(0.85, n / 100));
-          try { localStorage.setItem(KEY, String(n)); } catch (e) {}
+          if (brightLabel) brightLabel.textContent = n + "%";
+          try { localStorage.setItem(KEY_DIM, String(n)); } catch (e) {}
         });
       }
       document.addEventListener("click", function(e) {
         if (!panel || !panel.classList.contains("show")) return;
         if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
         panel.classList.remove("show");
+        showChrome();
       });
     })();
 
