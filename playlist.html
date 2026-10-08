@@ -1236,10 +1236,17 @@
       }
     }
 
+    function queueSig(q) {
+      if (!q || !q.length) return "";
+      var s = [];
+      for (var i = 0; i < q.length && i < 40; i++) s.push(q[i].id || "");
+      return s.join(",") + "#" + q.length;
+    }
+
     function applyState(state) {
       if (!state) return;
       var prevId = lastState && lastState.now && lastState.now.id;
-      var prevQlen = lastState && lastState.queue ? lastState.queue.length : -1;
+      var prevSig = queueSig(lastState && lastState.queue);
       lastState = state;
       if (state.now && (state.now.title || state.now.id)) {
         nowTitle.textContent = state.now.title || "—";
@@ -1255,9 +1262,11 @@
         updateProgressUI(state.position, state.duration || remoteDur);
       }
       var newId = state.now && state.now.id;
-      var newQlen = state.queue ? state.queue.length : 0;
-      if (newId !== prevId || newQlen !== prevQlen || !applyState._rendered) {
+      var newSig = queueSig(state.queue);
+      // Şarkı id'leri değişince (yenile) mutlaka yeniden çiz
+      if (newId !== prevId || newSig !== prevSig || !applyState._rendered || applyState._forceList) {
         applyState._rendered = true;
+        applyState._forceList = false;
         renderList();
       }
     }
@@ -1443,6 +1452,9 @@
           scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>Ana uygulamada kategori seç veya ara.<br>↻ Yenile ile tekrar dene.</div>';
           var rb0 = document.getElementById("reshuffleBtn");
           if (rb0) rb0.addEventListener("click", function() {
+            applyState._forceList = true;
+            if (lastState) lastState.queue = [];
+            scrollArea.innerHTML = '<div class="loading-q">Yeni şarkılar yükleniyor…</div>';
             sendCommand({ type: "reshuffle" });
             showToast("Liste yenileniyor…");
           });
@@ -1480,6 +1492,9 @@
         });
         var rb = document.getElementById("reshuffleBtn");
         if (rb) rb.addEventListener("click", function() {
+          applyState._forceList = true;
+          if (lastState) lastState.queue = [];
+          scrollArea.innerHTML = '<div class="loading-q">Yeni şarkılar yükleniyor…</div>';
           sendCommand({ type: "reshuffle" });
           showToast("Liste yenileniyor…");
         });

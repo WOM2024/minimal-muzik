@@ -1362,7 +1362,11 @@
       if (cmd.type === "reshuffle") {
         queueLocked = false;
         try {
-          // Tamamen yeni şarkılar: kategori/arama sorgusunu rastgele yenile
+          // Playlist anında boşalsın / yenilensin
+          playQueue = [];
+          playIndex = 0;
+          broadcastState();
+
           if (currentMode === "favorites") {
             showFavorites();
             broadcastState();
@@ -1370,15 +1374,16 @@
           }
           if (currentCatKey) {
             currentQuery = pickRandomQuery(currentCatKey);
+            useCategoryRotate = true;
             doSearch(currentQuery, true, true);
           } else if (currentQuery) {
-            // Arama modunda farklı sayfa + seen temiz
             try { seenIds.clear(); } catch (eS) {}
-            currentPage = 1 + Math.floor(Math.random() * 4);
-            doSearch(currentQuery, true, false);
+            currentPage = 1 + Math.floor(Math.random() * 5);
+            doSearch(currentQuery, true, true);
           } else {
             currentCatKey = "turkce-pop";
-            currentMode = "category";
+            currentMode = "search";
+            useCategoryRotate = true;
             currentQuery = pickRandomQuery("turkce-pop");
             doSearch(currentQuery, true, true);
           }
