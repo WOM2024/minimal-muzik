@@ -124,78 +124,109 @@
     .mode-bar {
       flex-shrink: 0;
       display: flex; gap: 8px;
-      padding: 8px 16px 4px;
+      padding: 6px 14px 2px;
     }
     .mode-btn {
-      flex: 1; height: 36px;
+      flex: 1; height: 34px;
       background: transparent; border: 1px solid #333;
       border-radius: 20px; color: var(--text-sub);
-      font-size: 13px; font-weight: 700; cursor: pointer;
-      transition: all .15s;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: all .18s cubic-bezier(.4,0,.2,1);
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .mode-btn svg {
+      width: 15px; height: 15px; flex-shrink: 0;
+      fill: currentColor; opacity: 0.9;
     }
     .mode-btn.active {
       background: var(--text); color: #000; border-color: var(--text);
+      box-shadow: 0 2px 10px rgba(255,255,255,0.12);
     }
-    .mode-btn:active { opacity: 0.85; }
+    .mode-btn:active { transform: scale(0.97); }
 
-    /* Now playing card — Spotify mini-player vibe */
+    /* Sticky mini-player — Spotify bottom bar (listeyi ezmez) */
     .now-box {
       flex-shrink: 0;
-      margin: 8px 12px;
-      padding: 12px 14px;
-      background: linear-gradient(135deg, #1e3a2a 0%, #1a1a1a 60%, #181818 100%);
-      border-radius: 14px;
-      border: 1px solid rgba(29,185,84,0.12);
-      display: flex; align-items: center; gap: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      margin: 0;
+      padding: 10px 12px calc(8px + var(--safe-b));
+      background: linear-gradient(180deg, #242424 0%, #181818 100%);
+      border-top: 1px solid #2a2a2a;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.45);
+      position: relative;
+      touch-action: pan-y;
+      user-select: none;
+      transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .2s;
+    }
+    .now-box.swipe-left { transform: translateX(-18px); opacity: 0.85; }
+    .now-box.swipe-right { transform: translateX(18px); opacity: 0.85; }
+    .now-box::before {
+      content: "";
+      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 3px; border-radius: 2px;
+      background: #3a3a3a;
     }
     .now-art {
-      width: 52px; height: 52px; border-radius: 8px;
+      width: 48px; height: 48px; border-radius: 6px;
       background: var(--bg-highlight) center/cover no-repeat;
       flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; color: var(--text-muted);
-      overflow: hidden;
+      color: var(--text-muted); overflow: hidden;
     }
-    .now-meta { flex: 1; min-width: 0; }
+    .now-art svg { width: 22px; height: 22px; fill: currentColor; opacity: 0.5; }
+    .now-meta { flex: 1; min-width: 0; padding-top: 2px; }
     .now-label {
-      font-size: 10px; color: var(--green); text-transform: uppercase;
-      letter-spacing: 1px; margin-bottom: 3px; font-weight: 700;
+      font-size: 9px; color: var(--green); text-transform: uppercase;
+      letter-spacing: 1.2px; margin-bottom: 2px; font-weight: 800;
     }
     .now-title {
-      font-size: 14px; font-weight: 700; color: var(--text);
-      line-height: 1.25; margin-bottom: 2px;
+      font-size: 13px; font-weight: 700; color: var(--text);
+      line-height: 1.2; margin-bottom: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .now-author {
-      font-size: 12px; color: var(--text-sub);
+      font-size: 11px; color: var(--text-sub);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* Transport controls */
+    /* Transport — mini player içinde, dikey yer yemez */
     .controls {
       flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      gap: 20px; padding: 4px 16px 10px;
+      display: flex; align-items: center; gap: 4px;
     }
     .controls button {
-      width: 48px; height: 48px;
-      background: var(--bg-highlight); border: none; border-radius: 50%;
-      color: var(--text); font-size: 18px; cursor: pointer;
+      width: 40px; height: 40px;
+      background: transparent; border: none; border-radius: 50%;
+      color: var(--text); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: transform .12s, background .15s;
+      transition: transform .12s, background .15s, color .15s;
+    }
+    .controls button svg {
+      width: 22px; height: 22px; fill: currentColor;
     }
     .controls button:active {
-      transform: scale(0.92);
-      background: var(--green); color: #000;
+      transform: scale(0.88);
+      background: var(--bg-highlight);
     }
     .controls button.primary {
-      width: 56px; height: 56px;
-      background: var(--green); color: #000; font-size: 20px;
-      box-shadow: 0 4px 16px rgba(29,185,84,0.35);
+      width: 44px; height: 44px;
+      background: var(--green); color: #000;
+      box-shadow: 0 3px 12px rgba(29,185,84,0.4);
     }
-    .controls button.primary:active { background: var(--green-hover); }
+    .controls button.primary svg { width: 20px; height: 20px; }
+    .controls button.primary:active {
+      background: var(--green-hover);
+      transform: scale(0.9);
+    }
+
+    /* Swipe ipucu animasyonu (ilk açılışta) */
+    @keyframes hint-swipe {
+      0%, 100% { transform: translateX(0); }
+      30% { transform: translateX(-12px); }
+      60% { transform: translateX(12px); }
+    }
+    .now-box.hint { animation: hint-swipe 1.2s ease-in-out 1; }
 
     /* Search */
     .search-bar {
@@ -279,10 +310,10 @@
     }
     .list-label button:active { opacity: 0.8; }
 
-    /* Scroll list */
+    /* Scroll list — alt mini-player sayesinde maksimum alan */
     .scroll-area {
       flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-      padding: 4px 8px calc(16px + var(--safe-b));
+      padding: 4px 8px 8px;
       min-height: 0;
     }
     .scroll-area::-webkit-scrollbar { width: 3px; }
@@ -405,18 +436,18 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Footer */
+    /* Footer — ince şerit, mini-player üstünde değil altında birleşik his */
     .footer {
       flex-shrink: 0;
-      padding: 10px 16px calc(12px + var(--safe-b));
-      border-top: 1px solid #1f1f1f;
+      padding: 6px 14px 8px;
+      border-top: 1px solid #1a1a1a;
       display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; color: var(--text-muted); font-weight: 600;
-      background: var(--bg-elevated);
+      font-size: 11px; color: var(--text-muted); font-weight: 600;
+      background: #141414;
     }
     .footer button {
-      background: transparent; border: 1px solid #333; color: var(--text-sub);
-      padding: 7px 14px; border-radius: 16px; font-size: 12px;
+      background: transparent; border: 1px solid #2a2a2a; color: var(--text-muted);
+      padding: 5px 12px; border-radius: 14px; font-size: 11px;
       font-weight: 700; cursor: pointer;
     }
     .footer button:active {
@@ -453,22 +484,14 @@
 
   <div id="mainScreen">
     <div class="mode-bar">
-      <button type="button" class="mode-btn active" id="modeShuffle" data-mode="shuffle">🔀 Shuffle</button>
-      <button type="button" class="mode-btn" id="modeManual" data-mode="manual">✋ Manuel</button>
-    </div>
-
-    <div class="now-box">
-      <div class="now-art" id="nowArt">🎵</div>
-      <div class="now-meta">
-        <div class="now-label">Şimdi çalıyor</div>
-        <div class="now-title" id="nowTitle">—</div>
-        <div class="now-author" id="nowAuthor">—</div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button type="button" id="prevBtn" title="Önceki">⏮</button>
-      <button type="button" class="primary" id="nextBtn" title="Sonraki">⏭</button>
+      <button type="button" class="mode-btn active" id="modeShuffle" data-mode="shuffle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        Shuffle
+      </button>
+      <button type="button" class="mode-btn" id="modeManual" data-mode="manual">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+        Manuel
+      </button>
     </div>
 
     <div class="search-bar" id="searchBar">
@@ -496,6 +519,26 @@
 
     <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
     <div class="scroll-area" id="scrollArea"></div>
+
+    <!-- Spotify tarzı alt mini-player: kaydır = prev/next, listeyi yukarı iter -->
+    <div class="now-box" id="nowBox">
+      <div class="now-art" id="nowArt">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      </div>
+      <div class="now-meta">
+        <div class="now-label">Şimdi çalıyor · kaydır</div>
+        <div class="now-title" id="nowTitle">—</div>
+        <div class="now-author" id="nowAuthor">—</div>
+      </div>
+      <div class="controls">
+        <button type="button" id="prevBtn" title="Önceki" aria-label="Önceki">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button type="button" class="primary" id="nextBtn" title="Sonraki" aria-label="Sonraki">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+    </div>
 
     <div class="footer">
       <span id="roomLabel">Kod: —</span>
@@ -620,10 +663,10 @@
       if (!nowArt) return;
       if (id) {
         nowArt.style.backgroundImage = "url(" + thumbUrl(id) + ")";
-        nowArt.textContent = "";
+        nowArt.innerHTML = "";
       } else {
         nowArt.style.backgroundImage = "";
-        nowArt.textContent = "🎵";
+        nowArt.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>';
       }
     }
 
@@ -1379,6 +1422,72 @@
 
     modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
     modeManual.addEventListener("click", function() { setMode("manual"); });
+
+    // Mini-player: yatay kaydır → önceki / sonraki (Spotify jesti)
+    (function() {
+      var box = document.getElementById("nowBox");
+      if (!box) return;
+      var startX = 0, startY = 0, tracking = false, decided = false, dx = 0;
+      var THRESH = 56;
+
+      function onStart(x, y) {
+        startX = x; startY = y; tracking = true; decided = false; dx = 0;
+        box.classList.remove("swipe-left", "swipe-right", "hint");
+      }
+      function onMove(x, y) {
+        if (!tracking) return;
+        var adx = x - startX, ady = y - startY;
+        if (!decided) {
+          if (Math.abs(adx) < 8 && Math.abs(ady) < 8) return;
+          decided = true;
+          if (Math.abs(ady) > Math.abs(adx)) { tracking = false; return; }
+        }
+        dx = adx;
+        box.classList.toggle("swipe-left", dx < -20);
+        box.classList.toggle("swipe-right", dx > 20);
+      }
+      function onEnd() {
+        if (!tracking) return;
+        tracking = false;
+        box.classList.remove("swipe-left", "swipe-right");
+        if (dx <= -THRESH) {
+          box.classList.add("swipe-left");
+          sendCommand({ type: "next" });
+          setTimeout(function() { box.classList.remove("swipe-left"); }, 180);
+        } else if (dx >= THRESH) {
+          box.classList.add("swipe-right");
+          sendCommand({ type: "prev" });
+          setTimeout(function() { box.classList.remove("swipe-right"); }, 180);
+        }
+        dx = 0;
+      }
+
+      box.addEventListener("touchstart", function(e) {
+        if (e.touches.length !== 1) return;
+        onStart(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      box.addEventListener("touchmove", function(e) {
+        if (e.touches.length !== 1) return;
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      box.addEventListener("touchend", onEnd);
+      box.addEventListener("touchcancel", function() {
+        tracking = false; dx = 0;
+        box.classList.remove("swipe-left", "swipe-right");
+      });
+
+      // İlk bağlantıda bir kez kaydır ipucu
+      try {
+        if (!sessionStorage.getItem("mm_swipe_hint")) {
+          setTimeout(function() {
+            if (mainScreen.classList.contains("show")) {
+              box.classList.add("hint");
+              sessionStorage.setItem("mm_swipe_hint", "1");
+            }
+          }, 900);
+        }
+      } catch (e) {}
+    })();
 
     function updateSearchPlaceholder() {
       if (!plSearch) return;
