@@ -344,6 +344,21 @@
       opacity: 1 !important;
       animation: expand-in .28s cubic-bezier(.4,0,.2,1);
     }
+    /* Dikey ortalama: üst/alt esnek boşluk */
+    .now-box.expanded::before {
+      content: "";
+      flex: 1 1 0;
+      order: 1;
+      min-height: 8px;
+      max-height: 18vh;
+    }
+    .now-box.expanded::after {
+      content: "";
+      flex: 1 1 0;
+      order: 50;
+      min-height: 8px;
+      max-height: 18vh;
+    }
     @keyframes expand-in {
       from { transform: translateY(35%); opacity: 0.5; }
       to { transform: translateY(0); opacity: 1; }
@@ -840,18 +855,6 @@
       <button type="button" id="plSearchBtn">Ara</button>
     </div>
 
-    <div class="cats" id="plCats">
-      <div class="cat" data-cat="turkce-pop">Türkçe Pop</div>
-      <div class="cat" data-cat="turkce-rock">Türkçe Rock</div>
-      <div class="cat" data-cat="arabesk">Arabesk</div>
-      <div class="cat" data-cat="rap">Rap</div>
-      <div class="cat" data-cat="slow">Slow</div>
-      <div class="cat" data-cat="yabanci-pop">Yabancı Pop</div>
-      <div class="cat" data-cat="klasik">Klasik</div>
-      <div class="cat" data-cat="lofi">Lofi</div>
-      <div class="cat" data-cat="populer">Popüler</div>
-    </div>
-
     <div class="tabs" id="tabsBar">
       <div class="tab active" data-tab="playlist">Listem</div>
       <div class="tab" data-tab="favs">♥</div>
@@ -1195,10 +1198,9 @@
     function updateManualChrome() {
       var isMan = mode === "manual";
       if (tabsBar) tabsBar.classList.toggle("show", isMan);
-      // Arama sadece Ara sekmesinde
-      if (searchBar) searchBar.classList.toggle("show", isMan && activeTab === "search");
-      // Kategoriler sadece Listeler sekmesinde
-      if (plCats) plCats.classList.toggle("show", isMan && activeTab === "ready");
+      // Arama: Keşfet (listeler) ve Ara sekmelerinde
+      if (searchBar) searchBar.classList.toggle("show", isMan && (activeTab === "search" || activeTab === "ready"));
+      if (plCats) plCats.classList.remove("show");
     }
 
     function setMode(m) {
@@ -1361,6 +1363,61 @@
       });
     }
 
+    function bindShuffleDrag(queue) {
+      var items = scrollArea.querySelectorAll(".q-item[data-idx]");
+      var localQ = queue.slice();
+      items.forEach(function(row) {
+        var handle = row.querySelector(".q-drag");
+        if (!handle) return;
+        var startY = 0, fromIdx = -1, current = null;
+        function onStart(y, targetRow) {
+          fromIdx = parseInt(targetRow.dataset.idx, 10);
+          if (isNaN(fromIdx)) return;
+          current = targetRow;
+          current.classList.add("dragging");
+          startY = y;
+        }
+        function onMove(y) {
+          if (!current) return;
+          var over = document.elementFromPoint(handle.getBoundingClientRect().left + 10, y);
+          var r = over && over.closest ? over.closest(".q-item[data-idx]") : null;
+          scrollArea.querySelectorAll(".q-item").forEach(function(x) { x.classList.remove("drag-over"); });
+          if (r && r !== current) r.classList.add("drag-over");
+        }
+        function onEnd(y) {
+          if (!current) return;
+          current.classList.remove("dragging");
+          scrollArea.querySelectorAll(".q-item").forEach(function(x) { x.classList.remove("drag-over"); });
+          var over = document.elementFromPoint(handle.getBoundingClientRect().left + 10, y || startY);
+          var r = over && over.closest ? over.closest(".q-item[data-idx]") : null;
+          var toIdx = r ? parseInt(r.dataset.idx, 10) : -1;
+          current = null;
+          if (isNaN(toIdx) || toIdx < 0 || toIdx === fromIdx) return;
+          var moved = localQ.splice(fromIdx, 1)[0];
+          if (!moved) return;
+          localQ.splice(toIdx, 0, moved);
+          sendCommand({ type: "reorderQueue", queue: localQ });
+          if (lastState) lastState.queue = localQ.slice();
+          renderList();
+          showToast("Sıra güncellendi");
+        }
+        handle.addEventListener("touchstart", function(e) {
+          if (!e.touches[0]) return;
+          e.preventDefault();
+          onStart(e.touches[0].clientY, row);
+        }, { passive: false });
+        handle.addEventListener("touchmove", function(e) {
+          if (!e.touches[0] || !current) return;
+          e.preventDefault();
+          onMove(e.touches[0].clientY);
+        }, { passive: false });
+        handle.addEventListener("touchend", function(e) {
+          var y = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : startY;
+          onEnd(y);
+        });
+      });
+    }
+
     function artHtml(id, fallbackNum) {
       if (id) {
         return '<div class="q-art" style="background-image:url(' + thumbUrl(id) + ')"></div>';
@@ -1372,10 +1429,16 @@
       var currentId = lastState && lastState.now && lastState.now.id ? lastState.now.id : "";
 
       if (mode === "shuffle") {
-        var queue = (lastState && lastState.queue) ? lastState.queue : [];
-        listLabel.textContent = "Sıradaki şarkılar · uzun bas = menü";
+        var queue = (lastState && lastState.queue) ? lastState.queue.slice() : [];
+        listLabel.innerHTML = "Sıradaki · sürükle sırala" +
+          ' <button type="button" id="reshuffleBtn" title="Listeyi yenile">↻ Yenile</button>';
         if (!queue.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>Ana uygulamada kategori seç veya ara.</div>';
+          scrollArea.innerHTML = '<div class="empty-q">Liste boş.<br>Ana uygulamada kategori seç veya ara.<br>↻ Yenile ile tekrar dene.</div>';
+          var rb0 = document.getElementById("reshuffleBtn");
+          if (rb0) rb0.addEventListener("click", function() {
+            sendCommand({ type: "reshuffle" });
+            showToast("Liste yenileniyor…");
+          });
           return;
         }
         var html = "";
@@ -1383,7 +1446,8 @@
           var item = queue[i];
           var isPlaying = item.id === currentId;
           html +=
-            '<div class="q-item' + (isPlaying ? " playing" : "") + '" data-id="' + item.id + '">' +
+            '<div class="q-item' + (isPlaying ? " playing" : "") + '" data-idx="' + i + '" data-id="' + item.id + '">' +
+            '<div class="q-drag" aria-label="Sürükle"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>' +
             artHtml(item.id, isPlaying ? "▶" : (i + 1)) +
             '<div class="q-info">' +
             '<div class="q-title">' + escapeHtml(item.title || "—") + '</div>' +
@@ -1394,12 +1458,11 @@
             '</button></div>';
         }
         scrollArea.innerHTML = html;
-        scrollArea.querySelectorAll(".q-item").forEach(function(el, idx) {
+        scrollArea.querySelectorAll(".q-item").forEach(function(el) {
           el.addEventListener("click", function(e) {
-            if (e.target.closest(".q-fav")) return;
+            if (e.target.closest(".q-fav") || e.target.closest(".q-drag")) return;
             sendCommand({ type: "play", id: el.dataset.id });
           });
-          bindLongPress(el, queue[idx], false);
         });
         scrollArea.querySelectorAll("[data-favi]").forEach(function(btn) {
           btn.addEventListener("click", function(e) {
@@ -1408,6 +1471,13 @@
             if (it) toggleFav(it);
           });
         });
+        var rb = document.getElementById("reshuffleBtn");
+        if (rb) rb.addEventListener("click", function() {
+          sendCommand({ type: "reshuffle" });
+          showToast("Liste yenileniyor…");
+        });
+        // Shuffle sırasını sürükle
+        bindShuffleDrag(queue);
         return;
       }
 
@@ -1415,7 +1485,7 @@
         listLabel.innerHTML = "Favoriler (" + favorites.length + ")" +
           (favorites.length ? ' <button type="button" id="clearFavBtn">Temizle</button>' : "");
         if (!favorites.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Henüz favori yok.<br>Şarkıya uzun bas → Favorilere ekle.</div>';
+          scrollArea.innerHTML = '<div class="empty-q">Henüz favori yok.<br>Kalp ikonuna basarak ekle.</div>';
           return;
         }
         var htmlF = "";
@@ -1446,7 +1516,6 @@
             }
             sendCommand({ type: "play", id: it.id, title: it.title || "", author: it.author || "" });
           });
-          bindLongPress(el, favorites[idx], false);
         });
         scrollArea.querySelectorAll("[data-unfav]").forEach(function(btn) {
           btn.addEventListener("click", function(e) {
@@ -1513,7 +1582,6 @@
           });
         });
         scrollArea.querySelectorAll(".q-item").forEach(function(el, idx) {
-          bindLongPress(el, manualQueue[idx], true);
         });
         bindDragReorder();
         var clearBtn = document.getElementById("clearPlBtn");
@@ -1538,7 +1606,7 @@
           return;
         }
         if (!readyPlaylists.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Kategori seç → listeler gelsin.<br>Listeye basınca tüm şarkılar eklenir.</div>';
+          scrollArea.innerHTML = '<div class="empty-q">Kategori seç → listeler gelsin.<br>Liste seç → mevcut listenin yerine gelir.</div>';
           return;
         }
         var htmlR = "";
@@ -1553,7 +1621,7 @@
             (pl.videoCount ? pl.videoCount + " şarkı" : "") +
             (pl.author ? " · " + escapeHtml(pl.author) : "") +
             '</div></div>' +
-            '<button type="button" class="pl-import" data-import="' + r + '">Ekle</button>' +
+            '<button type="button" class="pl-import" data-import="' + r + '">Seç</button>' +
             '</div>';
         }
         scrollArea.innerHTML = htmlR;
@@ -1626,11 +1694,7 @@
         el.addEventListener("click", function() {
           var id = el.dataset.play;
           var found = searchResults.filter(function(x) { return x.id === id; })[0];
-          if (found && !isInManual(id)) {
-            manualQueue.push({ id: found.id, title: found.title || "", author: found.author || "" });
-            saveManual();
-            sendCommand({ type: "setQueue", queue: manualQueue });
-          }
+          // Sadece çal — listeye ekleme (＋ butonu ile eklenir)
           sendCommand({ type: "play", id: id, title: found ? found.title : "", author: found ? found.author : "" });
         });
       });
@@ -1672,7 +1736,7 @@
 
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Ekle";
+        btn.textContent = "Seç";
       }
 
       if (!data || !Array.isArray(data.videos)) {
@@ -1680,16 +1744,17 @@
         return;
       }
 
-      var added = 0;
+      // Mevcut listeyi sil, seçilen listenin şarkılarını koy
+      manualQueue = [];
+      var seen = {};
       data.videos.forEach(function(v) {
-        if (!v.videoId) return;
-        if (isInManual(v.videoId)) return;
+        if (!v.videoId || seen[v.videoId]) return;
+        seen[v.videoId] = true;
         manualQueue.push({
           id: v.videoId,
           title: v.title || "",
           author: v.author || ""
         });
-        added++;
       });
       saveManual();
       sendCommand({ type: "setQueue", queue: manualQueue });
@@ -1699,7 +1764,8 @@
       });
       updateManualChrome();
       renderList();
-      if (manualQueue.length && added > 0) {
+      showToast(manualQueue.length ? (manualQueue.length + " şarkı yüklendi") : "Liste boş");
+      if (manualQueue.length) {
         var first = manualQueue[0];
         sendCommand({ type: "play", id: first.id, title: first.title, author: first.author });
       }

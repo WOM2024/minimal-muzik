@@ -1344,6 +1344,55 @@
         broadcastState();
         return;
       }
+      if (cmd.type === "reorderQueue" && Array.isArray(cmd.queue)) {
+        // Sıra değişir, manual kilidi zorlama (shuffle kalabilir)
+        var curId = currentPlayingId;
+        playQueue = cmd.queue.map(function(x) {
+          return { id: x.id, title: x.title || "", author: x.author || "" };
+        }).filter(function(x) { return x.id; });
+        playIndex = 0;
+        if (curId) {
+          for (var ri = 0; ri < playQueue.length; ri++) {
+            if (playQueue[ri].id === curId) { playIndex = ri; break; }
+          }
+        }
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "reshuffle") {
+        queueLocked = false;
+        try {
+          var cards = Array.prototype.slice.call(resultsEl.querySelectorAll(".card"));
+          if (cards.length > 1) {
+            var vids = cards.map(function(c) {
+              return {
+                videoId: c.dataset.id,
+                title: c.dataset.title || "",
+                author: c.dataset.author || "",
+                lengthSeconds: parseInt(c.dataset.len, 10) || 0
+              };
+            });
+            vids = shuffle(vids);
+            resultsEl.innerHTML = vids.map(createCardHtml).join("");
+            attachCardListeners();
+            if (currentMode !== "favorites") ensureSentinel();
+            syncQueueFromDOM();
+            broadcastState();
+            return;
+          }
+        } catch (eR) {}
+        if (playQueue && playQueue.length > 1) {
+          playQueue = shuffle(playQueue.slice());
+          playIndex = 0;
+          if (currentPlayingId) {
+            for (var pi = 0; pi < playQueue.length; pi++) {
+              if (playQueue[pi].id === currentPlayingId) { playIndex = pi; break; }
+            }
+          }
+        }
+        broadcastState();
+        return;
+      }
       if (cmd.type === "setQueue" && Array.isArray(cmd.queue)) {
         queueLocked = true;
         playQueue = cmd.queue.map(function(x) {
