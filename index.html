@@ -427,12 +427,15 @@
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.72);
-      z-index: 5;
+      /* Tam opak: şarkı geçişinde YT orta pause/play butonu görünmesin */
+      background: #000;
+      z-index: 30;
       align-items: center;
       justify-content: center;
-      color: #ccc;
+      color: #b3b3b3;
       font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
       pointer-events: none;
     }
 
@@ -2374,10 +2377,31 @@
           if (myToken !== _loadToken) return;
           pendingPlayId = null;
           applyMuteAndPlay(target || ytPlayerInstance);
-          setPlayerLoading(false);
+          // Loading KAPATMA — YT ortadaki pause butonu görünmesin;
+          // sadece PLAYING (veya watchdog) kapatır
           bindMediaSessionHandlers();
           bumpMediaSessionPlaying();
           armDurationFromApi(target || ytPlayerInstance);
+          // Güvenlik: 2.5 sn içinde PLAYING gelmezse yine kapat
+          setTimeout(function() {
+            if (myToken !== _loadToken) return;
+            try {
+              if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
+                var st = ytPlayerInstance.getPlayerState();
+                if (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING) {
+                  setPlayerLoading(false);
+                  return;
+                }
+                // Hâlâ paused ise bir kez daha play dene
+                if (st === YT.PlayerState.PAUSED || st === YT.PlayerState.CUED) {
+                  applyMuteAndPlay(ytPlayerInstance);
+                }
+              }
+            } catch (e) {}
+            setTimeout(function() {
+              if (myToken === _loadToken) setPlayerLoading(false);
+            }, 1200);
+          }, 2500);
         }
 
         // —— Aynı player oturumu: loadVideoById (pre-roll riskini düşürür) ——
@@ -2501,7 +2525,7 @@
             if (myToken != null && myToken !== _loadToken) return;
             pendingPlayId = null;
             applyMuteAndPlayRecreate(ev.target);
-            setPlayerLoading(false);
+            // Loading'i burada kapatma — PLAYING gelene kadar siyah örtü YT pause butonunu gizler
             try {
               var iframe = ev.target.getIframe && ev.target.getIframe();
               if (iframe) {
@@ -2527,6 +2551,12 @@
                 playNext();
                 return;
               }
+              if (event.data === YT.PlayerState.BUFFERING) {
+                // Sadece şarkı geçişi sırasında örtüyü tut (orta şarkıda buffer'da siyah ekran olmasın)
+                if (playerLoading && playerLoading.classList.contains("show")) {
+                  setPlayerLoading(true, "Yükleniyor...");
+                }
+              }
               if (event.data === YT.PlayerState.PLAYING) {
                 setPlayerLoading(false);
                 // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
@@ -2538,6 +2568,19 @@
               }
               if (event.data === YT.PlayerState.PAUSED) {
                 stopSponsorCheck();
+                // Şarkı değişimi sırasında YT kısa PAUSED basarsa hemen tekrar oynat
+                // (kullanıcı bilinçli pause değilse — loading hâlâ açıksa)
+                try {
+                  if (playerLoading && playerLoading.classList.contains("show") && ytPlayerInstance) {
+                    setTimeout(function() {
+                      try {
+                        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === "function") {
+                          ytPlayerInstance.playVideo();
+                        }
+                      } catch (eR) {}
+                    }, 120);
+                  }
+                } catch (eP) {}
               }
             } catch (e5) {}
           },
