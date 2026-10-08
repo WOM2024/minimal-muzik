@@ -15,11 +15,11 @@ Minimal Music is designed for situations where the **playback screen is far away
 | **Role** | **Device** | **File** |
 | --- | --- | --- |
 | **Player** (big screen) | Smart TV browser, car head unit / dashboard tablet, laptop connected to a TV | `index.html` |
-| **Remote** (in your hand) | Phone or second tablet on the same device/browser context or connected through PeerJS | `playlist.html` |
+| **Remote** (in your hand) | Phone or second tablet on the same network / browser context, or connected through PeerJS | `playlist.html` |
 
 The phone does not mirror the TV. It acts as a separate remote: change tracks, build a playlist, browse categories, search for content, and control playback while the main screen displays the selected video.
 
-Same-browser communication uses `BroadcastChannel` and browser storage events where supported. Cross-device communication uses PeerJS and a room code. A QR code can make it easier to open the remote page.
+Same-browser communication uses `BroadcastChannel` and browser storage events where supported. Cross-device communication uses PeerJS and a room code. A QR code can make it easier to open the remote page with the room code pre-filled.
 
 > **Important:** A room code is a connection identifier, not a secure authentication mechanism. Do not use it to protect sensitive content or assume that anyone who knows the code is authorized.
 
@@ -31,7 +31,7 @@ Same-browser communication uses `BroadcastChannel` and browser storage events wh
 - **Phone as a remote:** Manage playback and playlists from a second device instead of repeatedly interacting with the main screen.
 - **Content discovery:** Browse categories and search for videos or songs through supported external services.
 - **Favorites:** Keep a list of favorite items in the browser on the device where they were saved.
-- **Minimal setup:** The project consists of static files and can be hosted on GitHub Pages or another static web host.
+- **Minimal setup:** Static files only — host on GitHub Pages or any static web host. No custom backend required for the app shell.
 - **No project account system:** The project does not require a SuperYT account or a project-managed database. External services may still process connection and request data.
 
 ---
@@ -40,77 +40,88 @@ Same-browser communication uses `BroadcastChannel` and browser storage events wh
 
 ### Player — `index.html`
 
-- Category-based browsing, including Turkish Pop, Turkish Rock, Arabesque, Rap, Slow, International Pop, Classical, Lofi, and Popular.
-- Text-based video/song search through configured Invidious instances.
-- Category query variations intended to provide different results.
-- Favorites saved in browser `localStorage`.
-- Progressive loading of search results using pagination and `IntersectionObserver`.
-- Embedded video playback through the player endpoints and APIs configured in the source code.
-- Playback queue with previous/next controls.
-- Automatic attempt to advance to the next item when playback ends, subject to player and browser behavior.
-- Player-focused/full-screen interface, subject to browser permissions and the capabilities of the embedded player.
-- Media Session integration where supported, including play/pause and previous/next actions.
-- Room-code and QR/link flow for opening the remote interface.
-- Responsive layout intended for mobile, tablet, TV-browser, and car-head-unit use.
+- Category-based browsing (Turkish Pop, Turkish Rock, Arabesque, Rap, Slow, International Pop, Classical, Lofi, Popular, and Favorites).
+- Text search through configured Invidious instances.
+- Category query variations intended to provide different result sets over time.
+- Favorites stored in browser `localStorage`.
+- Progressive loading of search results (pagination + `IntersectionObserver`).
+- Embedded playback via the YouTube IFrame API.
+- Playback queue with previous / next controls.
+- Automatic advance to the next item when a track ends (subject to player and browser behavior).
+- Player chrome auto-hide and night brightness dimming (settings panel).
+- **Video quality preference** (Low / Normal / High) in settings — best-effort via player viewport sizing and YouTube quality APIs; YouTube may still override adaptive bitrate.
+- Media Session integration where supported (play/pause, previous/next), including steering-wheel / headset controls when the browser exposes them.
+- Room code badge, regenerate code, and QR / link flow to open the remote.
+- Responsive layout for mobile, tablet, TV browser, and car head-unit use.
+- Optional SponsorBlock segment skipping when enabled in the source.
 
 ### Remote — `playlist.html`
 
-- Connect to the player using a room code or a QR/link URL.
-- **Shuffle mode:** Control the current player flow where supported by the synchronization logic.
-- **Manual mode:** Build and manage a queue from the remote device.
-- Browse ready-made chart/category playlist options.
-- Search for videos or songs and add individual results to the queue.
-- Add, remove, and clear queued items.
-- Import a playlist where the relevant external endpoint provides the required data.
-- Previous/next controls and selection of an item to play.
-- Display current playback information when that information is available from the player.
-- Connection status and reconnection attempts.
-- Touch-friendly, responsive layout for phones and tablets.
+- Connect with a room code or a QR / deep link (`playlist.html?c=CODE`).
+- **Shuffle mode:** Control the current player flow where supported by sync logic.
+- **Manual mode:** Build and manage a queue from the phone.
+- Browse ready-made chart / category playlist options.
+- Search for videos or songs and add results to the queue.
+- Add, remove, reorder, and clear queued items.
+- Import a playlist when the external endpoint provides the required data.
+- Previous / next / play-pause and seek when state is available from the player.
+- Live connection status with reconnection attempts (BroadcastChannel, `localStorage`, PeerJS).
+- Touch-friendly layout for phones and tablets.
+- **Add to Home Screen** banner (browser only — hidden in standalone / PWA mode):
+  - Android Chrome: one-tap install when the browser fires `beforeinstallprompt` (HTTPS + manifest + service worker).
+  - iPhone: Apple does not allow programmatic install; in-app guide for Share → Add to Home Screen.
+  - Dismissible; can reappear after a cooldown period.
 
 ### Remote-control paths
 
 | **Action** | **Expected result** |
 | --- | --- |
 | Select an item on `index.html` | Attempts to play the selected item |
-| Use remote next/previous | Sends a playback command to the player |
+| Remote next / previous / play-pause | Sends a playback command to the player |
 | Select an item from the remote queue | Requests playback of that item |
 | Import or synchronize a queue | Attempts to update the player queue |
-| Use steering-wheel/headset media controls | Works only when the browser and device expose the relevant Media Session actions |
+| Seek on the remote progress bar | Requests seek on the player when supported |
+| Steering-wheel / headset media keys | Works only when Media Session actions are exposed |
 | Current track ends | Attempts to advance to the next item when supported |
 
-> **Fullscreen and autoplay limitations:** Browsers generally require a user gesture before allowing audible autoplay or programmatic fullscreen. A remote command cannot reliably bypass these browser security rules. Exact behavior depends on the browser, device, and embedded player.
+> **Fullscreen and autoplay limitations:** Browsers generally require a user gesture before allowing audible autoplay or programmatic fullscreen. A remote command cannot reliably bypass these rules. Exact behavior depends on the browser, device, and embedded player.
 
 ---
 
 ## Files
 
 ```text
-SUPERYT-Minimal-Music/
-├── index.html       # Main player and content discovery
-├── playlist.html    # Remote control and playlist manager
-├── README.md        # Project documentation
-├── superyt-logo.png # Project logo
-└── LICENSE          # License information
+minimal-muzik-main/
+├── index.html                      # Main player and content discovery
+├── playlist.html                   # Remote control and playlist manager
+├── manifest-playlist.webmanifest   # Web app manifest (remote install / standalone)
+├── sw-playlist.js                  # Minimal service worker (Android installability + light offline shell)
+├── superyt-logo.png                # Project logo
+├── superyt-logo.ico                # Favicon
+├── README.md                       # This documentation
+└── LICENSE                         # License information
 ```
 
-The exact files in your repository may differ. Check that all referenced assets are included before publishing.
+Confirm that all referenced assets are present before publishing.
 
 ---
 
 ## Deploy on GitHub Pages
 
-1. Create a GitHub repository and upload the project files to its root directory.
+1. Create a GitHub repository and upload the project files to its root (or the folder you will publish).
 2. Open **Settings → Pages**.
 3. Under **Build and deployment**, select **Deploy from a branch**.
 4. Select the `main` (or `master`) branch and the `/(root)` folder, then save.
-5. After GitHub Pages publishes the site, open the generated URL:
+5. After the site is published, open:
 
 ```text
 https://YOUR_USER.github.io/YOUR_REPO/
 https://YOUR_USER.github.io/YOUR_REPO/playlist.html
 ```
 
-No build step or custom backend is required for static hosting. However, playback, search, and cross-device control rely on external services and browser features; GitHub Pages does not operate or guarantee those services.
+No build step or custom backend is required for static hosting. Playback, search, and cross-device control still depend on external services and browser features; GitHub Pages does not operate or guarantee those services.
+
+**HTTPS is required** for reliable PeerJS, camera QR flows, Add to Home Screen / install prompts, and service workers. Opening via `file://` is not recommended.
 
 ---
 
@@ -118,35 +129,33 @@ No build step or custom backend is required for static hosting. However, playbac
 
 ### Living-room TV
 
-1. Open the hosted `index.html` page in the TV browser, or use a computer connected to the TV.
-2. Find the room code or QR/link on the player page, if available.
-3. Open `playlist.html` on your phone using the link or QR code.
-4. Search for content or manage the playlist from the phone.
+1. Open the hosted `index.html` on the TV browser (or a computer connected to the TV).
+2. Note the room code or open the QR / link from the player.
+3. Open `playlist.html` on the phone via the link or QR (code can be pre-filled with `?c=`).
+4. Search, queue, and control playback from the phone.
 
 ### Car head unit
 
-1. Open the player page through an `http://` or `https://` URL in a compatible browser.
-2. Connect the phone to the same local network or use the configured PeerJS room connection.
-3. Set up the playlist and playback before driving.
-4. Do not operate the phone or interact with the interface while driving. Follow local road-safety laws and use controls only when safe and lawful.
+1. Open the player over `http://` or `https://` in a compatible browser.
+2. Connect the phone on the same network or via PeerJS room connection.
+3. Prepare the playlist and playback **before** driving.
+4. Do not operate the phone or the interface while driving. Follow local road-safety laws.
 
-Compatibility with car browsers, steering-wheel controls, Bluetooth buttons, and background playback is not guaranteed.
+Compatibility with car browsers, steering-wheel controls, Bluetooth buttons, and background playback is **not** guaranteed.
 
 ### Same-device demo
 
-1. Open `index.html` in one browser tab.
-2. Open `playlist.html` in another tab using the appropriate room code.
-3. Test local synchronization if the browser supports the required APIs.
+1. Open `index.html` in one tab.
+2. Open `playlist.html` in another tab with the same room code.
+3. Test local sync if the browser supports BroadcastChannel / storage events.
 
-Same-device synchronization may not work when pages are opened through `file://`, in isolated browser contexts, or when browser privacy settings restrict storage or messaging.
+Same-device sync may fail under `file://`, strict privacy settings, or isolated browser profiles.
 
 ---
 
 ## Local development
 
-For more reliable browser API behavior, serve the files over HTTP rather than opening them directly through `file://`.
-
-For example, if Python is installed:
+Serve over HTTP instead of `file://`:
 
 ```bash
 python -m http.server 8080
@@ -159,7 +168,7 @@ http://localhost:8080/
 http://localhost:8080/playlist.html
 ```
 
-A static server is sufficient for local testing. It does not provide a backend for the external services used by the project.
+A static server is enough for the app shell. It does not replace the external services the project calls.
 
 ---
 
@@ -168,79 +177,83 @@ A static server is sufficient for local testing. It does not provide a backend f
 | **Component** | **Implementation / purpose** |
 | --- | --- |
 | Search and metadata | Configured public Invidious instances |
-| Video playback | Embedded player/API endpoints configured in the source |
-| Search-result thumbnails | URLs returned by the external search service |
-| Same-browser synchronization | `BroadcastChannel` and browser storage events, where supported |
-| Cross-device synchronization | PeerJS data connections |
-| Room code | Browser `localStorage` or the mechanism configured in the source |
+| Video playback | YouTube IFrame API |
+| Thumbnails | URLs from the external search service / YouTube image hosts |
+| Same-browser sync | `BroadcastChannel` + `localStorage` events |
+| Cross-device sync | PeerJS data connections (`mm-{room}` host id) |
+| Room code | Persisted in `localStorage` on the player; remote joins by code |
 | Favorites | Browser `localStorage` |
-| Media controls | `navigator.mediaSession`, where supported |
-| Progressive result loading | Pagination and `IntersectionObserver` |
-| QR code | External QR-generation service, if enabled in the source |
-| Sponsor segment information | SponsorBlock API, if enabled in the source |
+| Media controls | `navigator.mediaSession` where supported |
+| Progressive results | Pagination + `IntersectionObserver` |
+| QR code | External QR image service (player UI) |
+| Sponsor segments | SponsorBlock API (if enabled in source) |
+| Remote install banner | `beforeinstallprompt` + manifest + service worker (Android); iOS guided Share sheet |
+| Quality preference | Viewport-size hint + YouTube quality range APIs (best-effort) |
 
-Implementation details may change as the source code evolves. Refer to the current files in the repository for the actual endpoints, storage keys, and control flow.
+Details may change with the source. Check the current files for endpoints, storage keys, and control flow.
 
 ---
 
 ## Customization
 
-Depending on the current source code, you can customize:
-
 | **What** | **Where to look** |
 | --- | --- |
-| Categories and search variations | Category/query configuration in `index.html` |
-| Search service instances | Invidious instance configuration in `index.html` |
-| Ready-made playlists | Playlist/category mappings in `playlist.html` |
-| Room-code behavior | Room-code constants and storage logic |
-| PeerJS connection behavior | PeerJS configuration and connection logic |
+| Categories and search variations | Category / query config in `index.html` |
+| Search service instances | Invidious instance list in `index.html` |
+| Ready-made playlists | Playlist / category mappings in `playlist.html` |
+| Room-code behavior | Room constants and storage logic in both HTML files |
+| PeerJS connection behavior | Peer host / client logic in both HTML files |
+| Quality defaults | Quality preference + CSS viewport classes in `index.html` |
+| Add to Home Screen copy / dismiss | A2HS block in `playlist.html` |
 | Visual appearance | CSS in `index.html` and `playlist.html` |
 
-Always review the current source before changing configuration values. Public service instances may have different availability, rate limits, and terms.
+Public service instances may differ in availability, rate limits, and terms.
 
 ---
 
 ## Privacy and data handling
 
-SuperYT does not appear to include its own account system or server-side user database. However, this does **not** mean that the application makes no network requests or that no data is processed by third parties.
+SuperYT does not include its own account system or server-side user database. That does **not** mean there are no network requests or third-party processing.
 
-Depending on the features used, requests may be sent to:
+Depending on features used, requests may go to:
 
-- **Invidious instances** for search results and playlist metadata.
-- **YouTube and embedded-player endpoints** for playback.
-- **PeerJS infrastructure** for cross-device connections and control messages.
-- **SponsorBlock** for segment information, if enabled.
-- **QR-generation services** for creating QR images, if enabled.
-- **CDN hosts** for loading JavaScript libraries.
-- **Thumbnail hosts** to display search-result images.
+- **Invidious instances** — search and playlist metadata
+- **YouTube / embedded player** — playback
+- **PeerJS infrastructure** — cross-device control
+- **SponsorBlock** — segment data (if enabled)
+- **QR-generation services** — QR images (if used)
+- **CDN hosts** — libraries (e.g. PeerJS)
+- **Thumbnail hosts** — search-result images
 
-Third-party services may receive technical information such as IP addresses, requested URLs, search terms, video identifiers, or connection metadata. Their data handling is governed by their own terms and privacy policies, not by this repository.
+Third parties may receive technical data (IP, URLs, search terms, video ids, connection metadata). Their policies apply, not this repository.
 
-Favorites and other local settings stored in `localStorage` remain in the relevant browser profile unless the browser clears them or the application changes its storage behavior. Anyone with access to that browser profile may be able to access locally stored information.
+Favorites and settings in `localStorage` stay in that browser profile until cleared. Anyone with access to the profile may see that data.
 
-Review the current privacy policies and terms of each external service before use. Do not enter sensitive or confidential information into the application.
+Do not enter sensitive or confidential information into the application.
 
 ---
 
 ## Testing status and known limitations
 
-**This project is experimental and intended for testing.** Do not assume that every feature has been tested successfully on every browser, TV, car head unit, phone, or network.
+**This project is experimental.** Do not assume every feature works on every browser, TV, head unit, phone, or network.
 
 Known limitations include:
 
-- Public Invidious instances may be unavailable, slow, rate-limited, or incompatible with the current implementation.
-- Search results and playlist metadata may be incomplete or change without notice.
-- YouTube may restrict playback due to region, age, content, embedding, or account-related rules.
+- Public Invidious instances may be slow, rate-limited, or offline.
+- Search results and playlist metadata can be incomplete or change without notice.
+- YouTube may block playback (region, age, embedding, account rules).
 - Autoplay with sound may require a user gesture.
-- Fullscreen behavior is controlled by browser security rules and may not work when triggered remotely.
-- Media Session, steering-wheel buttons, Bluetooth controls, and background playback vary by device and browser.
-- PeerJS connections may fail due to network restrictions, service outages, or browser limitations.
-- A room code is not secure authentication; anyone who obtains it may be able to attempt to connect.
-- Browser storage can be cleared, causing favorites or room-code settings to be lost.
-- External APIs and endpoints may change or stop working.
-- The project requires an internet connection for its core features and is not an offline music player.
+- Remote commands cannot force fullscreen or bypass autoplay policies.
+- **Video quality settings are best-effort**; YouTube adaptive streaming may ignore or override them.
+- Media Session, steering-wheel, Bluetooth, and background playback vary widely.
+- PeerJS may fail under firewalls, CGNAT, or signaling outages.
+- A room code is **not** authentication.
+- Browser storage can be cleared (favorites / room code lost).
+- Core features need the internet; this is not an offline music library.
+- **Add to Home Screen:** one-tap install works only when the browser allows it (typically Android Chrome on HTTPS). iOS never allows programmatic install.
+- Scanning a QR code opens the URL in the browser; there is no reliable way to force an already-installed home-screen web app to open instead (especially on iOS).
 
-When reporting an issue, include the browser, operating system/device, steps to reproduce, and relevant error messages. Do not publish private links, personal data, or active room codes in public issue reports.
+When reporting issues, include browser, OS/device, steps to reproduce, and relevant console errors. Do not post private links, personal data, or active room codes in public reports.
 
 ---
 
@@ -248,41 +261,39 @@ When reporting an issue, include the browser, operating system/device, steps to 
 
 ### 1. Experimental use only
 
-SuperYT is provided for learning, development, interoperability testing, and personal experimentation. It is **not a guarantee that any particular use is lawful**, and it is not legal advice. Users are responsible for determining whether their intended use is permitted under the laws applicable to them and the terms of the relevant services.
+SuperYT is for learning, development, interoperability testing, and personal experimentation. It is **not** a guarantee that any particular use is lawful, and it is not legal advice. Users must decide whether their use is permitted under applicable law and third-party terms.
 
 ### 2. User responsibility
 
-By using, modifying, hosting, or distributing this project, you are responsible for your own actions and for ensuring that your use complies with applicable laws, third-party terms, and intellectual-property rights.
+By using, modifying, hosting, or distributing this project, you are responsible for compliance with laws, service terms, and intellectual-property rights.
 
-Do not use the project to access content without authorization, circumvent technical restrictions, download or reproduce copyrighted content without permission, redistribute content unlawfully, or use third-party content commercially without the required rights or licenses.
-
-Nothing in this notice transfers a user's legal obligations to the project author or overrides mandatory law.
+Do not use the project to access content without authorization, circumvent technical restrictions, download or reproduce copyrighted content without permission, redistribute content unlawfully, or use third-party content commercially without the required rights.
 
 ### 3. Copyright and related rights
 
-In Türkiye, Law No. 5846 on Intellectual and Artistic Works (FSEK) is a key part of the legal framework governing copyright and related rights. The fact that a video or song can be found or played through a third-party service does not, by itself, grant permission to download, reproduce, distribute, publicly communicate, adapt, or commercially exploit it.
+In Türkiye, Law No. 5846 on Intellectual and Artistic Works (FSEK) is a key part of the copyright framework. Finding or playing a work through a third-party service does not by itself grant permission to download, reproduce, distribute, publicly communicate, adapt, or commercially exploit it.
 
-Users must obtain any permissions required for their intended use and comply with applicable licenses and service terms. SuperYT is not intended to host copies of copyrighted media, and it does not grant users rights to third-party content.
+SuperYT is not intended to host copies of copyrighted media and does not grant rights to third-party content.
 
 ### 4. Third-party services and trademarks
 
-YouTube, Google, Invidious instance operators, PeerJS, SponsorBlock, QR-service operators, CDN providers, and content/thumbnail hosts are independent third parties. Their names and services are referenced only to describe integrations or dependencies. Their inclusion does not imply endorsement, sponsorship, partnership, or official affiliation.
+YouTube, Google, Invidious operators, PeerJS, SponsorBlock, QR services, CDN providers, and content hosts are independent third parties. Names are referenced only to describe integrations. No endorsement or partnership is implied.
 
-Third-party services may change their terms, restrict access, remove content, collect technical data, or become unavailable. Users must review and comply with the relevant providers' current terms and policies.
+Those services may change terms, restrict access, or become unavailable. Users must follow their current policies.
 
 ### 5. Disclaimer of warranties
 
-To the maximum extent permitted by applicable law, this project is provided **“AS IS” and “AS AVAILABLE,”** without warranties or conditions of any kind, whether express or implied. No guarantee is made that the project will be uninterrupted, secure, error-free, suitable for a particular purpose, compatible with a particular device, or continuously compatible with third-party services.
+To the maximum extent permitted by law, this project is provided **"AS IS" and "AS AVAILABLE,"** without warranties of any kind. No guarantee of uninterrupted, secure, error-free, or device-compatible operation, or of continuous compatibility with third-party services.
 
 ### 6. Limitation of liability
 
-To the extent permitted by applicable law, the project author and contributors shall not be liable for indirect or consequential loss, loss of data, loss of profits, service interruption, device incompatibility, or issues arising from third-party services or from the user's use of the project.
+To the extent permitted by law, the author and contributors are not liable for indirect or consequential loss, data loss, lost profits, service interruption, device incompatibility, or issues arising from third-party services or from use of the project.
 
-This clause does not exclude or limit any liability that cannot lawfully be excluded or limited. The enforceability and scope of any limitation may vary by jurisdiction and circumstances. This README is not a substitute for legal advice, and it does not guarantee immunity from legal claims.
+Liability that cannot lawfully be excluded remains. This README is not legal advice.
 
 ### 7. Rights-holder notices
 
-If you believe that material in this repository infringes your copyright or other rights, contact the repository owner and identify the specific file or URL, the right you hold, the basis of your claim, and the action requested. The notice will need to be reviewed; a notice alone does not automatically establish infringement. You may also use the relevant hosting platform's formal reporting process.
+If you believe material in this repository infringes your rights, contact the repository owner with the specific file or URL, the right claimed, the basis of the claim, and the action requested. You may also use the hosting platform's formal process.
 
 ### 8. Legal and service references
 
@@ -291,7 +302,7 @@ If you believe that material in this repository infringes your copyright or othe
 - [PeerJS](https://peerjs.com/)
 - [SponsorBlock](https://sponsor.ajay.app/)
 
-These links are provided for general reference and do not imply that the listed services endorse this project. Laws and their application vary by jurisdiction and facts. Seek advice from a qualified lawyer before commercial distribution or other higher-risk use.
+Links are for reference only and do not imply endorsement.
 
 ---
 
@@ -299,18 +310,18 @@ These links are provided for general reference and do not imply that the listed 
 
 See the [`LICENSE`](LICENSE) file in this repository.
 
-The supplied license file should be reviewed before publication to confirm that its copyright notice and licensing terms are appropriate for this project and that the repository's code and assets may lawfully be distributed under those terms. The MIT License does not grant rights to third-party videos, music, logos, APIs, or services.
+Review the license before publication. The MIT License does not grant rights to third-party videos, music, logos, APIs, or services.
 
 ---
 
 ## Contributing
 
-Contributions may be submitted through issues or pull requests. Useful areas include more resilient search handling, improved TV/car usability, accessibility, playlist management, and clearer error handling.
+Issues and pull requests are welcome. Useful areas include more resilient search, TV/car usability, accessibility, playlist tools, and clearer error handling.
 
-By contributing, ensure that you have the right to submit your contribution under the repository's license. Do not include copyrighted assets, credentials, personal information, or other material that you are not authorized to publish.
+Only submit material you have the right to contribute under the repository license. Do not include copyrighted assets, credentials, or personal data.
 
 ---
 
 ## Disclaimer
 
-**Use at your own risk.** The user is responsible for how the software is configured and used, for checking applicable laws and third-party terms, and for obtaining any permissions required for content they access or distribute. The project author does not guarantee availability, legality of third-party content, or compatibility with any particular device. Nothing in this README removes rights or liabilities that cannot be excluded under applicable law.
+**Use at your own risk.** You are responsible for configuration and use, for checking applicable laws and third-party terms, and for obtaining any permissions required for content you access or distribute. The author does not guarantee availability, legality of third-party content, or compatibility with any particular device. Nothing in this README removes rights or liabilities that cannot be excluded under applicable law.
