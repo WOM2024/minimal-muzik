@@ -1362,35 +1362,30 @@
       if (cmd.type === "reshuffle") {
         queueLocked = false;
         try {
-          var cards = Array.prototype.slice.call(resultsEl.querySelectorAll(".card"));
-          if (cards.length > 1) {
-            var vids = cards.map(function(c) {
-              return {
-                videoId: c.dataset.id,
-                title: c.dataset.title || "",
-                author: c.dataset.author || "",
-                lengthSeconds: parseInt(c.dataset.len, 10) || 0
-              };
-            });
-            vids = shuffle(vids);
-            resultsEl.innerHTML = vids.map(createCardHtml).join("");
-            attachCardListeners();
-            if (currentMode !== "favorites") ensureSentinel();
-            syncQueueFromDOM();
+          // Tamamen yeni şarkılar: kategori/arama sorgusunu rastgele yenile
+          if (currentMode === "favorites") {
+            showFavorites();
             broadcastState();
             return;
           }
-        } catch (eR) {}
-        if (playQueue && playQueue.length > 1) {
-          playQueue = shuffle(playQueue.slice());
-          playIndex = 0;
-          if (currentPlayingId) {
-            for (var pi = 0; pi < playQueue.length; pi++) {
-              if (playQueue[pi].id === currentPlayingId) { playIndex = pi; break; }
-            }
+          if (currentCatKey) {
+            currentQuery = pickRandomQuery(currentCatKey);
+            doSearch(currentQuery, true, true);
+          } else if (currentQuery) {
+            // Arama modunda farklı sayfa + seen temiz
+            try { seenIds.clear(); } catch (eS) {}
+            currentPage = 1 + Math.floor(Math.random() * 4);
+            doSearch(currentQuery, true, false);
+          } else {
+            currentCatKey = "turkce-pop";
+            currentMode = "category";
+            currentQuery = pickRandomQuery("turkce-pop");
+            doSearch(currentQuery, true, true);
           }
+        } catch (eR) {
+          console.warn("[MM] reshuffle", eR);
+          broadcastState();
         }
-        broadcastState();
         return;
       }
       if (cmd.type === "setQueue" && Array.isArray(cmd.queue)) {

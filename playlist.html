@@ -591,9 +591,9 @@
     .tabs .tab {
       flex: 1;
       text-align: center;
-      padding: 8px 6px;
+      padding: 8px 4px;
       border-radius: 10px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text-muted);
       background: transparent;
@@ -850,16 +850,16 @@
       </button>
     </div>
 
+    <div class="tabs" id="tabsBar">
+      <div class="tab active" data-tab="playlist">Listem</div>
+      <div class="tab" data-tab="favs">Favoriler</div>
+      <div class="tab" data-tab="ready">Keşfet</div>
+      <div class="tab" data-tab="search">Ara</div>
+    </div>
+
     <div class="search-bar" id="searchBar">
       <input id="plSearch" type="search" placeholder="Ne dinlemek istiyorsun?" enterkeyhint="search" />
       <button type="button" id="plSearchBtn">Ara</button>
-    </div>
-
-    <div class="tabs" id="tabsBar">
-      <div class="tab active" data-tab="playlist">Listem</div>
-      <div class="tab" data-tab="favs">♥</div>
-      <div class="tab" data-tab="ready">Keşfet</div>
-      <div class="tab" data-tab="search">Ara</div>
     </div>
 
     <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
@@ -994,6 +994,13 @@
     let readyPlaylists = [];
     let searchLoading = false;
     let importing = false;
+    let searchPage = 1;
+    let searchHasMore = false;
+    let searchQuery = "";
+    let readyPage = 1;
+    let readyHasMore = false;
+    let readyQuery = "";
+    let listLoadingMore = false;
     let isPlayingRemote = false;
     let remotePos = 0;
     let remoteDur = 0;
@@ -1771,25 +1778,36 @@
       }
     }
 
-    async function doSongSearch(q) {
+    async function doSongSearch(q, append) {
       q = (q || "").trim();
       if (!q) return;
-      searchLoading = true;
-      activeTab = "search";
-      document.querySelectorAll(".tab").forEach(function(t) {
-        t.classList.toggle("active", t.dataset.tab === "search");
-      });
-      updateManualChrome();
-      renderList();
+      if (!append) {
+        searchQuery = q;
+        searchPage = 1;
+        searchResults = [];
+        searchHasMore = true;
+        searchLoading = true;
+        activeTab = "search";
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === "search");
+        });
+        updateManualChrome();
+        renderList();
+      } else {
+        if (listLoadingMore || !searchHasMore) return;
+        listLoadingMore = true;
+        searchPage += 1;
+      }
       var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=video&page=1&region=TR"
+        "/api/v1/search?q=" + encodeURIComponent(searchQuery || q) +
+        "&type=video&page=" + searchPage + "&region=TR"
       );
       searchLoading = false;
-      searchResults = [];
+      listLoadingMore = false;
+      var batch = [];
       if (Array.isArray(data)) {
-        searchResults = data
+        batch = data
           .filter(function(item) { return item.type === "video" && item.videoId; })
-          .slice(0, 30)
           .map(function(item) {
             return {
               id: item.videoId,
@@ -1797,6 +1815,16 @@
               author: item.author || ""
             };
           });
+      }
+      if (!batch.length) {
+        searchHasMore = false;
+      } else {
+        var seen = {};
+        searchResults.forEach(function(x) { seen[x.id] = true; });
+        batch.forEach(function(x) {
+          if (!seen[x.id]) { seen[x.id] = true; searchResults.push(x); }
+        });
+        searchHasMore = batch.length >= 8;
       }
       renderList();
     }
@@ -1853,29 +1881,39 @@
       renderList();
     }
 
-    async function doSmartSearch(q) {
+    async function doSmartSearch(q, append) {
       q = (q || "").trim();
       if (!q) return;
-      searchLoading = true;
-      activeTab = "ready";
-      document.querySelectorAll(".tab").forEach(function(t) {
-        t.classList.toggle("active", t.dataset.tab === "ready");
-      });
-      updateManualChrome();
-      renderList();
-
+      if (!append) {
+        readyQuery = q;
+        readyPage = 1;
+        readyPlaylists = [];
+        readyHasMore = true;
+        searchLoading = true;
+        activeTab = "ready";
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === "ready");
+        });
+        updateManualChrome();
+        renderList();
+      } else {
+        if (listLoadingMore || !readyHasMore) return;
+        listLoadingMore = true;
+        readyPage += 1;
+      }
       var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
+        "/api/v1/search?q=" + encodeURIComponent(readyQuery || q) +
+        "&type=playlist&page=" + readyPage + "&region=TR"
       );
       searchLoading = false;
-      readyPlaylists = [];
+      listLoadingMore = false;
+      var batch = [];
       if (Array.isArray(data)) {
-        readyPlaylists = data
+        batch = data
           .filter(function(item) {
             return item.type === "playlist" && item.playlistId &&
               (!item.videoCount || item.videoCount >= 5);
           })
-          .slice(0, 12)
           .map(function(item) {
             return {
               playlistId: item.playlistId,
@@ -1884,6 +1922,16 @@
               videoCount: item.videoCount || 0
             };
           });
+      }
+      if (!batch.length) {
+        readyHasMore = false;
+      } else {
+        var seenP = {};
+        readyPlaylists.forEach(function(x) { seenP[x.playlistId] = true; });
+        batch.forEach(function(x) {
+          if (!seenP[x.playlistId]) { seenP[x.playlistId] = true; readyPlaylists.push(x); }
+        });
+        readyHasMore = batch.length >= 6;
       }
       renderList();
     }
@@ -2158,7 +2206,23 @@
     }
     disconnectBtn.addEventListener("click", disconnect);
 
-    modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
+
+    // Sonsuz kaydırma — Ara / Keşfet
+    (function() {
+      if (!scrollArea) return;
+      scrollArea.addEventListener("scroll", function() {
+        if (mode !== "manual") return;
+        var nearBottom = scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 120;
+        if (!nearBottom) return;
+        if (activeTab === "search" && searchQuery) {
+          doSongSearch(searchQuery, true);
+        } else if (activeTab === "ready" && readyQuery) {
+          doSmartSearch(readyQuery, true);
+        }
+      });
+    })();
+
+        modeShuffle.addEventListener("click", function() { setMode("shuffle"); });
     modeManual.addEventListener("click", function() { setMode("manual"); });
 
     // Progress seek
