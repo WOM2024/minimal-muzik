@@ -473,6 +473,20 @@
       background: #ff2d55;
       color: #000;
     }
+    .player-nav button.voice-player-btn {
+      min-width: 40px;
+      width: 40px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .player-nav button.voice-player-btn svg {
+      width: 20px; height: 20px; fill: currentColor;
+    }
+    .player-nav button.voice-player-btn.listening {
+      background: rgba(255,45,85,0.25);
+      color: #ff2d55;
+      box-shadow: 0 0 14px rgba(255,45,85,0.4);
+    }
     @media (max-width: 520px) {
       .player-nav .nav-text { display: none; }
       .player-nav button { min-width: 40px; width: 40px; padding: 0; border-radius: 50%; }
@@ -934,6 +948,9 @@
         </button>
         <button type="button" class="nav-settings" id="settingsBtn" title="Parlaklık" aria-label="Parlaklık ayarı">
           <svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        </button>
+        <button type="button" id="voicePlayerBtn" class="voice-player-btn" title="Sesli komut" aria-label="Sesli komut">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
         </button>
         <button type="button" id="nextBtn" title="Sonraki video" aria-label="Sonraki video">
           <span class="nav-text">Sonraki</span>
@@ -3964,7 +3981,179 @@
     currentCatKey = "turkce-pop";
     currentQuery = pickRandomQuery("turkce-pop");
 
+    // ── Oyuncu ekranı sesli komut (Vosk TR) ──
+    (function initPlayerVoice() {
+      var btn = document.getElementById("voicePlayerBtn");
+      if (!btn) return;
+      var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
+      var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
+      var LISTEN_MS = 4000;
+      var listening = false, busy = false, voskModel = null, voskReady = null;
+      var mediaStream = null, audioContext = null, processorNode = null, sourceNode = null;
+      var listenTimer = null, lastPartial = "";
 
+      function toast(msg) {
+        var t = document.getElementById("roomToast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(function() { t.classList.remove("show"); }, 2200);
+      }
+      function setListening(on) {
+        listening = !!on;
+        btn.classList.toggle("listening", listening);
+      }
+      function norm(raw) {
+        var t = String(raw || "").toLowerCase();
+        t = t.replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ö/g,"o").replace(/ç/g,"c");
+        return t.replace(/[.,!?;:"""']/g," ").replace(/\s+/g," ").trim();
+      }
+      function matchCmd(raw) {
+        var text = norm(raw);
+        if (!text) return null;
+        if (/^(sonraki|next|skip|atla|gec)(\s|$)/.test(text) || text.indexOf("sonraki") >= 0)
+          return { cmd: "next", terminal: true };
+        if (/^(onceki|önceki|previous|prev|geri)(\s|$)/.test(text) || text.indexOf("onceki") >= 0 || text.indexOf("önceki") >= 0)
+          return { cmd: "prev", terminal: true };
+        if (/^(duraklat|durdur|dur|pause|stop|beklet)(\s|$)/.test(text))
+          return { cmd: "pause", terminal: true };
+        if (/^(devam|resume|surdur)(\s|$)/.test(text))
+          return { cmd: "resume", terminal: true };
+        // sonek: "tarkan cal"
+        var mSuf = text.match(/^(.+?)\s+(cal|oynat|play)$/);
+        if (mSuf && mSuf[1]) return { cmd: "search", q: mSuf[1].trim(), terminal: true };
+        // önek: "cal tarkan"
+        var mPre = text.match(/^(cal|oynat|play|ara|bul)\s+(.+)$/);
+        if (mPre && mPre[2]) return { cmd: "search", q: mPre[2].trim(), terminal: true };
+        if (/^(cal|oynat|play|baslat)$/.test(text)) return { cmd: "resume", terminal: true };
+        return null;
+      }
+      function runCmd(spec) {
+        if (!spec) return;
+        if (spec.cmd === "next") { playNext({ force: true }); toast("Sonraki"); return; }
+        if (spec.cmd === "prev") { playPrev(); toast("Önceki"); return; }
+        if (spec.cmd === "pause") { msPause(); toast("Duraklatıldı"); return; }
+        if (spec.cmd === "resume") { msPlay(); toast("Devam"); return; }
+        if (spec.cmd === "search" && spec.q) {
+          toast("Aranıyor: " + spec.q);
+          doSearch(spec.q, true, false).then(function() {
+            try {
+              var cards = document.querySelectorAll("#results .card[data-id]");
+              if (cards && cards[0]) {
+                playVideo(cards[0].dataset.id, cards[0].dataset.title || spec.q, cards[0].dataset.author || "", true);
+                toast("Çalıyor: " + (cards[0].dataset.title || spec.q));
+              } else toast("Sonuç yok");
+            } catch (e) { toast("Arama hatası"); }
+          }).catch(function() { toast("Arama başarısız"); });
+        }
+      }
+      function loadScript(src) {
+        return new Promise(function(res, rej) {
+          if (window.Vosk && Vosk.createModel) return res();
+          var s = document.createElement("script");
+          s.src = src; s.async = true;
+          s.onload = function() { res(); };
+          s.onerror = function() { rej(new Error("vosk js")); };
+          document.head.appendChild(s);
+        });
+      }
+      function ensureModel() {
+        if (voskModel) return Promise.resolve(voskModel);
+        if (voskReady) return voskReady;
+        voskReady = loadScript(VOSK_JS).then(function() {
+          toast("Ses modeli yükleniyor…");
+          return Vosk.createModel(VOSK_MODEL_TR);
+        }).then(function(m) {
+          voskModel = m;
+          toast("Ses modeli hazır");
+          return m;
+        }).catch(function(e) { voskReady = null; throw e; });
+        return voskReady;
+      }
+      function cleanup() {
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        try { if (processorNode) { processorNode.onaudioprocess = null; processorNode.disconnect(); } } catch (e) {}
+        processorNode = null;
+        try { if (sourceNode) sourceNode.disconnect(); } catch (e2) {}
+        sourceNode = null;
+        if (mediaStream) {
+          try { mediaStream.getTracks().forEach(function(t) { t.stop(); }); } catch (e3) {}
+          mediaStream = null;
+        }
+        if (audioContext) { try { audioContext.close(); } catch (e4) {} audioContext = null; }
+      }
+      function stopListen(text) {
+        setListening(false);
+        busy = false;
+        cleanup();
+        var t = (text || lastPartial || "").trim();
+        lastPartial = "";
+        var spec = matchCmd(t);
+        if (spec) runCmd(spec);
+        else if (t) toast("Anlaşılamadı: " + t);
+        else toast("Ses duyulmadı");
+      }
+      function startListen() {
+        if (busy) return;
+        busy = true;
+        lastPartial = "";
+        setListening(true);
+        toast("Dinliyorum…");
+        ensureModel().then(function(model) {
+          return navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, sampleRate: 16000 }
+          }).then(function(stream) { return { model: model, stream: stream }; });
+        }).then(function(ctx) {
+          mediaStream = ctx.stream;
+          var recognizer;
+          try { recognizer = new ctx.model.KaldiRecognizer(16000); }
+          catch (e) { recognizer = new ctx.model.KaldiRecognizer(); }
+          var gotFinal = false;
+          recognizer.on("result", function(msg) {
+            var t = (msg && msg.result && msg.result.text) || "";
+            if (String(t).trim()) { gotFinal = true; stopListen(String(t).trim()); }
+          });
+          recognizer.on("partialresult", function(msg) {
+            var p = (msg && msg.result && msg.result.partial) || "";
+            p = String(p).trim();
+            if (!p) return;
+            lastPartial = p;
+            var spec = matchCmd(p);
+            if (!gotFinal && spec && spec.terminal) {
+              gotFinal = true;
+              stopListen(p);
+            }
+          });
+          audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          if (audioContext.state === "suspended") try { audioContext.resume(); } catch (eR) {}
+          sourceNode = audioContext.createMediaStreamSource(mediaStream);
+          processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+          processorNode.onaudioprocess = function(ev) {
+            try { recognizer.acceptWaveform(ev.inputBuffer); } catch (err) {}
+          };
+          sourceNode.connect(processorNode);
+          var gain = audioContext.createGain();
+          gain.gain.value = 0;
+          processorNode.connect(gain);
+          gain.connect(audioContext.destination);
+          listenTimer = setTimeout(function() {
+            if (!gotFinal) stopListen(lastPartial);
+          }, LISTEN_MS);
+        }).catch(function(err) {
+          busy = false;
+          setListening(false);
+          cleanup();
+          toast("Mikrofon / model açılamadı");
+          console.warn("[MM] voice", err);
+        });
+      }
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if (listening || busy) { stopListen(lastPartial); return; }
+        startListen();
+      });
+    })();
 
     initRoomSync();
     doSearch(currentQuery, true, true);

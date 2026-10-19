@@ -1497,18 +1497,196 @@
       } catch (e) {}
     }
 
+    /**
+     * Ses / URL komut tablosu
+     * action: next | prev | pause | resume | playpause | search
+     * phrases: tam eşleşme veya "başlar/içerir" için regex parçaları
+     */
+    var VOICE_CMD_TABLE = [
+      {
+        action: "next",
+        label: "Sonraki şarkı",
+        phrases: [
+          "sonraki", "sonraki sarki", "sonraki şarkı", "sonraki video", "sonraki parca", "sonraki parça",
+          "bir sonraki", "bir sonraki sarki", "bir sonraki şarkı", "bir sonraki video",
+          "skip", "next", "next song", "next track", "next video",
+          "gec", "geç", "atla", "ötele", "otele", "ileri"
+        ]
+      },
+      {
+        action: "prev",
+        label: "Önceki şarkı",
+        phrases: [
+          "onceki", "önceki", "onceki sarki", "önceki şarkı", "onceki video", "önceki video",
+          "bir onceki", "bir önceki", "bir onceki sarki", "bir önceki şarkı",
+          "previous", "prev", "prev song", "previous song", "previous track",
+          "geri", "geri git", "geri don", "geri dön"
+        ]
+      },
+      {
+        action: "pause",
+        label: "Duraklatıldı",
+        phrases: [
+          "duraklat", "durdur", "dur", "pause", "stop", "beklet", "bekle",
+          "sarki durdur", "şarkı durdur", "video durdur", "muzik durdur", "müzik durdur",
+          "sesi kes", "sustur", "stop music", "stop song"
+        ]
+      },
+      {
+        action: "resume",
+        label: "Devam",
+        phrases: [
+          "devam", "devam et", "resume", "unpause", "surdur", "sürdür",
+          "devam ettir", "calmaya devam", "çalmaya devam", "muzik devam", "müzik devam"
+        ]
+      },
+      {
+        action: "playpause",
+        label: "Oynat / Duraklat",
+        phrases: [
+          "play pause", "playpause", "toggle", "degistir", "değiştir",
+          "oynat duraklat", "baslat durdur", "başlat durdur"
+        ]
+      },
+      {
+        action: "play",
+        label: "Oynat",
+        phrases: [
+          "cal", "çal", "oynat", "play", "baslat", "başlat", "muzik cal", "müzik çal",
+          "sarki cal", "şarkı çal", "video cal", "video çal", "play music", "play song"
+        ]
+      }
+    ];
+
+    // "çal X" / "X çal" — başta veya sonda komut kelimesi (= nokta)
+    var VOICE_SEARCH_PREFIXES = [
+      "cal", "çal", "oynat", "play", "ara", "search", "bul", "find",
+      "cal sarki", "çal şarkı", "sarki cal", "şarkı çal",
+      "oynat sarki", "oynat şarkı", "play song", "search for"
+    ];
+    var VOICE_SEARCH_SUFFIXES = [
+      "cal", "çal", "oynat", "play",
+      "sarki cal", "şarkı çal", "video cal", "video çal",
+      "lutfen cal", "lütfen çal", "please play"
+    ];
+    // Erken kesme: bu aksiyonlar duyulunca mikrofon hemen kapanır
+    var VOICE_TERMINAL_ACTIONS = {
+      next: true, prev: true, pause: true, resume: true, playpause: true, play: true, search: true
+    };
+
+    function normalizeVoiceText(raw) {
+      var t = String(raw || "").toLowerCase();
+      // Türkçe karakter sadeleştirme (Vosk bazen bozar)
+      t = t
+        .replace(/ı/g, "i").replace(/İ/g, "i")
+        .replace(/ğ/g, "g").replace(/Ğ/g, "g")
+        .replace(/ü/g, "u").replace(/Ü/g, "u")
+        .replace(/ş/g, "s").replace(/Ş/g, "s")
+        .replace(/ö/g, "o").replace(/Ö/g, "o")
+        .replace(/ç/g, "c").replace(/Ç/g, "c");
+      t = t.replace(/[.,!?;:"""''`´]/g, " ");
+      t = t.replace(/\s+/g, " ").trim();
+      return t;
+    }
+
+    function matchVoiceCommand(rawText) {
+      var text = normalizeVoiceText(rawText);
+      if (!text) return null;
+
+      // 1a) Önek arama: "cal tarkan", "ara sezen aksu"
+      for (var i = 0; i < VOICE_SEARCH_PREFIXES.length; i++) {
+        var pref = normalizeVoiceText(VOICE_SEARCH_PREFIXES[i]);
+        if (text === pref) {
+          return { cmd: "play", q: "", terminal: true };
+        }
+        if (text.indexOf(pref + " ") === 0) {
+          var q1 = text.slice(pref.length).trim();
+          // sondaki tekrar komut kelimesini temizle
+          q1 = stripTrailingCommand(q1);
+          if (q1) return { cmd: "search", q: q1, terminal: true };
+        }
+      }
+
+      // 1b) Sonek arama: "tarkan cal", "sezen aksu oynat"  ← nokta gibi
+      for (var j = 0; j < VOICE_SEARCH_SUFFIXES.length; j++) {
+        var suf = normalizeVoiceText(VOICE_SEARCH_SUFFIXES[j]);
+        if (text.length > suf.length + 1 && text.slice(-(suf.length + 1)) === " " + suf) {
+          var q2 = text.slice(0, text.length - suf.length).trim();
+          q2 = stripLeadingCommand(q2);
+          if (q2) return { cmd: "search", q: q2, terminal: true };
+        }
+      }
+
+      // 2) Tam / içerik eşleşmesi (uzun phrase önce) — kontrol komutları
+      var best = null;
+      var bestLen = -1;
+      for (var a = 0; a < VOICE_CMD_TABLE.length; a++) {
+        var row = VOICE_CMD_TABLE[a];
+        for (var p = 0; p < row.phrases.length; p++) {
+          var ph = normalizeVoiceText(row.phrases[p]);
+          if (!ph) continue;
+          // Tam eşleşme veya metin = phrase (kontrol komutu)
+          if (text === ph) {
+            if (ph.length > bestLen) {
+              bestLen = ph.length;
+              best = { cmd: row.action, q: "", label: row.label, terminal: true };
+            }
+          } else if (text.indexOf(ph) === 0 && (text.length === ph.length || text[ph.length] === " ")) {
+            // "sonraki sarki" gibi phrase başlangıcı — search suffix değilse
+            if (row.action !== "play") {
+              if (ph.length > bestLen) {
+                bestLen = ph.length;
+                best = { cmd: row.action, q: "", label: row.label, terminal: true };
+              }
+            }
+          }
+        }
+      }
+      if (best) return best;
+
+      // 3) Henüz tamamlanmamış — terminal değil (partial için)
+      return null;
+    }
+
+    function stripTrailingCommand(q) {
+      q = normalizeVoiceText(q);
+      for (var i = 0; i < VOICE_SEARCH_SUFFIXES.length; i++) {
+        var suf = normalizeVoiceText(VOICE_SEARCH_SUFFIXES[i]);
+        if (q.length > suf.length && q.slice(-(suf.length + 1)) === " " + suf) {
+          return q.slice(0, q.length - suf.length).trim();
+        }
+        if (q === suf) return "";
+      }
+      return q;
+    }
+    function stripLeadingCommand(q) {
+      q = normalizeVoiceText(q);
+      for (var i = 0; i < VOICE_SEARCH_PREFIXES.length; i++) {
+        var pref = normalizeVoiceText(VOICE_SEARCH_PREFIXES[i]);
+        if (q.indexOf(pref + " ") === 0) return q.slice(pref.length).trim();
+      }
+      return q;
+    }
+
+    // Partial metinde komut tamamlandı mı? (mikrofonu kapatmak için)
+    function isTerminalVoiceUtterance(rawText) {
+      var spec = matchVoiceCommand(rawText);
+      return !!(spec && spec.terminal && VOICE_TERMINAL_ACTIONS[spec.cmd]);
+    }
+
     function runExternalCommand(spec) {
       if (!spec) return;
       var cmd = String(spec.cmd || "").toLowerCase().replace(/[_-]/g, "");
       var q = (spec.q || "").trim();
 
-      // eşanlamlılar
+      // URL/eski eşanlamlılar
       if (cmd === "previous" || cmd === "prevtrack" || cmd === "geri") cmd = "prev";
       if (cmd === "nexttrack" || cmd === "skip" || cmd === "sonraki") cmd = "next";
       if (cmd === "stop") cmd = "pause";
-      if (cmd === "resume" || cmd === "unpause") cmd = "play";
+      if (cmd === "resume" || cmd === "unpause") cmd = "resume";
       if (cmd === "toggle" || cmd === "playpause") cmd = "playpause";
-      if (cmd === "search" || cmd === "find" || cmd === "ara") cmd = "play";
+      if (cmd === "search" || cmd === "find" || cmd === "ara") cmd = "search";
+      if (cmd === "play" && q) cmd = "search";
 
       if (cmd === "next") {
         sendCommand({ type: "next" });
@@ -1530,13 +1708,17 @@
         showToast("Oynat / Duraklat");
         return;
       }
-      if (cmd === "play" && !q) {
+      if (cmd === "resume" || (cmd === "play" && !q)) {
         sendCommand({ type: "resume" });
         showToast("Devam");
         return;
       }
-      if ((cmd === "play" || cmd === "") && q) {
-        // Ara ve ilk sonucu çal
+      if (cmd === "search" || ((cmd === "play" || cmd === "") && q)) {
+        if (!q) {
+          sendCommand({ type: "resume" });
+          showToast("Devam");
+          return;
+        }
         showToast("Aranıyor: " + q);
         setMode("manual");
         activeTab = "search";
@@ -2802,25 +2984,6 @@
         btn.classList.toggle("listening", listening);
       }
 
-      function interpret(text) {
-        text = String(text || "").toLowerCase().trim()
-          .replace(/[.,!?;:"""'']/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (!text) return null;
-        if (/(sonraki|skip|next|öteki|bir sonraki)/.test(text)) return { cmd: "next" };
-        if (/(önceki|previous|prev|geri|bir önceki)/.test(text)) return { cmd: "prev" };
-        if (/(duraklat|pause|durdur|stop|beklet)/.test(text)) return { cmd: "pause" };
-        if (/(devam|resume|unpause)/.test(text)) return { cmd: "play" };
-        if (/(oynat|play|çal)\s*$/.test(text) || text === "çal" || text === "oynat") {
-          return { cmd: "play" };
-        }
-        var m = text.match(/(?:çal|oynat|play|ara|search|bul)\s+(.+)/i);
-        if (m && m[1]) return { cmd: "play", q: m[1].trim() };
-        if (text.length >= 2) return { cmd: "play", q: text };
-        return null;
-      }
-
       function applyTranscript(said) {
         said = String(said || "").trim();
         if (!said) {
@@ -2828,7 +2991,7 @@
           return;
         }
         console.log("[PL] Vosk:", said);
-        var spec = interpret(said);
+        var spec = matchVoiceCommand(said);
         if (!spec) {
           showToast("Anlaşılamadı: " + said);
           return;
@@ -2957,7 +3120,13 @@
               try {
                 var p = (message && message.result && message.result.partial) || "";
                 p = String(p).trim();
-                if (p) lastPartial = p;
+                if (!p) return;
+                lastPartial = p;
+                // Komut tamamlandıysa (nokta = çal/sonraki/durdur…) mikrofonu hemen kapat
+                if (!gotFinal && isTerminalVoiceUtterance(p)) {
+                  gotFinal = true;
+                  stopListening(p);
+                }
               } catch (e) {}
             });
 
