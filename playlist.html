@@ -208,6 +208,23 @@
       font-size: 18px; font-weight: 800; letter-spacing: -0.4px;
       display: flex; align-items: center; gap: 8px;
     }
+    .voice-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: var(--text-sub);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background .15s, color .15s, box-shadow .15s;
+    }
+    .voice-btn:active { transform: scale(0.94); }
+    .voice-btn.listening {
+      background: rgba(255,45,85,0.2);
+      color: #ff2d55;
+      border-color: rgba(255,45,85,0.45);
+      box-shadow: 0 0 16px rgba(255,45,85,0.35);
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
     .status-dot {
       width: 8px; height: 8px; border-radius: 50%;
       background: #555; flex-shrink: 0;
@@ -267,6 +284,28 @@
     }
     #joinBtn:active { transform: scale(0.97); background: var(--green-hover); }
     .err { color: #ff6b6b; font-size: 13px; min-height: 18px; font-weight: 500; }
+    .siri-hint {
+      margin-top: 18px;
+      max-width: 300px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .siri-hint strong { color: var(--text-sub); font-size: 12px; }
+    .siri-hint code {
+      display: inline-block;
+      margin: 2px 0;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(255,45,85,0.12);
+      color: #ff8a9e;
+      font-size: 10px;
+    }
 
     /* ── Main screen ── */
     #mainScreen {
@@ -1018,6 +1057,9 @@
         </h1>
         <div class="sub" id="statusText">Bağlantı bekleniyor…</div>
       </div>
+      <button type="button" class="voice-btn" id="voiceBtn" title="Sesli komut" aria-label="Sesli komut">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      </button>
     </div>
   </div>
 
@@ -1031,6 +1073,12 @@
     <input id="codeInput" type="text" maxlength="6" placeholder="A3K9X2" autocomplete="off" autocapitalize="characters" inputmode="text" />
     <button id="joinBtn" type="button">BAĞLAN</button>
     <div class="err" id="joinErr"></div>
+    <div class="siri-hint" id="siriHint">
+      <strong>Siri / Kısayollar</strong><br>
+      Bağlandıktan sonra iPhone Kısayollar’da şu URL’leri kullan:<br>
+      <code>?cmd=next</code> · <code>?cmd=prev</code> · <code>?cmd=pause</code><br>
+      <code>?cmd=play&amp;q=şarkı+adı</code>
+    </div>
   </div>
 
   <div id="mainScreen">
@@ -1241,6 +1289,7 @@
           // Host'a haber ver — retain'li state + taze pong istenir
           mqttPublish("ping", { kind: "ping", room: roomCode, ts: Date.now() });
           updateLinkStatus();
+          try { flushExternalCommand(); } catch (eF) {}
         });
         mqttClient.on("reconnect", function() {
           console.log("[PL] MQTT yeniden bağlanıyor…");
@@ -1421,9 +1470,115 @@
     }
     loadFavs();
 
-    (function() {
+    // ── Harici komutlar (Siri Kısayollar / URL) ──
+    // Örnek: playlist.html?cmd=next
+    //         playlist.html?c=ABC123&cmd=pause
+    //         playlist.html?cmd=play&q=tarkan+kuzu+kuzu
+    var _pendingExternal = null;
+    var _externalFlushed = false;
+
+    function parseExternalFromUrl() {
       var params = new URLSearchParams(location.search);
       var c = (params.get("c") || params.get("code") || "").trim().toUpperCase();
+      var cmd = (params.get("cmd") || params.get("action") || "").trim().toLowerCase();
+      var q = (params.get("q") || params.get("query") || params.get("s") || "").trim();
+      if (cmd || q) {
+        _pendingExternal = { cmd: cmd || (q ? "play" : ""), q: q, ts: Date.now() };
+      }
+      return { code: c, cmd: cmd, q: q };
+    }
+
+    function clearExternalFromUrl() {
+      try {
+        if (!window.history || !history.replaceState) return;
+        var u = new URL(location.href);
+        ["cmd", "action", "q", "query", "s"].forEach(function(k) { u.searchParams.delete(k); });
+        history.replaceState({}, "", u.pathname + u.search + u.hash);
+      } catch (e) {}
+    }
+
+    function runExternalCommand(spec) {
+      if (!spec) return;
+      var cmd = String(spec.cmd || "").toLowerCase().replace(/[_-]/g, "");
+      var q = (spec.q || "").trim();
+
+      // eşanlamlılar
+      if (cmd === "previous" || cmd === "prevtrack" || cmd === "geri") cmd = "prev";
+      if (cmd === "nexttrack" || cmd === "skip" || cmd === "sonraki") cmd = "next";
+      if (cmd === "stop") cmd = "pause";
+      if (cmd === "resume" || cmd === "unpause") cmd = "play";
+      if (cmd === "toggle" || cmd === "playpause") cmd = "playpause";
+      if (cmd === "search" || cmd === "find" || cmd === "ara") cmd = "play";
+
+      if (cmd === "next") {
+        sendCommand({ type: "next" });
+        showToast("Sonraki şarkı");
+        return;
+      }
+      if (cmd === "prev") {
+        sendCommand({ type: "prev" });
+        showToast("Önceki şarkı");
+        return;
+      }
+      if (cmd === "pause") {
+        sendCommand({ type: "pause" });
+        showToast("Duraklatıldı");
+        return;
+      }
+      if (cmd === "playpause") {
+        sendCommand({ type: "playPause" });
+        showToast("Oynat / Duraklat");
+        return;
+      }
+      if (cmd === "play" && !q) {
+        sendCommand({ type: "resume" });
+        showToast("Devam");
+        return;
+      }
+      if ((cmd === "play" || cmd === "") && q) {
+        // Ara ve ilk sonucu çal
+        showToast("Aranıyor: " + q);
+        setMode("manual");
+        activeTab = "search";
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.toggle("active", t.dataset.tab === "search");
+        });
+        updateManualChrome();
+        if (plSearch) plSearch.value = q;
+        doSongSearch(q).then(function() {
+          if (searchResults && searchResults[0]) {
+            var it = searchResults[0];
+            sendCommand({ type: "play", id: it.id, title: it.title || "", author: it.author || "" });
+            showToast("Çalıyor: " + (it.title || q));
+          } else {
+            showToast("Sonuç bulunamadı");
+          }
+        }).catch(function() {
+          showToast("Arama başarısız");
+        });
+        return;
+      }
+    }
+
+    function flushExternalCommand() {
+      if (!_pendingExternal || _externalFlushed) return;
+      if (!roomCode) return;
+      // MQTT veya peer veya en azından oda açık olsun
+      var ready = mqttReady || (conn && conn.open) || true;
+      if (!ready) return;
+      _externalFlushed = true;
+      var spec = _pendingExternal;
+      _pendingExternal = null;
+      clearExternalFromUrl();
+      // Kısa gecikme: kanallar otursun
+      setTimeout(function() {
+        runExternalCommand(spec);
+      }, 400);
+    }
+
+    (function() {
+      var ext = parseExternalFromUrl();
+      var c = ext.code;
       if (c.length >= 4) {
         codeInput.value = c.slice(0, 6);
         setTimeout(function() { joinRoom(c.slice(0, 6)); }, 300);
@@ -2514,6 +2669,7 @@
               conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
               conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
             } catch (e) {}
+            try { flushExternalCommand(); } catch (eF) {}
           });
           conn.on("data", function(data) {
             if (!data) return;
@@ -2573,6 +2729,10 @@
       startPeerClient();   // düşük gecikme (varsa)
       sendPing();
       setMode("shuffle");
+      // Siri / URL komutu varsa bağlantı oturunca çalıştır
+      _externalFlushed = false;
+      setTimeout(function() { try { flushExternalCommand(); } catch (e) {} }, 800);
+      setTimeout(function() { try { flushExternalCommand(); } catch (e) {} }, 2000);
     }
 
     function disconnect() {
@@ -2616,6 +2776,85 @@
     }
     disconnectBtn.addEventListener("click", disconnect);
 
+    // ── Sesli komut (Web Speech — Siri değil, tarayıcı) ──
+    (function initVoiceCommands() {
+      var btn = document.getElementById("voiceBtn");
+      if (!btn) return;
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        btn.style.display = "none";
+        return;
+      }
+      var rec = new SR();
+      rec.lang = "tr-TR";
+      rec.interimResults = false;
+      rec.maxAlternatives = 3;
+      var listening = false;
+
+      function setListening(on) {
+        listening = !!on;
+        btn.classList.toggle("listening", listening);
+      }
+
+      function interpret(text) {
+        text = String(text || "").toLowerCase().trim();
+        if (!text) return null;
+        // komut kalıpları
+        if (/(sonraki|skip|next|öteki)/.test(text)) return { cmd: "next" };
+        if (/(önceki|previous|prev|geri)/.test(text)) return { cmd: "prev" };
+        if (/(duraklat|pause|durdur|stop)/.test(text)) return { cmd: "pause" };
+        if (/(devam|resume|oynat|play|çal)/.test(text) && !/(çal\s+\S+|play\s+\S+|oynat\s+\S+)/.test(text)) {
+          return { cmd: "play" };
+        }
+        var m = text.match(/(?:çal|oynat|play|ara|search)\s+(.+)/i);
+        if (m && m[1]) return { cmd: "play", q: m[1].trim() };
+        // düz metin → şarkı ara
+        if (text.length >= 2) return { cmd: "play", q: text };
+        return null;
+      }
+
+      rec.onresult = function(ev) {
+        var said = "";
+        try {
+          said = ev.results[0][0].transcript || "";
+        } catch (e) {}
+        var spec = interpret(said);
+        if (spec) {
+          if (!roomCode) {
+            showToast("Önce odaya bağlan");
+          } else {
+            runExternalCommand(spec);
+          }
+        } else {
+          showToast("Anlaşılamadı: " + said);
+        }
+      };
+      rec.onerror = function() {
+        setListening(false);
+        showToast("Ses algılanamadı");
+      };
+      rec.onend = function() { setListening(false); };
+
+      btn.addEventListener("click", function() {
+        if (!roomCode) {
+          showToast("Önce odaya bağlan");
+          return;
+        }
+        if (listening) {
+          try { rec.stop(); } catch (e) {}
+          setListening(false);
+          return;
+        }
+        try {
+          setListening(true);
+          showToast("Dinliyorum…");
+          rec.start();
+        } catch (e) {
+          setListening(false);
+          showToast("Mikrofon açılamadı");
+        }
+      });
+    })();
 
     // Sonsuz kaydırma — Ara / Keşfet
     (function() {
