@@ -1674,6 +1674,10 @@
       return !!(spec && spec.terminal && VOICE_TERMINAL_ACTIONS[spec.cmd]);
     }
 
+    // Aynı ses komutunun arka arkaya tetiklenmesini engelle
+    var _voiceCmdLockUntil = 0;
+    var _voiceCmdLastKey = "";
+
     function runExternalCommand(spec) {
       if (!spec) return;
       var cmd = String(spec.cmd || "").toLowerCase().replace(/[_-]/g, "");
@@ -1687,6 +1691,16 @@
       if (cmd === "toggle" || cmd === "playpause") cmd = "playpause";
       if (cmd === "search" || cmd === "find" || cmd === "ara") cmd = "search";
       if (cmd === "play" && q) cmd = "search";
+
+      // Debounce: aynı komut 2.5 sn içinde tekrar çalışmasın
+      var key = cmd + "|" + (q || "");
+      var now = Date.now();
+      if (key === _voiceCmdLastKey && now < _voiceCmdLockUntil) {
+        console.log("[PL] komut yoksayıldı (debounce)", key);
+        return;
+      }
+      _voiceCmdLastKey = key;
+      _voiceCmdLockUntil = now + 2500;
 
       if (cmd === "next") {
         sendCommand({ type: "next" });
@@ -2970,6 +2984,7 @@
 
       var listening = false;
       var busy = false;
+      var applied = false; // bu oturumda komut bir kez
       var voskReady = null;
       var voskModel = null;
       var mediaStream = null;
@@ -2985,6 +3000,7 @@
       }
 
       function applyTranscript(said) {
+        if (applied) return;
         said = String(said || "").trim();
         if (!said) {
           showToast("Ses anlaşılamadı — tekrar dene");
@@ -3000,6 +3016,7 @@
           showToast("Önce odaya bağlan");
           return;
         }
+        applied = true; // bir kez
         showToast("✓ " + said);
         runExternalCommand(spec);
       }
@@ -3064,18 +3081,20 @@
       }
 
       function stopListening(finalText) {
+        if (!listening && !busy) return;
         setListening(false);
         busy = false;
         cleanupAudio();
         var text = (finalText || lastPartial || "").trim();
         lastPartial = "";
         if (text) applyTranscript(text);
-        else showToast("Ses duyulmadı — tekrar dene");
+        else if (!applied) showToast("Ses duyulmadı — tekrar dene");
       }
 
       function startVoskListen() {
         if (busy) return;
         busy = true;
+        applied = false;
         lastPartial = "";
         setListening(true);
         showToast("Dinliyorum… konuş");

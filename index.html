@@ -487,6 +487,68 @@
       color: #ff2d55;
       box-shadow: 0 0 14px rgba(255,45,85,0.4);
     }
+    /* Sesli komut tam ekran katmanı */
+    .voice-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 80;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+    .voice-overlay.show { display: flex; }
+    .voice-orb {
+      position: relative;
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .voice-mic-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #ff2d55, #ff4d6d);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 28px rgba(255,45,85,0.55);
+      z-index: 2;
+    }
+    .voice-mic-icon svg { width: 34px; height: 34px; fill: #fff; }
+    .voice-wave {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 72px; height: 72px;
+      margin: -36px 0 0 -36px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,45,85,0.55);
+      animation: voice-pulse 1.6s ease-out infinite;
+      z-index: 1;
+    }
+    .voice-wave.w2 { animation-delay: 0.4s; }
+    .voice-wave.w3 { animation-delay: 0.8s; }
+    @keyframes voice-pulse {
+      0% { transform: scale(1); opacity: 0.75; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .voice-transcript {
+      margin-top: 22px;
+      max-width: 80%;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+      min-height: 28px;
+      letter-spacing: -0.2px;
+    }
+    .voice-hint {
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.65);
+    }
     @media (max-width: 520px) {
       .player-nav .nav-text { display: none; }
       .player-nav button { min-width: 40px; width: 40px; padding: 0; border-radius: 50%; }
@@ -935,6 +997,19 @@
   </div>
 
   <div id="playerView">
+    <!-- Sesli komut görsel katmanı -->
+    <div class="voice-overlay" id="voiceOverlay" aria-hidden="true">
+      <div class="voice-orb">
+        <span class="voice-wave w1"></span>
+        <span class="voice-wave w2"></span>
+        <span class="voice-wave w3"></span>
+        <div class="voice-mic-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </div>
+      </div>
+      <div class="voice-transcript" id="voiceTranscript"></div>
+      <div class="voice-hint" id="voiceHint">Dinliyorum…</div>
+    </div>
     <div class="player-top">
       <button class="back-btn" id="backBtn" title="Geri" aria-label="Geri">
         <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -3985,12 +4060,17 @@
     (function initPlayerVoice() {
       var btn = document.getElementById("voicePlayerBtn");
       if (!btn) return;
+      var overlay = document.getElementById("voiceOverlay");
+      var transcriptEl = document.getElementById("voiceTranscript");
+      var hintEl = document.getElementById("voiceHint");
       var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
       var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
       var LISTEN_MS = 4000;
-      var listening = false, busy = false, voskModel = null, voskReady = null;
+      var listening = false, busy = false, applied = false;
+      var voskModel = null, voskReady = null;
       var mediaStream = null, audioContext = null, processorNode = null, sourceNode = null;
       var listenTimer = null, lastPartial = "";
+      var cmdLockUntil = 0, cmdLastKey = "";
 
       function toast(msg) {
         var t = document.getElementById("roomToast");
@@ -3998,6 +4078,28 @@
         t.textContent = msg;
         t.classList.add("show");
         setTimeout(function() { t.classList.remove("show"); }, 2200);
+      }
+      function showOverlay(hint) {
+        if (overlay) {
+          overlay.classList.add("show");
+          overlay.setAttribute("aria-hidden", "false");
+        }
+        if (transcriptEl) transcriptEl.textContent = "";
+        if (hintEl) hintEl.textContent = hint || "Dinliyorum…";
+      }
+      function setTranscript(text) {
+        if (transcriptEl) transcriptEl.textContent = text || "";
+      }
+      function hideOverlay(delayMs) {
+        delayMs = delayMs == null ? 0 : delayMs;
+        setTimeout(function() {
+          if (overlay) {
+            overlay.classList.remove("show");
+            overlay.setAttribute("aria-hidden", "true");
+          }
+          if (transcriptEl) transcriptEl.textContent = "";
+          if (hintEl) hintEl.textContent = "Dinliyorum…";
+        }, delayMs);
       }
       function setListening(on) {
         listening = !!on;
@@ -4019,32 +4121,45 @@
           return { cmd: "pause", terminal: true };
         if (/^(devam|resume|surdur)(\s|$)/.test(text))
           return { cmd: "resume", terminal: true };
-        // sonek: "tarkan cal"
         var mSuf = text.match(/^(.+?)\s+(cal|oynat|play)$/);
         if (mSuf && mSuf[1]) return { cmd: "search", q: mSuf[1].trim(), terminal: true };
-        // önek: "cal tarkan"
         var mPre = text.match(/^(cal|oynat|play|ara|bul)\s+(.+)$/);
         if (mPre && mPre[2]) return { cmd: "search", q: mPre[2].trim(), terminal: true };
         if (/^(cal|oynat|play|baslat)$/.test(text)) return { cmd: "resume", terminal: true };
         return null;
       }
       function runCmd(spec) {
-        if (!spec) return;
-        if (spec.cmd === "next") { playNext({ force: true }); toast("Sonraki"); return; }
-        if (spec.cmd === "prev") { playPrev(); toast("Önceki"); return; }
-        if (spec.cmd === "pause") { msPause(); toast("Duraklatıldı"); return; }
-        if (spec.cmd === "resume") { msPlay(); toast("Devam"); return; }
+        if (!spec || applied) return;
+        var key = spec.cmd + "|" + (spec.q || "");
+        var now = Date.now();
+        if (key === cmdLastKey && now < cmdLockUntil) {
+          console.log("[MM] voice debounce", key);
+          return;
+        }
+        applied = true;
+        cmdLastKey = key;
+        cmdLockUntil = now + 2500;
+
+        if (spec.cmd === "next") { playNext({ force: true }); toast("Sonraki"); hideOverlay(600); return; }
+        if (spec.cmd === "prev") { playPrev(); toast("Önceki"); hideOverlay(600); return; }
+        if (spec.cmd === "pause") { msPause(); toast("Duraklatıldı"); hideOverlay(600); return; }
+        if (spec.cmd === "resume") { msPlay(); toast("Devam"); hideOverlay(600); return; }
         if (spec.cmd === "search" && spec.q) {
-          toast("Aranıyor: " + spec.q);
-          doSearch(spec.q, true, false).then(function() {
-            try {
-              var cards = document.querySelectorAll("#results .card[data-id]");
-              if (cards && cards[0]) {
-                playVideo(cards[0].dataset.id, cards[0].dataset.title || spec.q, cards[0].dataset.author || "", true);
-                toast("Çalıyor: " + (cards[0].dataset.title || spec.q));
-              } else toast("Sonuç yok");
-            } catch (e) { toast("Arama hatası"); }
-          }).catch(function() { toast("Arama başarısız"); });
+          if (hintEl) hintEl.textContent = "Aranıyor…";
+          setTranscript(spec.q);
+          // metni bir an göster, sonra ara ve çal
+          setTimeout(function() {
+            hideOverlay(0);
+            doSearch(spec.q, true, false).then(function() {
+              try {
+                var cards = document.querySelectorAll("#results .card[data-id]");
+                if (cards && cards[0]) {
+                  playVideo(cards[0].dataset.id, cards[0].dataset.title || spec.q, cards[0].dataset.author || "", true);
+                  toast("Çalıyor: " + (cards[0].dataset.title || spec.q));
+                } else toast("Sonuç yok");
+              } catch (e) { toast("Arama hatası"); }
+            }).catch(function() { toast("Arama başarısız"); });
+          }, 900);
         }
       }
       function loadScript(src) {
@@ -4083,22 +4198,34 @@
         if (audioContext) { try { audioContext.close(); } catch (e4) {} audioContext = null; }
       }
       function stopListen(text) {
+        if (!listening && !busy) return;
         setListening(false);
         busy = false;
         cleanup();
         var t = (text || lastPartial || "").trim();
         lastPartial = "";
+        if (t) setTranscript(t);
         var spec = matchCmd(t);
-        if (spec) runCmd(spec);
-        else if (t) toast("Anlaşılamadı: " + t);
-        else toast("Ses duyulmadı");
+        if (spec) {
+          if (hintEl) hintEl.textContent = spec.cmd === "search" ? "Aranıyor…" : "Tamam";
+          runCmd(spec);
+        } else if (t) {
+          if (hintEl) hintEl.textContent = "Anlaşılamadı";
+          toast("Anlaşılamadı: " + t);
+          hideOverlay(1200);
+        } else {
+          if (hintEl) hintEl.textContent = "Ses duyulmadı";
+          toast("Ses duyulmadı");
+          hideOverlay(900);
+        }
       }
       function startListen() {
         if (busy) return;
         busy = true;
+        applied = false;
         lastPartial = "";
         setListening(true);
-        toast("Dinliyorum…");
+        showOverlay("Dinliyorum…");
         ensureModel().then(function(model) {
           return navigator.mediaDevices.getUserMedia({
             video: false,
@@ -4117,10 +4244,11 @@
           recognizer.on("partialresult", function(msg) {
             var p = (msg && msg.result && msg.result.partial) || "";
             p = String(p).trim();
-            if (!p) return;
+            if (!p || gotFinal || applied) return;
             lastPartial = p;
+            setTranscript(p);
             var spec = matchCmd(p);
-            if (!gotFinal && spec && spec.terminal) {
+            if (spec && spec.terminal) {
               gotFinal = true;
               stopListen(p);
             }
@@ -4130,7 +4258,7 @@
           sourceNode = audioContext.createMediaStreamSource(mediaStream);
           processorNode = audioContext.createScriptProcessor(4096, 1, 1);
           processorNode.onaudioprocess = function(ev) {
-            try { recognizer.acceptWaveform(ev.inputBuffer); } catch (err) {}
+            try { if (!gotFinal && !applied) recognizer.acceptWaveform(ev.inputBuffer); } catch (err) {}
           };
           sourceNode.connect(processorNode);
           var gain = audioContext.createGain();
@@ -4144,6 +4272,7 @@
           busy = false;
           setListening(false);
           cleanup();
+          hideOverlay(0);
           toast("Mikrofon / model açılamadı");
           console.warn("[MM] voice", err);
         });
