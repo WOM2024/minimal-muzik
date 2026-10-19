@@ -1256,10 +1256,20 @@
 
     function startSyncHeartbeat() {
       if (_syncHeartbeatTimer) clearInterval(_syncHeartbeatTimer);
-      // Daha sık: remote progress bar akıcı olsun
+      // Daha sık: remote progress bar akıcı olsun + peer keep-alive
       _syncHeartbeatTimer = setInterval(function() {
         if (!roomCode) return;
         broadcastState();
+        // Bağlı remote varsa ekstra hafif ping (ekran kilitliyken bile host tarafı sıcak kalsın)
+        if (peerConns.length) {
+          peerConns.forEach(function(c) {
+            try {
+              if (c && c.open) {
+                c.send({ kind: "pong", room: roomCode, ts: Date.now() });
+              }
+            } catch (e) {}
+          });
+        }
       }, 1000);
     }
 
@@ -1566,12 +1576,25 @@
 
     function startPeerWatchdog() {
       if (_peerWatchdogTimer) clearInterval(_peerWatchdogTimer);
+      // Daha sık: telefon uyandığında host hazır olsun, bağlantı gecikmesin
       _peerWatchdogTimer = setInterval(function() {
         if (!roomCode) return;
         ensurePeerHost();
         // Canlı host + state yayını (remote poll / peer için)
         try {
-          if (isPeerHostAlive()) broadcastState();
+          if (isPeerHostAlive()) {
+            broadcastState();
+            // Aktif peer varsa hafif keep-alive (pong tetiklesin)
+            if (peerConns.length) {
+              peerConns.forEach(function(c) {
+                try {
+                  if (c && c.open) {
+                    c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: buildSyncState() });
+                  }
+                } catch (e) {}
+              });
+            }
+          }
         } catch (e) {}
         // Ölü peer bağlantılarını temizle
         try {
@@ -1579,7 +1602,7 @@
             try { return c && c.open; } catch (e2) { return false; }
           });
         } catch (e3) {}
-      }, 4000);
+      }, 2500);
     }
 
     function initRoomSync() {
@@ -1623,8 +1646,23 @@
         if (document.hidden || !roomCode) return;
         ensurePeerHost();
         broadcastState();
+        // Uyanınca bağlı peerlere hemen taze state bas
+        peerConns.forEach(function(c) {
+          try {
+            if (c && c.open) {
+              var st = buildSyncState();
+              c.send({ kind: "state", state: st });
+              c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: st });
+            }
+          } catch (e) {}
+        });
       });
       window.addEventListener("focus", function() {
+        if (!roomCode) return;
+        ensurePeerHost();
+        broadcastState();
+      });
+      window.addEventListener("pageshow", function() {
         if (!roomCode) return;
         ensurePeerHost();
         broadcastState();
