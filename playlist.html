@@ -2776,20 +2776,20 @@
     }
     disconnectBtn.addEventListener("click", disconnect);
 
-    // ── Sesli komut (Web Speech — Siri değil, tarayıcı) ──
+    // ── Sesli komut: Whisper (Transformers.js) + Web Speech yedek ──
+    // Whisper Türkçe'de çok daha iyi; ilk kullanımda ~40MB model indirilir (sonra cache).
     (function initVoiceCommands() {
       var btn = document.getElementById("voiceBtn");
       if (!btn) return;
-      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        btn.style.display = "none";
-        return;
-      }
-      var rec = new SR();
-      rec.lang = "tr-TR";
-      rec.interimResults = false;
-      rec.maxAlternatives = 3;
+
       var listening = false;
+      var busy = false;
+      var whisperPipe = null;
+      var whisperLoading = null;
+      var mediaStream = null;
+      var mediaRecorder = null;
+      var recordedChunks = [];
+      var RECORD_MS = 3500;
 
       function setListening(on) {
         listening = !!on;
@@ -2797,62 +2797,256 @@
       }
 
       function interpret(text) {
-        text = String(text || "").toLowerCase().trim();
+        text = String(text || "").toLowerCase().trim()
+          .replace(/[.,!?;:"""'']/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
         if (!text) return null;
-        // komut kalıpları
-        if (/(sonraki|skip|next|öteki)/.test(text)) return { cmd: "next" };
-        if (/(önceki|previous|prev|geri)/.test(text)) return { cmd: "prev" };
-        if (/(duraklat|pause|durdur|stop)/.test(text)) return { cmd: "pause" };
-        if (/(devam|resume|oynat|play|çal)/.test(text) && !/(çal\s+\S+|play\s+\S+|oynat\s+\S+)/.test(text)) {
+        if (/(sonraki|skip|next|öteki|bir sonraki)/.test(text)) return { cmd: "next" };
+        if (/(önceki|previous|prev|geri|bir önceki)/.test(text)) return { cmd: "prev" };
+        if (/(duraklat|pause|durdur|stop|beklet)/.test(text)) return { cmd: "pause" };
+        if (/(devam|resume|unpause)/.test(text)) return { cmd: "play" };
+        if (/(oynat|play|çal)\s*$/.test(text) || text === "çal" || text === "oynat") {
           return { cmd: "play" };
         }
-        var m = text.match(/(?:çal|oynat|play|ara|search)\s+(.+)/i);
+        var m = text.match(/(?:çal|oynat|play|ara|search|bul)\s+(.+)/i);
         if (m && m[1]) return { cmd: "play", q: m[1].trim() };
-        // düz metin → şarkı ara
         if (text.length >= 2) return { cmd: "play", q: text };
         return null;
       }
 
-      rec.onresult = function(ev) {
-        var said = "";
-        try {
-          said = ev.results[0][0].transcript || "";
-        } catch (e) {}
-        var spec = interpret(said);
-        if (spec) {
-          if (!roomCode) {
-            showToast("Önce odaya bağlan");
-          } else {
-            runExternalCommand(spec);
-          }
-        } else {
-          showToast("Anlaşılamadı: " + said);
+      function applyTranscript(said) {
+        said = String(said || "").trim();
+        if (!said) {
+          showToast("Ses anlaşılamadı — tekrar dene");
+          return;
         }
-      };
-      rec.onerror = function() {
-        setListening(false);
-        showToast("Ses algılanamadı");
-      };
-      rec.onend = function() { setListening(false); };
+        console.log("[PL] Ses:", said);
+        var spec = interpret(said);
+        if (!spec) {
+          showToast("Anlaşılamadı: " + said);
+          return;
+        }
+        if (!roomCode) {
+          showToast("Önce odaya bağlan");
+          return;
+        }
+        showToast("✓ " + said);
+        runExternalCommand(spec);
+      }
+
+      // —— Whisper yükle (lazy) ——
+      function loadWhisper() {
+        if (whisperPipe) return Promise.resolve(whisperPipe);
+        if (whisperLoading) return whisperLoading;
+        whisperLoading = new Promise(function(resolve, reject) {
+          showToast("Ses modeli yükleniyor… (ilk sefer)");
+          var s = document.createElement("script");
+          s.src = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js";
+          s.async = true;
+          s.onload = function() {
+            try {
+              var mod = window.transformers || window.Transformers;
+              if (!mod || !mod.pipeline) {
+                reject(new Error("transformers yok"));
+                return;
+              }
+              if (mod.env) {
+                mod.env.allowLocalModels = false;
+                mod.env.useBrowserCache = true;
+              }
+              mod.pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
+                quantized: true,
+                progress_callback: function(p) {
+                  if (p && p.status === "progress" && p.file && p.progress) {
+                    var pct = Math.round((p.progress || 0));
+                    if (pct > 0 && pct < 100 && pct % 25 < 3) {
+                      showToast("Model " + pct + "%");
+                    }
+                  }
+                }
+              }).then(function(pipe) {
+                whisperPipe = pipe;
+                showToast("Ses modeli hazır");
+                resolve(pipe);
+              }).catch(reject);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          s.onerror = function() { reject(new Error("CDN yüklenemedi")); };
+          document.head.appendChild(s);
+        }).catch(function(err) {
+          whisperLoading = null;
+          throw err;
+        });
+        return whisperLoading;
+      }
+
+      function blobToFloat32(blob) {
+        return blob.arrayBuffer().then(function(buf) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          return ctx.decodeAudioData(buf.slice(0)).then(function(audio) {
+            var data = audio.getChannelData(0);
+            // zaten 16k değilse basit downsample
+            if (audio.sampleRate === 16000) {
+              try { ctx.close(); } catch (e) {}
+              return data;
+            }
+            var ratio = audio.sampleRate / 16000;
+            var len = Math.floor(data.length / ratio);
+            var out = new Float32Array(len);
+            for (var i = 0; i < len; i++) {
+              out[i] = data[Math.floor(i * ratio)];
+            }
+            try { ctx.close(); } catch (e2) {}
+            return out;
+          });
+        });
+      }
+
+      function stopTracks() {
+        if (mediaStream) {
+          try {
+            mediaStream.getTracks().forEach(function(t) { t.stop(); });
+          } catch (e) {}
+          mediaStream = null;
+        }
+        mediaRecorder = null;
+      }
+
+      function recordAndTranscribe() {
+        if (busy) return;
+        busy = true;
+        setListening(true);
+        recordedChunks = [];
+        showToast("Dinliyorum… (konuş)");
+
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            channelCount: 1
+          }
+        }).then(function(stream) {
+          mediaStream = stream;
+          var mime = "";
+          if (typeof MediaRecorder !== "undefined") {
+            if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) mime = "audio/webm;codecs=opus";
+            else if (MediaRecorder.isTypeSupported("audio/webm")) mime = "audio/webm";
+            else if (MediaRecorder.isTypeSupported("audio/mp4")) mime = "audio/mp4";
+          }
+          mediaRecorder = mime
+            ? new MediaRecorder(stream, { mimeType: mime })
+            : new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = function(ev) {
+            if (ev.data && ev.data.size > 0) recordedChunks.push(ev.data);
+          };
+          mediaRecorder.onstop = function() {
+            setListening(false);
+            var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+            stopTracks();
+            if (!blob.size) {
+              busy = false;
+              showToast("Kayıt boş — tekrar dene");
+              return;
+            }
+            showToast("Çözümleniyor…");
+            loadWhisper()
+              .then(function(pipe) {
+                return blobToFloat32(blob).then(function(audio) {
+                  return pipe(audio, {
+                    language: "turkish",
+                    task: "transcribe",
+                    return_timestamps: false
+                  });
+                });
+              })
+              .then(function(out) {
+                busy = false;
+                var text = (out && (out.text || out)) || "";
+                if (typeof text !== "string") text = String(text || "");
+                applyTranscript(text);
+              })
+              .catch(function(err) {
+                console.warn("[PL] Whisper hata", err);
+                busy = false;
+                // Yedek: Web Speech
+                tryWebSpeechFallback();
+              });
+          };
+
+          mediaRecorder.start(200);
+          setTimeout(function() {
+            try {
+              if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+            } catch (e) {
+              busy = false;
+              setListening(false);
+              stopTracks();
+            }
+          }, RECORD_MS);
+        }).catch(function(err) {
+          console.warn("[PL] mic", err);
+          busy = false;
+          setListening(false);
+          showToast("Mikrofon izni gerekli");
+        });
+      }
+
+      function tryWebSpeechFallback() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+          showToast("Ses tanıma bu cihazda sınırlı");
+          return;
+        }
+        showToast("Yedek tanıma… konuş");
+        var rec = new SR();
+        rec.lang = "tr-TR";
+        rec.interimResults = false;
+        rec.maxAlternatives = 3;
+        setListening(true);
+        rec.onresult = function(ev) {
+          setListening(false);
+          var said = "";
+          try { said = ev.results[0][0].transcript || ""; } catch (e) {}
+          applyTranscript(said);
+        };
+        rec.onerror = function(ev) {
+          setListening(false);
+          var code = (ev && ev.error) || "";
+          if (code === "not-allowed") showToast("Mikrofon izni reddedildi");
+          else if (code === "no-speech") showToast("Ses duyulmadı — daha net konuş");
+          else showToast("Tanıma başarısız (" + code + ")");
+        };
+        rec.onend = function() { setListening(false); };
+        try { rec.start(); } catch (e) {
+          setListening(false);
+          showToast("Mikrofon açılamadı");
+        }
+      }
 
       btn.addEventListener("click", function() {
         if (!roomCode) {
           showToast("Önce odaya bağlan");
           return;
         }
-        if (listening) {
-          try { rec.stop(); } catch (e) {}
+        if (listening || busy) {
+          try {
+            if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+          } catch (e) {}
+          stopTracks();
           setListening(false);
+          busy = false;
           return;
         }
-        try {
-          setListening(true);
-          showToast("Dinliyorum…");
-          rec.start();
-        } catch (e) {
-          setListening(false);
-          showToast("Mikrofon açılamadı");
+        // MediaRecorder yoksa doğrudan Web Speech
+        if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices) {
+          tryWebSpeechFallback();
+          return;
         }
+        recordAndTranscribe();
       });
     })();
 
