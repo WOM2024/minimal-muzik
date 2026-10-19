@@ -549,6 +549,111 @@
       font-weight: 600;
       color: rgba(255,255,255,0.65);
     }
+    /* Sağdan ses arama paneli */
+    .voice-search-backdrop {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 85;
+      background: rgba(0,0,0,0.45);
+    }
+    .voice-search-backdrop.show { display: block; }
+    .voice-search-panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: min(360px, 92vw);
+      z-index: 90;
+      background: #12121a;
+      border-left: 1px solid rgba(255,45,85,0.25);
+      box-shadow: -12px 0 40px rgba(0,0,0,0.55);
+      transform: translateX(105%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      flex-direction: column;
+    }
+    .voice-search-panel.open {
+      transform: translateX(0);
+    }
+    .vsp-head {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,45,85,0.12), transparent);
+    }
+    .vsp-title {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .vsp-close {
+      width: 36px; height: 36px;
+      border: none; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .vsp-close:active { background: rgba(255,45,85,0.35); }
+    .vsp-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px;
+    }
+    .vsp-loading, .vsp-empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .vsp-item {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .vsp-item:active, .vsp-item:hover {
+      background: rgba(255,45,85,0.12);
+    }
+    .vsp-thumb {
+      width: 96px;
+      height: 54px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #1a1a24;
+      flex-shrink: 0;
+    }
+    .vsp-meta { min-width: 0; flex: 1; }
+    .vsp-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .vsp-item-author {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     @media (max-width: 520px) {
       .player-nav .nav-text { display: none; }
       .player-nav button { min-width: 40px; width: 40px; padding: 0; border-radius: 50%; }
@@ -1010,6 +1115,17 @@
       <div class="voice-transcript" id="voiceTranscript"></div>
       <div class="voice-hint" id="voiceHint">Dinliyorum…</div>
     </div>
+    <!-- Ses arama sonuç paneli (sağdan) -->
+    <div class="voice-search-backdrop" id="voiceSearchBackdrop"></div>
+    <aside class="voice-search-panel" id="voiceSearchPanel" aria-hidden="true">
+      <div class="vsp-head">
+        <div class="vsp-title" id="voiceSearchTitle">Arama</div>
+        <button type="button" class="vsp-close" id="voiceSearchClose" aria-label="Kapat">×</button>
+      </div>
+      <div class="vsp-body" id="voiceSearchBody">
+        <div class="vsp-loading">Aranıyor…</div>
+      </div>
+    </aside>
     <div class="player-top">
       <button class="back-btn" id="backBtn" title="Geri" aria-label="Geri">
         <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -4113,21 +4229,85 @@
       function matchCmd(raw) {
         var text = norm(raw);
         if (!text) return null;
-        if (/^(sonraki|next|skip|atla|gec)(\s|$)/.test(text) || text.indexOf("sonraki") >= 0)
+        // Kontrol komutları (tam / başta)
+        if (/^(sonraki|next|skip|atla|gec)(\s|$)/.test(text) || /^sonraki\b/.test(text))
           return { cmd: "next", terminal: true };
-        if (/^(onceki|önceki|previous|prev|geri)(\s|$)/.test(text) || text.indexOf("onceki") >= 0 || text.indexOf("önceki") >= 0)
+        if (/^(onceki|previous|prev|geri)(\s|$)/.test(text) || /^onceki\b/.test(text))
           return { cmd: "prev", terminal: true };
         if (/^(duraklat|durdur|dur|pause|stop|beklet)(\s|$)/.test(text))
           return { cmd: "pause", terminal: true };
         if (/^(devam|resume|surdur)(\s|$)/.test(text))
           return { cmd: "resume", terminal: true };
+        // "tarkan cal" / "cal tarkan"
         var mSuf = text.match(/^(.+?)\s+(cal|oynat|play)$/);
         if (mSuf && mSuf[1]) return { cmd: "search", q: mSuf[1].trim(), terminal: true };
         var mPre = text.match(/^(cal|oynat|play|ara|bul)\s+(.+)$/);
         if (mPre && mPre[2]) return { cmd: "search", q: mPre[2].trim(), terminal: true };
         if (/^(cal|oynat|play|baslat)$/.test(text)) return { cmd: "resume", terminal: true };
+        // Serbest şarkı adı → arama (çal demese bile)
+        if (text.length >= 2) return { cmd: "search", q: text, terminal: false };
         return null;
       }
+      var panel = document.getElementById("voiceSearchPanel");
+      var panelBody = document.getElementById("voiceSearchBody");
+      var panelTitle = document.getElementById("voiceSearchTitle");
+      var panelClose = document.getElementById("voiceSearchClose");
+      var panelBackdrop = document.getElementById("voiceSearchBackdrop");
+
+      function openSearchPanel(query) {
+        if (panelTitle) panelTitle.textContent = query ? ('"' + query + '"') : "Arama";
+        if (panelBody) panelBody.innerHTML = '<div class="vsp-loading">Aranıyor…</div>';
+        if (panel) {
+          panel.classList.add("open");
+          panel.setAttribute("aria-hidden", "false");
+        }
+        if (panelBackdrop) panelBackdrop.classList.add("show");
+      }
+      function closeSearchPanel() {
+        if (panel) {
+          panel.classList.remove("open");
+          panel.setAttribute("aria-hidden", "true");
+        }
+        if (panelBackdrop) panelBackdrop.classList.remove("show");
+      }
+      function renderSearchPanel(videos, query) {
+        if (!panelBody) return;
+        if (!videos || !videos.length) {
+          panelBody.innerHTML = '<div class="vsp-empty">Sonuç bulunamadı</div>';
+          return;
+        }
+        var html = videos.slice(0, 20).map(function(v) {
+          var id = v.videoId || v.id || "";
+          var title = v.title || "";
+          var author = v.author || v.authorId || "";
+          var thumb = "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+          return (
+            '<div class="vsp-item" data-id="' + id +
+            '" data-title="' + escapeHtml(title) +
+            '" data-author="' + escapeHtml(author) + '">' +
+            '<img class="vsp-thumb" src="' + thumb + '" alt="" loading="lazy" />' +
+            '<div class="vsp-meta">' +
+            '<div class="vsp-item-title">' + escapeHtml(title) + '</div>' +
+            '<div class="vsp-item-author">' + escapeHtml(author) + '</div>' +
+            '</div></div>'
+          );
+        }).join("");
+        panelBody.innerHTML = html;
+        panelBody.querySelectorAll(".vsp-item").forEach(function(item) {
+          item.addEventListener("click", function() {
+            var id = item.getAttribute("data-id");
+            var title = item.getAttribute("data-title") || "";
+            var author = item.getAttribute("data-author") || "";
+            if (!id) return;
+            closeSearchPanel();
+            playVideo(id, title, author, false, 0);
+            toast("Çalıyor: " + (title || id));
+          });
+        });
+      }
+      if (panelClose) panelClose.addEventListener("click", function() { closeSearchPanel(); });
+      if (panelBackdrop) panelBackdrop.addEventListener("click", function() { closeSearchPanel(); });
+
       function runCmd(spec) {
         if (!spec || applied) return;
         var key = spec.cmd + "|" + (spec.q || "");
@@ -4147,19 +4327,17 @@
         if (spec.cmd === "search" && spec.q) {
           if (hintEl) hintEl.textContent = "Aranıyor…";
           setTranscript(spec.q);
-          // metni bir an göster, sonra ara ve çal
+          // Metni göster → paneli aç → API ara (home #results'a bağımlı değil)
           setTimeout(function() {
             hideOverlay(0);
-            doSearch(spec.q, true, false).then(function() {
-              try {
-                var cards = document.querySelectorAll("#results .card[data-id]");
-                if (cards && cards[0]) {
-                  playVideo(cards[0].dataset.id, cards[0].dataset.title || spec.q, cards[0].dataset.author || "", true);
-                  toast("Çalıyor: " + (cards[0].dataset.title || spec.q));
-                } else toast("Sonuç yok");
-              } catch (e) { toast("Arama hatası"); }
-            }).catch(function() { toast("Arama başarısız"); });
-          }, 900);
+            openSearchPanel(spec.q);
+            fetchSearch(spec.q, 1, false).then(function(list) {
+              renderSearchPanel(list || [], spec.q);
+            }).catch(function(err) {
+              console.warn("[MM] voice search", err);
+              if (panelBody) panelBody.innerHTML = '<div class="vsp-empty">Arama başarısız</div>';
+            });
+          }, 700);
         }
       }
       function loadScript(src) {
@@ -4225,6 +4403,8 @@
         applied = false;
         lastPartial = "";
         setListening(true);
+        // Mikrofon açılınca çalan şarkıyı durdur
+        try { msPause(); } catch (eP) {}
         showOverlay("Dinliyorum…");
         ensureModel().then(function(model) {
           return navigator.mediaDevices.getUserMedia({
