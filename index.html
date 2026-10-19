@@ -1001,6 +1001,7 @@
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
@@ -1010,6 +1011,9 @@
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
     const BC_NAME = "minimal_muzik_bc";
+    // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
+    const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
+    const MQTT_PREFIX = "superyt/v1/";
 
     // Her kategori için birden fazla sorgu varyasyonu — her seferinde farklı set
     const CATEGORY_VARIANTS = {
@@ -1136,8 +1140,85 @@
     let _lastCmdTs = 0;
     let _seenCmdKeys = {};
     let _hostRestartBusy = false;
+    let mqttClient = null;
+    let mqttReady = false;
 
     var ROOM_CODE_KEY = "minimal_muzik_room_code";
+
+    function mqttTopic(suffix) {
+      return MQTT_PREFIX + String(roomCode || "").toLowerCase() + "/" + suffix;
+    }
+
+    function mqttPublish(suffix, obj, retain) {
+      if (!mqttClient || !mqttReady || !roomCode) return;
+      try {
+        mqttClient.publish(mqttTopic(suffix), JSON.stringify(obj), {
+          qos: 0,
+          retain: !!retain
+        });
+      } catch (e) {}
+    }
+
+    function startMqttHost() {
+      if (typeof mqtt === "undefined" || !roomCode) {
+        console.warn("[MM] MQTT kütüphanesi yok");
+        return;
+      }
+      try {
+        if (mqttClient) {
+          try { mqttClient.end(true); } catch (e) {}
+          mqttClient = null;
+          mqttReady = false;
+        }
+        var cid = "mmh-" + roomCode.toLowerCase() + "-" + Math.random().toString(16).slice(2, 8);
+        mqttClient = mqtt.connect(MQTT_URL, {
+          clientId: cid,
+          clean: true,
+          reconnectPeriod: 2000,
+          connectTimeout: 12000,
+          keepalive: 20
+        });
+        mqttClient.on("connect", function() {
+          mqttReady = true;
+          console.log("[MM] MQTT bağlı");
+          try {
+            mqttClient.subscribe(mqttTopic("cmd"), { qos: 0 });
+            mqttClient.subscribe(mqttTopic("ping"), { qos: 0 });
+          } catch (e) {}
+          // Retain'li son state — telefon uyanınca hemen alır
+          try { broadcastState(); } catch (e) {}
+        });
+        mqttClient.on("reconnect", function() {
+          console.log("[MM] MQTT yeniden bağlanıyor…");
+        });
+        mqttClient.on("close", function() {
+          mqttReady = false;
+        });
+        mqttClient.on("error", function(err) {
+          console.warn("[MM] MQTT hata", err && err.message ? err.message : err);
+          mqttReady = false;
+        });
+        mqttClient.on("message", function(topic, buf) {
+          if (!roomCode) return;
+          var text = "";
+          try { text = buf.toString(); } catch (e) { return; }
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) { return; }
+          if (!data) return;
+          if (topic.indexOf("/cmd") >= 0) {
+            var cmd = data.cmd || data;
+            if (cmd && cmd.type) handleRemoteCommand(cmd);
+            return;
+          }
+          if (topic.indexOf("/ping") >= 0) {
+            broadcastState();
+            replyToPlaylist("pong", { state: buildSyncState() });
+          }
+        });
+      } catch (e) {
+        console.warn("[MM] MQTT başlatılamadı", e);
+      }
+    }
 
     function generateRoomCode() {
       var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1235,6 +1316,8 @@
           if (c.open) c.send({ kind: "state", state: state });
         } catch (e) {}
       });
+      // MQTT retain: telefon uyanınca broker son state'i hemen verir
+      mqttPublish("state", { kind: "state", room: roomCode, state: state, ts: state.updated }, true);
     }
 
     function replyToPlaylist(kind, extra) {
@@ -1252,6 +1335,7 @@
           if (c.open) c.send(msg);
         } catch (e) {}
       });
+      mqttPublish("pong", msg, false);
     }
 
     function startSyncHeartbeat() {
@@ -1613,7 +1697,8 @@
         }
       });
 
-      // PeerJS host — farklı cihazlar + kopunca yeniden
+      // MQTT ana senkron (ekran kilidi dayanıklı) + PeerJS düşük gecikme
+      startMqttHost();
       startPeerHost();
       startSyncHeartbeat();
       startPeerWatchdog();
@@ -1664,7 +1749,8 @@
             toast.classList.add("show");
             setTimeout(function() { toast.classList.remove("show"); }, 2000);
           }
-          // Kritik: Peer host eski ID'de kalmasın — yeniden başlat
+          // Kritik: Peer + MQTT eski odada kalmasın — yeniden başlat
+          try { startMqttHost(); } catch (eMQ) {}
           try { startPeerHost(); } catch (ePH) {}
           try { broadcastState(); } catch (eBS) {}
         });

@@ -1070,10 +1070,14 @@
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script>
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
     const BC_NAME = "minimal_muzik_bc";
+    // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
+    const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
+    const MQTT_PREFIX = "superyt/v1/";
     const SEARCH_INSTANCES = ["https://invidious.f5.si"];
     const MANUAL_KEY = "minimal_muzik_manual_pl";
     const FAV_KEY = "minimal_muzik_favs";
@@ -1148,12 +1152,93 @@
     let _statusText = "";
     let _lastGoodLinkAt = 0;   // en son sağlıklı bağlantı anı (debounce)
     let _peerConnecting = false;
-    let LINK_GRACE_MS = 12000; // kopuk görünmeden önce tolerans
+    let LINK_GRACE_MS = 14000; // kopuk görünmeden önce tolerans
     let _linkWatchdogTimer = null;
     let _forceReconnectLockUntil = 0;
+    let mqttClient = null;
+    let mqttReady = false;
+    let lastMqttAt = 0;
     var PEER_MAX_BACKOFF = 5000;      // max 5 sn (eskiden 12 — uzun boşluk kalmasın)
     var STALE_PEER_MS = 14000;        // peer açık görünse bile pong yoksa yenile
     const LAST_ROOM_KEY = "minimal_muzik_last_room";
+
+    function mqttTopic(suffix) {
+      return MQTT_PREFIX + String(roomCode || "").toLowerCase() + "/" + suffix;
+    }
+
+    function mqttPublish(suffix, obj) {
+      if (!mqttClient || !mqttReady || !roomCode) return;
+      try {
+        mqttClient.publish(mqttTopic(suffix), JSON.stringify(obj), { qos: 0, retain: false });
+      } catch (e) {}
+    }
+
+    function stopMqtt() {
+      mqttReady = false;
+      if (!mqttClient) return;
+      try { mqttClient.end(true); } catch (e) {}
+      mqttClient = null;
+    }
+
+    function startMqttClient() {
+      if (typeof mqtt === "undefined" || !roomCode) {
+        console.warn("[PL] MQTT kütüphanesi yok");
+        return;
+      }
+      stopMqtt();
+      try {
+        var cid = "mmc-" + roomCode.toLowerCase() + "-" + Math.random().toString(16).slice(2, 8);
+        mqttClient = mqtt.connect(MQTT_URL, {
+          clientId: cid,
+          clean: true,
+          reconnectPeriod: 1500,
+          connectTimeout: 12000,
+          keepalive: 15
+        });
+        mqttClient.on("connect", function() {
+          mqttReady = true;
+          lastMqttAt = Date.now();
+          console.log("[PL] MQTT bağlı");
+          try {
+            mqttClient.subscribe(mqttTopic("state"), { qos: 0 });
+            mqttClient.subscribe(mqttTopic("pong"), { qos: 0 });
+          } catch (e) {}
+          // Host'a haber ver — retain'li state + taze pong istenir
+          mqttPublish("ping", { kind: "ping", room: roomCode, ts: Date.now() });
+          updateLinkStatus();
+        });
+        mqttClient.on("reconnect", function() {
+          console.log("[PL] MQTT yeniden bağlanıyor…");
+        });
+        mqttClient.on("close", function() {
+          mqttReady = false;
+          updateLinkStatus();
+        });
+        mqttClient.on("error", function(err) {
+          console.warn("[PL] MQTT hata", err && err.message ? err.message : err);
+          mqttReady = false;
+        });
+        mqttClient.on("message", function(topic, buf) {
+          if (!roomCode) return;
+          var text = "";
+          try { text = buf.toString(); } catch (e) { return; }
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) { return; }
+          if (!data) return;
+          lastMqttAt = Date.now();
+          if (topic.indexOf("/state") >= 0) {
+            var st = data.state || data;
+            if (st) onStateMessage(st);
+            return;
+          }
+          if (topic.indexOf("/pong") >= 0) {
+            onPong(data);
+          }
+        });
+      } catch (e) {
+        console.warn("[PL] MQTT başlatılamadı", e);
+      }
+    }
 
     let mode = "shuffle";
     let activeTab = "playlist";
@@ -1323,40 +1408,38 @@
       } catch (e) {}
     })();
 
-    function onPlaylistVisible() {
+    function onPlaylistWake() {
       if (!roomCode) return;
       peerRetryDelay = 1200;
+      // MQTT otomatik reconnect eder; yoksa yeniden başlat
+      if (!mqttClient || !mqttReady) startMqttClient();
+      else mqttPublish("ping", { kind: "ping", room: roomCode, ts: Date.now() });
       sendPing();
       if (!conn || !conn.open) forcePeerReconnect("visible");
-      else {
-        ensurePeerClient();
-        try {
-          if (conn.open) {
-            conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
-            conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
-          }
-        } catch (e) {}
-      }
+      else ensurePeerClient();
       try {
         var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
         if (raw) onStateMessage(JSON.parse(raw));
       } catch (e) {}
+      updateLinkStatus();
     }
     document.addEventListener("visibilitychange", function() {
       if (document.hidden) return;
-      onPlaylistVisible();
+      onPlaylistWake();
     });
     window.addEventListener("pageshow", function() {
-      onPlaylistVisible();
+      onPlaylistWake();
     });
     window.addEventListener("focus", function() {
       if (!roomCode) return;
       sendPing();
+      if (!mqttReady) startMqttClient();
       ensurePeerClient();
     });
     window.addEventListener("online", function() {
       if (!roomCode) return;
       peerRetryDelay = 1000;
+      if (!mqttReady) startMqttClient();
       forcePeerReconnect("online");
       sendPing();
     });
@@ -2155,12 +2238,15 @@
           localStorage.removeItem(STORAGE_KEY + "_cmd_" + roomCode);
         } catch (e) {}
         try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: msg }); } catch (e) {}
+        // MQTT: PeerJS ölü olsa bile komut gider
+        mqttPublish("cmd", { kind: "cmd", room: roomCode, cmd: msg, ts: msg.ts });
       }
       push(cmd);
       if (cmd.type === "play" || cmd.type === "setQueue" || cmd.type === "next" || cmd.type === "prev") {
         setTimeout(function() {
           try { if (conn && conn.open) conn.send({ kind: "cmd", cmd: cmd }); } catch (e) {}
           try { if (bc) bc.postMessage({ kind: "cmd", room: roomCode, cmd: cmd }); } catch (e) {}
+          mqttPublish("cmd", { kind: "cmd", room: roomCode, cmd: cmd, ts: cmd.ts });
         }, 120);
       }
       if (cmd.forceFs) {
@@ -2182,22 +2268,22 @@
           conn.send({ kind: "cmd", cmd: { type: "ping", ts: Date.now() } });
         }
       } catch (e) {}
+      mqttPublish("ping", ping);
     }
 
     function updateLinkStatus() {
       var now = Date.now();
       var peerOk = !!(conn && conn.open);
-      // 12 sn pencere — index heartbeat 1 sn, poll 0.8 sn; kısa kesintiler yutulur
-      var recent = (lastAliveAt && now - lastAliveAt < 12000) ||
-                   (lastPongAt && now - lastPongAt < 12000);
-      var linked = peerOk || recent;
+      var mqttOk = !!(mqttReady && lastMqttAt && now - lastMqttAt < 15000);
+      // 14 sn pencere — MQTT + Peer + yerel poll
+      var recent = (lastAliveAt && now - lastAliveAt < 14000) ||
+                   (lastPongAt && now - lastPongAt < 14000) ||
+                   mqttOk;
+      var linked = peerOk || recent || mqttOk;
 
       if (linked) {
         _lastGoodLinkAt = now;
-        // Tek stabil metin — saniyelik canlı/yerel/uzaktan geçişleri yok
-        if (peerOk && recent) setStatus("on", "Bağlı");
-        else if (peerOk) setStatus("on", "Bağlı");
-        else setStatus("on", "Bağlı");
+        setStatus("on", "Bağlı");
         return;
       }
 
@@ -2208,7 +2294,7 @@
       }
 
       if (roomCode) {
-        if (_peerConnecting) setStatus("wait", "Bağlanıyor…");
+        if (_peerConnecting || (mqttClient && !mqttReady)) setStatus("wait", "Bağlanıyor…");
         else setStatus("wait", "Senkron aranıyor…");
       }
     }
@@ -2441,13 +2527,15 @@
       joinErr.textContent = "";
       lastAliveAt = 0;
       lastPongAt = 0;
+      lastMqttAt = 0;
       peerRetryDelay = 1500;
       setStatus("wait", "Bağlanıyor…");
       connectScreen.classList.add("hidden");
       mainScreen.classList.add("show");
       roomLabel.textContent = "Kod: " + roomCode;
       startLocalSync();
-      startPeerClient();
+      startMqttClient();   // asıl dayanıklı kanal
+      startPeerClient();   // düşük gecikme (varsa)
       sendPing();
       setMode("shuffle");
     }
@@ -2459,7 +2547,9 @@
       lastState = null;
       lastAliveAt = 0;
       lastPongAt = 0;
+      lastMqttAt = 0;
       if (bc) { try { bc.close(); } catch (e) {} bc = null; }
+      stopMqtt();
       teardownPeer();
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
       if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
