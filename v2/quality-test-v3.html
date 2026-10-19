@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>YouTube Kalite Test v3 – Büyük + Butonlu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      padding: 12px;
+      line-height: 1.4;
+    }
+    h1 { font-size: 1.2rem; margin-bottom: 4px; }
+    .meta { color: #888; font-size: 0.82rem; margin-bottom: 12px; }
+    .warn {
+      background: #1c1917;
+      border: 1px solid #44403c;
+      color: #d6d3d1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      margin-bottom: 18px;
+    }
+    .section {
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+    .section-head {
+      padding: 12px 14px;
+      background: #1c1c1c;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      justify-content: space-between;
+    }
+    .section-head h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .section-head .desc {
+      width: 100%;
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 2px;
+    }
+    .player-box {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      background: #000;
+      aspect-ratio: 16 / 9;
+    }
+    .player-box iframe,
+    .player-box > div {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .controls {
+      padding: 12px 14px;
+      border-top: 1px solid #2a2a2a;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: #1d4ed8; }
+    button.sec { background: #374151; }
+    button.sec:hover { background: #4b5563; }
+    button.danger { background: #b91c1c; }
+    button.danger:hover { background: #991b1b; }
+    .status {
+      font-size: 0.8rem;
+      color: #a3a3a3;
+      min-width: 140px;
+    }
+    .status strong { color: #4ade80; }
+    .status .fail { color: #f87171; }
+    code { background: #2a2a2a; padding: 1px 5px; border-radius: 3px; font-size: 0.78em; }
+    .note {
+      margin: 20px 0;
+      padding: 12px;
+      background: #141414;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1>YouTube Kalite Test v3 – Büyük ekran + buton</h1>
+  <p class="meta">
+    Video: <code>EQyuKThNXwk</code> · Her yöntem ~960px genişlikte · Butonlarla kalite denemesi
+  </p>
+
+  <div class="warn">
+    <strong>Nasıl test:</strong> Her bölümü oynat → dişli menüsünden mevcut kaliteye bak →
+    alttaki butonlara bas → tekrar dişli menüsüne bak, değişti mi not et.<br>
+    Mümkünse <code>http://localhost</code> ile aç (file:// değil).
+  </div>
+
+  <!-- ========== 1. Standart nocookie ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>1. Standart (nocookie)</h2>
+        <div class="desc">Kontrol grubu – kalite parametresi yok</div>
+      </div>
+    </div>
+    <div class="player-box">
+      <iframe id="f1"
+        src="https://www.youtube-nocookie.com/embed/EQyuKThNXwk?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1&enablejsapi=1"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen></iframe>
+    </div>
+    <div class="controls">
+      <span class="status">Embed – API yok, sadece dişli menüye bak</span>
+    </div>
+  </div>
+
+  <!-- ========== 2. vq=hd720 ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>2. vq=hd720 (URL)</h2>
+        <div class="desc">Embed URL’ye vq=hd720 gömülü</div>
+      </div>
+    </div>
+    <div class="player-box">
+      <iframe id="f2"
+        src="https://www.youtube-nocookie.com/embed/EQyuKThNXwk?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1&enablejsapi=1&vq=hd720"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen></iframe>
+    </div>
+    <div class="controls">
+      <span class="status">URL parametresi – dişli menüde başlangıç kalitesine bak</span>
+    </div>
+  </div>
+
+  <!-- ========== 3. vq=hd1080 ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>3. vq=hd1080 (URL)</h2>
+        <div class="desc">Embed URL’ye vq=hd1080 gömülü</div>
+      </div>
+    </div>
+    <div class="player-box">
+      <iframe id="f3"
+        src="https://www.youtube-nocookie.com/embed/EQyuKThNXwk?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1&enablejsapi=1&vq=hd1080"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen></iframe>
+    </div>
+    <div class="controls">
+      <span class="status">URL parametresi – dişli menüde başlangıç kalitesine bak</span>
+    </div>
+  </div>
+
+  <!-- ========== 4. IFrame API – setPlaybackQuality ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>4. API setPlaybackQuality</h2>
+        <div class="desc">Butonlarla hd720 / hd1080 / small zorlama denemesi</div>
+      </div>
+    </div>
+    <div class="player-box">
+      <div id="p4"></div>
+    </div>
+    <div class="controls">
+      <button type="button" onclick="tryQ4('hd720')">→ hd720</button>
+      <button type="button" onclick="tryQ4('hd1080')">→ hd1080</button>
+      <button type="button" class="sec" onclick="tryQ4('large')">→ 480p</button>
+      <button type="button" class="sec" onclick="tryQ4('small')">→ 240p</button>
+      <button type="button" class="danger" onclick="readQ4()">Mevcut kaliteyi oku</button>
+      <span class="status" id="s4">Hazır – önce oynat, sonra butona bas</span>
+    </div>
+  </div>
+
+  <!-- ========== 5. API QualityRange ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>5. API setPlaybackQualityRange</h2>
+        <div class="desc">Range ile min–max kalite aralığı denemesi</div>
+      </div>
+    </div>
+    <div class="player-box">
+      <div id="p5"></div>
+    </div>
+    <div class="controls">
+      <button type="button" onclick="tryR5('hd720','highres')">Range: 720p–max</button>
+      <button type="button" onclick="tryR5('hd1080','highres')">Range: 1080p–max</button>
+      <button type="button" class="sec" onclick="tryR5('tiny','medium')">Range: düşük</button>
+      <button type="button" class="danger" onclick="readQ5()">Mevcut kaliteyi oku</button>
+      <span class="status" id="s5">Hazır – önce oynat, sonra butona bas</span>
+    </div>
+  </div>
+
+  <!-- ========== 6. Büyük fiziksel boyut (CSS scale yok) ========== -->
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <h2>6. Büyük fiziksel iframe (1280×720)</h2>
+        <div class="desc">Gerçek 1280px genişlik – boyut etkisi var mı?</div>
+      </div>
+    </div>
+    <div class="player-box" style="max-width:1280px;aspect-ratio:auto;height:720px">
+      <iframe
+        width="1280" height="720"
+        src="https://www.youtube-nocookie.com/embed/EQyuKThNXwk?controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1&vq=hd720"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen></iframe>
+    </div>
+    <div class="controls">
+      <span class="status">Fiziksel 1280×720 – kalite menüsüne bak (küçük ekrandan fark var mı?)</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Ne yazacaksın bana?</strong><br>
+    Örnek: “4’te hd720 butonuna bastım, dişlide hâlâ Auto/480p”, “6’da 720p seçili geldi”, “hiçbiri değişmedi”…<br>
+    Butonlar API çağrısı yapıyor; değişiklik olursa <code>onPlaybackQualityChange</code> status’ta görünür.
+  </div>
+
+  <script>
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+
+    var player4 = null;
+    var player5 = null;
+
+    var baseVars = {
+      autoplay: 0,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      iv_load_policy: 3,
+      playsinline: 1,
+      fs: 1,
+      enablejsapi: 1,
+      origin: location.origin !== 'null' ? location.origin : undefined
+    };
+
+    function onYouTubeIframeAPIReady() {
+      player4 = new YT.Player('p4', {
+        videoId: 'EQyuKThNXwk',
+        width: '100%',
+        height: '100%',
+        playerVars: baseVars,
+        events: {
+          onReady: function() {
+            document.getElementById('s4').innerHTML = 'Player hazır – oynat, sonra buton dene';
+          },
+          onPlaybackQualityChange: function(e) {
+            document.getElementById('s4').innerHTML = 'Kalite değişti → <strong>' + e.data + '</strong>';
+          }
+        }
+      });
+
+      player5 = new YT.Player('p5', {
+        videoId: 'EQyuKThNXwk',
+        width: '100%',
+        height: '100%',
+        playerVars: baseVars,
+        events: {
+          onReady: function() {
+            document.getElementById('s5').innerHTML = 'Player hazır – oynat, sonra buton dene';
+          },
+          onPlaybackQualityChange: function(e) {
+            document.getElementById('s5').innerHTML = 'Kalite değişti → <strong>' + e.data + '</strong>';
+          }
+        }
+      });
+    }
+
+    function tryQ4(q) {
+      if (!player4) {
+        document.getElementById('s4').innerHTML = '<span class="fail">Player yok</span>';
+        return;
+      }
+      try {
+        player4.setPlaybackQuality(q);
+        var cur = '';
+        try { cur = player4.getPlaybackQuality() || ''; } catch (x) {}
+        document.getElementById('s4').innerHTML =
+          'setPlaybackQuality(<code>' + q + '</code>) çağrıldı' +
+          (cur ? ' · şu an: <strong>' + cur + '</strong>' : '') +
+          ' → dişli menüye de bak';
+      } catch (err) {
+        document.getElementById('s4').innerHTML = '<span class="fail">Hata: ' + err.message + '</span>';
+      }
+    }
+
+    function readQ4() {
+      if (!player4) return;
+      try {
+        var q = player4.getPlaybackQuality();
+        var levels = [];
+        try { levels = player4.getAvailableQualityLevels() || []; } catch (x) {}
+        document.getElementById('s4').innerHTML =
+          'Mevcut: <strong>' + (q || '?') + '</strong>' +
+          (levels.length ? ' · mevcut seviyeler: ' + levels.join(', ') : '');
+      } catch (err) {
+        document.getElementById('s4').innerHTML = '<span class="fail">' + err.message + '</span>';
+      }
+    }
+
+    function tryR5(minQ, maxQ) {
+      if (!player5) {
+        document.getElementById('s5').innerHTML = '<span class="fail">Player yok</span>';
+        return;
+      }
+      try {
+        if (typeof player5.setPlaybackQualityRange === 'function') {
+          player5.setPlaybackQualityRange(minQ, maxQ);
+          document.getElementById('s5').innerHTML =
+            'setPlaybackQualityRange(<code>' + minQ + '</code>, <code>' + maxQ + '</code>) çağrıldı → dişli menüye bak';
+        } else {
+          player5.setPlaybackQuality(minQ);
+          document.getElementById('s5').innerHTML =
+            'QualityRange yok, setPlaybackQuality(<code>' + minQ + '</code>) denendi';
+        }
+      } catch (err) {
+        document.getElementById('s5').innerHTML = '<span class="fail">Hata: ' + err.message + '</span>';
+      }
+    }
+
+    function readQ5() {
+      if (!player5) return;
+      try {
+        var q = player5.getPlaybackQuality();
+        var levels = [];
+        try { levels = player5.getAvailableQualityLevels() || []; } catch (x) {}
+        document.getElementById('s5').innerHTML =
+          'Mevcut: <strong>' + (q || '?') + '</strong>' +
+          (levels.length ? ' · seviyeler: ' + levels.join(', ') : '');
+      } catch (err) {
+        document.getElementById('s5').innerHTML = '<span class="fail">' + err.message + '</span>';
+      }
+    }
+  </script>
+</body>
+</html>
