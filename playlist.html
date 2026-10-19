@@ -1340,22 +1340,20 @@
       } catch (e) {}
     })();
 
-    /** Ekran kilitten açılınca / sekmeye dönünce: hızlı ve sessiz toparlanma */
+    /** Ekran kilitten açılınca / sekmeye dönünce: sessiz toparlanma */
     function onWakeOrVisible(reason) {
       if (!roomCode) return;
-      peerRetryDelay = 500;
-      _fastWatchUntil = Date.now() + 25000; // 25 sn daha agresif watchdog
+      peerRetryDelay = 1000;
+      _fastWatchUntil = Date.now() + 20000;
       var now = Date.now();
-      var looksAlive = conn && conn.open &&
-        ((lastPongAt && now - lastPongAt < 8000) || (lastAliveAt && now - lastAliveAt < 8000));
+      var looksAlive = !!(conn && conn.open &&
+        ((lastPongAt && now - lastPongAt < 10000) || (lastAliveAt && now - lastAliveAt < 10000)));
 
       sendPing();
 
       if (!looksAlive) {
-        // Kilit sonrası socket "open" görünüp ölü kalabiliyor → her zaman tam yenile
         forcePeerReconnect(reason || "wake");
       } else {
-        // Gerçekten canlıysa sadece ping at
         try {
           conn.send({ kind: "hello", room: roomCode, ts: Date.now() });
           conn.send({ kind: "ping", room: roomCode, ts: Date.now() });
@@ -1365,20 +1363,14 @@
         }
       }
 
-      // Burst: kısa aralıklarla birkaç deneme daha
-      if (_wakeBurstTimer) clearTimeout(_wakeBurstTimer);
-      [500, 1200, 2500, 4500].forEach(function(ms) {
-        setTimeout(function() {
-          if (!roomCode) return;
-          sendPing();
-          var stillDead = !conn || !conn.open ||
-            (lastPongAt && Date.now() - lastPongAt > 10000);
-          if (stillDead) {
-            if (!_peerConnecting) forcePeerReconnect("wake-burst");
-            else ensurePeerClient();
-          }
-        }, ms);
-      });
+      // İkinci şans: 2 sn sonra hâlâ pong yoksa bir kez daha dene
+      setTimeout(function() {
+        if (!roomCode) return;
+        sendPing();
+        var dead = !conn || !conn.open ||
+          !(lastPongAt && Date.now() - lastPongAt < 12000);
+        if (dead && !_peerConnecting) forcePeerReconnect("wake-retry");
+      }, 2000);
 
       try {
         var raw = localStorage.getItem(STORAGE_KEY + "_" + roomCode);
@@ -2358,15 +2350,14 @@
         var inFastWindow = now < _fastWatchUntil;
 
         if (peerOk && !recent) {
-          // Socket açık görünüyor ama state/pong gelmiyor → yenile
           forcePeerReconnect("stale");
           return;
         }
         if (!peerOk) {
           ensurePeerClient();
-          // Retry timer takılı kaldıysa veya uyanma penceresindeyse zorla
-          if (!_peerConnecting && (!peerRetryTimer || inFastWindow)) {
-            forcePeerReconnect(inFastWindow ? "wake-down" : "down");
+          // Sadece uyanma penceresinde ve retry yoksa zorla
+          if (inFastWindow && !_peerConnecting && !peerRetryTimer) {
+            forcePeerReconnect("wake-down");
           }
         }
         // Yerel kanallar (BC / storage) hâlâ çalışıyorsa status grace ile "Bağlı" kalır
@@ -2399,7 +2390,7 @@
     function schedulePeerRetry(forceDelay) {
       if (peerRetryTimer) clearTimeout(peerRetryTimer);
       var delay = forceDelay != null ? forceDelay : peerRetryDelay;
-      peerRetryDelay = Math.min(Math.max(peerRetryDelay * 1.35, 700), PEER_MAX_BACKOFF);
+      peerRetryDelay = Math.min(Math.max(peerRetryDelay * 1.4, 1000), PEER_MAX_BACKOFF);
       peerRetryTimer = setTimeout(function() {
         peerRetryTimer = null;
         if (!roomCode) return;
@@ -2408,15 +2399,12 @@
       }, delay);
     }
 
-    /** Peer "open" görünse bile stale ise zorla yenile (sessiz) */
+    /** Tam yenileme — kilit sonrası / stale için */
     function forcePeerReconnect(reason) {
       var now = Date.now();
-      var lockMs = (reason === "visible" || reason === "wake" || reason === "pageshow" ||
-                    reason === "bfcache" || reason === "focus" || reason === "online" ||
-                    reason === "wake-down" || reason === "timeout") ? 900 : 2000;
       if (now < _forceReconnectLockUntil) return;
-      _forceReconnectLockUntil = now + lockMs;
-      peerRetryDelay = 600;
+      _forceReconnectLockUntil = now + 2500;
+      peerRetryDelay = 1000;
       if (peerRetryTimer) {
         clearTimeout(peerRetryTimer);
         peerRetryTimer = null;
@@ -2433,43 +2421,33 @@
         _peerConnecting = true;
         updateLinkStatus();
 
-        peer = new Peer(undefined, PEER_OPTS);
+        // ID vermeden oluştur (PeerJS options-only constructor)
+        peer = new Peer(PEER_OPTS);
 
-        // Peer id alınamazsa zaman aşımı
         _peerOpenTimer = setTimeout(function() {
           _peerOpenTimer = null;
-          if (!peer || (peer && peer.open === false && !conn)) {
-            console.warn("[PL] Peer open timeout");
+          if (!conn || !conn.open) {
+            console.warn("[PL] Peer/conn timeout");
             _peerConnecting = false;
-            schedulePeerRetry(1000);
+            schedulePeerRetry(1500);
           }
-        }, PEER_OPEN_TIMEOUT_MS);
+        }, 12000);
 
         peer.on("open", function() {
-          if (_peerOpenTimer) { clearTimeout(_peerOpenTimer); _peerOpenTimer = null; }
           var hostId = ROOM_PREFIX + roomCode.toLowerCase();
-          console.log("[PL] Peer client open → host:", hostId);
-          conn = peer.connect(hostId, { reliable: true, serialization: "json" });
-
-          // Data channel açılmazsa zaman aşımı (kilit sonrası sık olur)
-          _connOpenTimer = setTimeout(function() {
-            _connOpenTimer = null;
-            if (!conn || !conn.open) {
-              console.warn("[PL] Conn open timeout — yeniden denenecek");
-              _peerConnecting = false;
-              forcePeerReconnect("timeout");
-            }
-          }, CONN_OPEN_TIMEOUT_MS);
+          console.log("[PL] Peer open, bağlanıyor:", hostId);
+          conn = peer.connect(hostId, { reliable: true });
 
           conn.on("open", function() {
+            if (_peerOpenTimer) { clearTimeout(_peerOpenTimer); _peerOpenTimer = null; }
             if (_connOpenTimer) { clearTimeout(_connOpenTimer); _connOpenTimer = null; }
             _peerConnecting = false;
-            peerRetryDelay = 900;
+            peerRetryDelay = 1200;
             _forceReconnectLockUntil = 0;
             lastPongAt = Date.now();
             lastAliveAt = Date.now();
             _lastGoodLinkAt = Date.now();
-            console.log("[PL] Data channel açık");
+            console.log("[PL] Bağlantı açık");
             updateLinkStatus();
             try {
               conn.send({ kind: "hello", room: roomCode, ts: Date.now() });
@@ -2483,17 +2461,16 @@
             if (data.kind === "pong") onPong(data);
           });
           conn.on("close", function() {
-            console.log("[PL] Conn kapandı");
-            _peerConnecting = false;
-            clearPeerTimers();
-            schedulePeerRetry(900);
-            updateLinkStatus();
-          });
-          conn.on("error", function(err) {
-            console.warn("[PL] Peer conn error", err);
             _peerConnecting = false;
             clearPeerTimers();
             schedulePeerRetry(1200);
+            updateLinkStatus();
+          });
+          conn.on("error", function(err) {
+            console.warn("[PL] Conn error", err);
+            _peerConnecting = false;
+            clearPeerTimers();
+            schedulePeerRetry(1500);
           });
         });
         peer.on("error", function(err) {
@@ -2504,24 +2481,15 @@
           updateLinkStatus();
         });
         peer.on("disconnected", function() {
-          // Soft reconnect deneme; olmazsa full
           try {
-            if (peer && !peer.destroyed) {
-              peer.reconnect();
-              setTimeout(function() {
-                if (!conn || !conn.open) {
-                  _peerConnecting = false;
-                  schedulePeerRetry(800);
-                }
-              }, 3000);
-              return;
-            }
-          } catch (e) {}
-          _peerConnecting = false;
-          schedulePeerRetry(800);
+            if (peer && !peer.destroyed) peer.reconnect();
+          } catch (e) {
+            _peerConnecting = false;
+            schedulePeerRetry();
+          }
         });
       } catch (e) {
-        console.warn("[PL] Peer client exception", e);
+        console.warn("[PL] Peer exception", e);
         _peerConnecting = false;
         clearPeerTimers();
         schedulePeerRetry();
