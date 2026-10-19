@@ -2776,20 +2776,26 @@
     }
     disconnectBtn.addEventListener("click", disconnect);
 
-    // ── Sesli komut: Whisper (Transformers.js) + Web Speech yedek ──
-    // Whisper Türkçe'de çok daha iyi; ilk kullanımda ~40MB model indirilir (sonra cache).
+    // ── Sesli komut: Vosk Türkçe (WASM) — Whisper kaldırıldı ──
+    // Model: vosk-model-small-tr-0.3 (~50MB, ilk seferde iner)
     (function initVoiceCommands() {
       var btn = document.getElementById("voiceBtn");
       if (!btn) return;
 
+      var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
+      var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
+      var LISTEN_MS = 4000;
+
       var listening = false;
       var busy = false;
-      var whisperPipe = null;
-      var whisperLoading = null;
+      var voskReady = null;
+      var voskModel = null;
       var mediaStream = null;
-      var mediaRecorder = null;
-      var recordedChunks = [];
-      var RECORD_MS = 3500;
+      var audioContext = null;
+      var processorNode = null;
+      var sourceNode = null;
+      var listenTimer = null;
+      var lastPartial = "";
 
       function setListening(on) {
         listening = !!on;
@@ -2821,7 +2827,7 @@
           showToast("Ses anlaşılamadı — tekrar dene");
           return;
         }
-        console.log("[PL] Ses:", said);
+        console.log("[PL] Vosk:", said);
         var spec = interpret(said);
         if (!spec) {
           showToast("Anlaşılamadı: " + said);
@@ -2835,196 +2841,164 @@
         runExternalCommand(spec);
       }
 
-      // —— Whisper yükle (lazy) ——
-      function loadWhisper() {
-        if (whisperPipe) return Promise.resolve(whisperPipe);
-        if (whisperLoading) return whisperLoading;
-        whisperLoading = new Promise(function(resolve, reject) {
-          showToast("Ses modeli yükleniyor… (ilk sefer)");
+      function loadScript(src) {
+        return new Promise(function(resolve, reject) {
+          if (window.Vosk && window.Vosk.createModel) {
+            resolve();
+            return;
+          }
           var s = document.createElement("script");
-          s.src = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js";
+          s.src = src;
           s.async = true;
-          s.onload = function() {
-            try {
-              var mod = window.transformers || window.Transformers;
-              if (!mod || !mod.pipeline) {
-                reject(new Error("transformers yok"));
-                return;
-              }
-              if (mod.env) {
-                mod.env.allowLocalModels = false;
-                mod.env.useBrowserCache = true;
-              }
-              mod.pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
-                quantized: true,
-                progress_callback: function(p) {
-                  if (p && p.status === "progress" && p.file && p.progress) {
-                    var pct = Math.round((p.progress || 0));
-                    if (pct > 0 && pct < 100 && pct % 25 < 3) {
-                      showToast("Model " + pct + "%");
-                    }
-                  }
-                }
-              }).then(function(pipe) {
-                whisperPipe = pipe;
-                showToast("Ses modeli hazır");
-                resolve(pipe);
-              }).catch(reject);
-            } catch (e) {
-              reject(e);
-            }
-          };
-          s.onerror = function() { reject(new Error("CDN yüklenemedi")); };
+          s.onload = function() { resolve(); };
+          s.onerror = function() { reject(new Error("Vosk JS yüklenemedi")); };
           document.head.appendChild(s);
+        });
+      }
+
+      function ensureVoskModel() {
+        if (voskModel) return Promise.resolve(voskModel);
+        if (voskReady) return voskReady;
+        voskReady = loadScript(VOSK_JS).then(function() {
+          if (!window.Vosk || !Vosk.createModel) throw new Error("Vosk global yok");
+          showToast("Türkçe ses modeli yükleniyor…");
+          return Vosk.createModel(VOSK_MODEL_TR);
+        }).then(function(model) {
+          voskModel = model;
+          showToast("Ses modeli hazır");
+          return model;
         }).catch(function(err) {
-          whisperLoading = null;
+          voskReady = null;
           throw err;
         });
-        return whisperLoading;
+        return voskReady;
       }
 
-      function blobToFloat32(blob) {
-        return blob.arrayBuffer().then(function(buf) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-          return ctx.decodeAudioData(buf.slice(0)).then(function(audio) {
-            var data = audio.getChannelData(0);
-            // zaten 16k değilse basit downsample
-            if (audio.sampleRate === 16000) {
-              try { ctx.close(); } catch (e) {}
-              return data;
-            }
-            var ratio = audio.sampleRate / 16000;
-            var len = Math.floor(data.length / ratio);
-            var out = new Float32Array(len);
-            for (var i = 0; i < len; i++) {
-              out[i] = data[Math.floor(i * ratio)];
-            }
-            try { ctx.close(); } catch (e2) {}
-            return out;
-          });
-        });
-      }
-
-      function stopTracks() {
+      function cleanupAudio() {
+        if (listenTimer) {
+          clearTimeout(listenTimer);
+          listenTimer = null;
+        }
+        try {
+          if (processorNode) {
+            processorNode.onaudioprocess = null;
+            processorNode.disconnect();
+          }
+        } catch (e) {}
+        processorNode = null;
+        try { if (sourceNode) sourceNode.disconnect(); } catch (e2) {}
+        sourceNode = null;
         if (mediaStream) {
           try {
             mediaStream.getTracks().forEach(function(t) { t.stop(); });
-          } catch (e) {}
+          } catch (e3) {}
           mediaStream = null;
         }
-        mediaRecorder = null;
+        if (audioContext) {
+          try { audioContext.close(); } catch (e4) {}
+          audioContext = null;
+        }
       }
 
-      function recordAndTranscribe() {
+      function stopListening(finalText) {
+        setListening(false);
+        busy = false;
+        cleanupAudio();
+        var text = (finalText || lastPartial || "").trim();
+        lastPartial = "";
+        if (text) applyTranscript(text);
+        else showToast("Ses duyulmadı — tekrar dene");
+      }
+
+      function startVoskListen() {
         if (busy) return;
         busy = true;
+        lastPartial = "";
         setListening(true);
-        recordedChunks = [];
-        showToast("Dinliyorum… (konuş)");
+        showToast("Dinliyorum… konuş");
 
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            channelCount: 1
-          }
-        }).then(function(stream) {
-          mediaStream = stream;
-          var mime = "";
-          if (typeof MediaRecorder !== "undefined") {
-            if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) mime = "audio/webm;codecs=opus";
-            else if (MediaRecorder.isTypeSupported("audio/webm")) mime = "audio/webm";
-            else if (MediaRecorder.isTypeSupported("audio/mp4")) mime = "audio/mp4";
-          }
-          mediaRecorder = mime
-            ? new MediaRecorder(stream, { mimeType: mime })
-            : new MediaRecorder(stream);
+        ensureVoskModel()
+          .then(function(model) {
+            return navigator.mediaDevices.getUserMedia({
+              video: false,
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                channelCount: 1,
+                sampleRate: 16000
+              }
+            }).then(function(stream) {
+              return { model: model, stream: stream };
+            });
+          })
+          .then(function(ctx) {
+            mediaStream = ctx.stream;
+            var model = ctx.model;
 
-          mediaRecorder.ondataavailable = function(ev) {
-            if (ev.data && ev.data.size > 0) recordedChunks.push(ev.data);
-          };
-          mediaRecorder.onstop = function() {
-            setListening(false);
-            var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
-            stopTracks();
-            if (!blob.size) {
-              busy = false;
-              showToast("Kayıt boş — tekrar dene");
-              return;
-            }
-            showToast("Çözümleniyor…");
-            loadWhisper()
-              .then(function(pipe) {
-                return blobToFloat32(blob).then(function(audio) {
-                  return pipe(audio, {
-                    language: "turkish",
-                    task: "transcribe",
-                    return_timestamps: false
-                  });
-                });
-              })
-              .then(function(out) {
-                busy = false;
-                var text = (out && (out.text || out)) || "";
-                if (typeof text !== "string") text = String(text || "");
-                applyTranscript(text);
-              })
-              .catch(function(err) {
-                console.warn("[PL] Whisper hata", err);
-                busy = false;
-                // Yedek: Web Speech
-                tryWebSpeechFallback();
-              });
-          };
-
-          mediaRecorder.start(200);
-          setTimeout(function() {
+            var recognizer;
             try {
-              if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
-            } catch (e) {
-              busy = false;
-              setListening(false);
-              stopTracks();
+              recognizer = new model.KaldiRecognizer(16000);
+            } catch (e0) {
+              recognizer = new model.KaldiRecognizer();
             }
-          }, RECORD_MS);
-        }).catch(function(err) {
-          console.warn("[PL] mic", err);
-          busy = false;
-          setListening(false);
-          showToast("Mikrofon izni gerekli");
-        });
-      }
 
-      function tryWebSpeechFallback() {
-        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) {
-          showToast("Ses tanıma bu cihazda sınırlı");
-          return;
-        }
-        showToast("Yedek tanıma… konuş");
-        var rec = new SR();
-        rec.lang = "tr-TR";
-        rec.interimResults = false;
-        rec.maxAlternatives = 3;
-        setListening(true);
-        rec.onresult = function(ev) {
-          setListening(false);
-          var said = "";
-          try { said = ev.results[0][0].transcript || ""; } catch (e) {}
-          applyTranscript(said);
-        };
-        rec.onerror = function(ev) {
-          setListening(false);
-          var code = (ev && ev.error) || "";
-          if (code === "not-allowed") showToast("Mikrofon izni reddedildi");
-          else if (code === "no-speech") showToast("Ses duyulmadı — daha net konuş");
-          else showToast("Tanıma başarısız (" + code + ")");
-        };
-        rec.onend = function() { setListening(false); };
-        try { rec.start(); } catch (e) {
-          setListening(false);
-          showToast("Mikrofon açılamadı");
-        }
+            var gotFinal = false;
+            recognizer.on("result", function(message) {
+              try {
+                var t = (message && message.result && message.result.text) || "";
+                t = String(t).trim();
+                if (t) {
+                  gotFinal = true;
+                  stopListening(t);
+                }
+              } catch (e) {}
+            });
+            recognizer.on("partialresult", function(message) {
+              try {
+                var p = (message && message.result && message.result.partial) || "";
+                p = String(p).trim();
+                if (p) lastPartial = p;
+              } catch (e) {}
+            });
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({
+              sampleRate: 16000
+            });
+            if (audioContext.state === "suspended") {
+              try { audioContext.resume(); } catch (eR) {}
+            }
+
+            sourceNode = audioContext.createMediaStreamSource(mediaStream);
+            processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+            processorNode.onaudioprocess = function(event) {
+              try {
+                recognizer.acceptWaveform(event.inputBuffer);
+              } catch (err) {
+                console.warn("[PL] acceptWaveform", err);
+              }
+            };
+            sourceNode.connect(processorNode);
+            var gain = audioContext.createGain();
+            gain.gain.value = 0;
+            processorNode.connect(gain);
+            gain.connect(audioContext.destination);
+
+            listenTimer = setTimeout(function() {
+              if (!gotFinal) stopListening(lastPartial);
+            }, LISTEN_MS);
+          })
+          .catch(function(err) {
+            console.warn("[PL] Vosk start", err);
+            busy = false;
+            setListening(false);
+            cleanupAudio();
+            var msg = (err && err.message) ? err.message : String(err);
+            if (/Permission|NotAllowed|denied/i.test(msg)) {
+              showToast("Mikrofon izni gerekli");
+            } else {
+              showToast("Ses modeli açılamadı");
+            }
+          });
       }
 
       btn.addEventListener("click", function() {
@@ -3033,20 +3007,14 @@
           return;
         }
         if (listening || busy) {
-          try {
-            if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
-          } catch (e) {}
-          stopTracks();
-          setListening(false);
-          busy = false;
+          stopListening(lastPartial);
           return;
         }
-        // MediaRecorder yoksa doğrudan Web Speech
-        if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices) {
-          tryWebSpeechFallback();
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast("Bu cihazda mikrofon yok");
           return;
         }
-        recordAndTranscribe();
+        startVoskListen();
       });
     })();
 
