@@ -1010,6 +1010,17 @@
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
     const BC_NAME = "minimal_muzik_bc";
+    // PeerJS: STUN ile NAT geçişi güçlendir + varsayılan bulut broker
+    const PEER_OPTS = {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun.cloudflare.com:3478" }
+        ]
+      }
+    };
 
     // Her kategori için birden fazla sorgu varyasyonu — her seferinde farklı set
     const CATEGORY_VARIANTS = {
@@ -1513,56 +1524,66 @@
       }
       if (_hostRestartBusy) return;
       _hostRestartBusy = true;
-      try {
-        if (peerHost) {
-          try { peerHost.destroy(); } catch (e) {}
-          peerHost = null;
-        }
-        peerConns = [];
-        var hostId = ROOM_PREFIX + roomCode.toLowerCase();
-        peerHost = new Peer(hostId);
-        peerHost.on("open", function(id) {
-          _hostRestartBusy = false;
-          if (_peerHostRetryTimer) {
-            clearTimeout(_peerHostRetryTimer);
-            _peerHostRetryTimer = null;
-          }
-          try { broadcastState(); } catch (e) {}
-        });
-        peerHost.on("connection", function(c) {
-          attachPeerConnection(c);
-        });
-        peerHost.on("error", function(err) {
-          _hostRestartBusy = false;
-          var msg = (err && (err.type || err.message)) || String(err);
-          console.warn("[MM] Peer host hata:", msg);
-          // id-taken: kısa bekle; network: biraz daha uzun
-          var d = (String(msg).indexOf("taken") >= 0 || String(msg).indexOf("unavailable-id") >= 0) ? 3500 : 2500;
-          scheduleHostRestart(d);
-        });
-        peerHost.on("disconnected", function() {
-          // Önce soft reconnect; olmazsa full restart
-          try {
-            if (peerHost && !peerHost.destroyed) {
-              peerHost.reconnect();
-              // 4 sn içinde open olmazsa full restart
-              setTimeout(function() {
-                if (!isPeerHostAlive()) scheduleHostRestart(500);
-              }, 4000);
-              return;
+
+      function createHost() {
+        try {
+          peerConns = [];
+          var hostId = ROOM_PREFIX + roomCode.toLowerCase();
+          console.log("[MM] Peer host başlatılıyor:", hostId);
+          peerHost = new Peer(hostId, PEER_OPTS);
+          peerHost.on("open", function(id) {
+            _hostRestartBusy = false;
+            if (_peerHostRetryTimer) {
+              clearTimeout(_peerHostRetryTimer);
+              _peerHostRetryTimer = null;
             }
-          } catch (e) {}
+            console.log("[MM] Peer host açık:", id);
+            try { broadcastState(); } catch (e) {}
+          });
+          peerHost.on("connection", function(c) {
+            console.log("[MM] Yeni peer bağlantısı");
+            attachPeerConnection(c);
+          });
+          peerHost.on("error", function(err) {
+            _hostRestartBusy = false;
+            var msg = (err && (err.type || err.message)) || String(err);
+            console.warn("[MM] Peer host hata:", msg);
+            // id-taken / unavailable: broker eski kaydı tutuyor — biraz bekle
+            var d = (String(msg).indexOf("taken") >= 0 || String(msg).indexOf("unavailable-id") >= 0) ? 4000 : 2200;
+            scheduleHostRestart(d);
+          });
+          peerHost.on("disconnected", function() {
+            try {
+              if (peerHost && !peerHost.destroyed) {
+                peerHost.reconnect();
+                setTimeout(function() {
+                  if (!isPeerHostAlive()) scheduleHostRestart(600);
+                }, 3500);
+                return;
+              }
+            } catch (e) {}
+            _hostRestartBusy = false;
+            scheduleHostRestart(1800);
+          });
+          peerHost.on("close", function() {
+            _hostRestartBusy = false;
+            scheduleHostRestart(1800);
+          });
+        } catch (e) {
+          console.warn("[MM] Peer host exception", e);
           _hostRestartBusy = false;
-          scheduleHostRestart(2000);
-        });
-        peerHost.on("close", function() {
-          _hostRestartBusy = false;
-          scheduleHostRestart(2000);
-        });
-      } catch (e) {
-        console.warn("[MM] Peer host exception", e);
-        _hostRestartBusy = false;
-        scheduleHostRestart(3000);
+          scheduleHostRestart(3000);
+        }
+      }
+
+      // Eski host varsa önce yok et, broker'ın ID'yi serbest bırakması için kısa bekle
+      if (peerHost) {
+        try { peerHost.destroy(); } catch (e) {}
+        peerHost = null;
+        peerConns = [];
+        setTimeout(createHost, 450);
+      } else {
+        createHost();
       }
     }
 
