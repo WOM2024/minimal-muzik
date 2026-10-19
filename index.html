@@ -4462,6 +4462,57 @@
         if (listening || busy) { stopListen(lastPartial); return; }
         startListen();
       });
+
+      // ── TEST: Ses açma tuşuna basılı tut (~500ms) → mikrofon ──
+      // Masaüstü / bazı Android klavye olayları; iOS genelde vermez.
+      (function volumeHoldTest() {
+        var HOLD_MS = 500;
+        var holdTimer = null;
+        var held = false;
+
+        function isVolumeUp(e) {
+          var k = e.key || "";
+          var c = e.code || "";
+          // Standart medya tuşları + yedekler (test için)
+          if (k === "AudioVolumeUp" || c === "AudioVolumeUp") return true;
+          if (k === "VolumeUp" || c === "VolumeUp") return true;
+          // Klavyeden denemek için: Shift + Ok Yukarı da kabul (garanti test)
+          if (e.shiftKey && (k === "ArrowUp" || c === "ArrowUp")) return true;
+          return false;
+        }
+
+        function clearHold() {
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
+          held = false;
+        }
+
+        window.addEventListener("keydown", function(e) {
+          if (!isVolumeUp(e)) return;
+          // Player görünür değilse de dene (test)
+          if (held || holdTimer) return;
+          held = true;
+          holdTimer = setTimeout(function() {
+            holdTimer = null;
+            if (listening || busy) {
+              toast("Mikrofon zaten açık");
+              return;
+            }
+            toast("Ses tuşu → mikrofon (test)");
+            console.log("[MM] volume-hold → startListen");
+            startListen();
+          }, HOLD_MS);
+        }, true);
+
+        window.addEventListener("keyup", function(e) {
+          if (isVolumeUp(e)) clearHold();
+        }, true);
+
+        window.addEventListener("blur", clearHold);
+        console.log("[MM] volume-hold test aktif: AudioVolumeUp 500ms veya Shift+↑");
+      })();
     })();
 
     initRoomSync();
