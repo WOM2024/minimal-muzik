@@ -1,541 +1,4767 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YT setPlaybackQuality Gerçek Test</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <title>SuperYT</title>
+  <link rel="icon" type="image/x-icon" href="superyt-logo.ico">
+
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      -webkit-touch-callout: default;
+    }
+
+
+    html,
     body {
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: #0a0a0a;
-      color: #eee;
-      min-height: 100vh;
-      padding: 16px 14px 40px;
-      line-height: 1.45;
-    }
-    .wrap { max-width: 960px; margin: 0 auto; }
-
-    h1 { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
-    .sub { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
-
-    /* Büyük player → yüksek kalite şansını artırır */
-    .player-wrap {
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      width: 100%;
-      aspect-ratio: 16/9;
-      border: 1px solid #222;
-      margin-bottom: 14px;
-      position: relative;
-      min-height: 420px; /* küçük ekranda bile yeterince büyük tut */
-    }
-    #playerHost {
-      width: 100%;
       height: 100%;
-      background: #000;
+      width: 100%;
+      background: #07070b;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      touch-action: manipulation;
     }
-    .loading {
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #home {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #home::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #home::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .topbar {
+      flex-shrink: 0;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #07070b;
+      border-bottom: 1px solid #1f1f1f;
+    }
+
+    .logo {
+      flex-shrink: 0;
+      width: 65px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo img {
+      width: 65px;
+      height: 40px;
+      display: block;
+      object-fit: contain;
+      background: transparent;
+    }
+
+    .voice-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      height: 42px;
+      max-height: 42px;
+    }
+
+    #searchInput {
+      flex: 1;
+      min-width: 0;
+      height: 42px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      padding: 0 12px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    #searchInput:focus {
+      border-color: #ff2d55;
+    }
+
+    #searchInput::placeholder {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .mic-btn {
+      flex-shrink: 0;
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: 50%;
+      background: #ff2d55;
+      color: #000;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 12px rgba(62, 166, 255, 0.35);
+    }
+
+    .mic-btn:active {
+      transform: scale(0.94);
+      opacity: 0.9;
+    }
+
+    .mic-btn.listening {
+      background: #ff2d55;
+      color: #fff;
+    }
+
+    .cats {
+      flex-shrink: 0;
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      background: #07070b;
+    }
+
+    .cats::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #ccc;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .cat.active,
+    .cat:active {
+      background: #ff2d55;
+      color: #000;
+      border-color: #ff2d55;
+    }
+
+    .results {
+      flex: 0 0 auto;
+      overflow: visible;
+      padding: 10px 10px 40px;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-content: flex-start;
+      justify-content: flex-start;
+    }
+
+    .card {
+      flex: 0 0 168px;
+      width: 168px;
+      height: 158px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #161616;
+      border: 1px solid #222;
+      overflow: hidden;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .card:active {
+      background: #1e1e1e;
+      border-color: #333;
+    }
+
+    .card img {
+      width: 168px;
+      height: 94px;
+      object-fit: cover;
+      background: #222;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .card-info {
+      width: 168px;
+      height: 64px;
+      padding: 6px 8px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: #f0f0f0;
+      height: 32px;
+      max-height: 32px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    .card-meta {
+      font-size: 10px;
+      color: #888;
+      height: 14px;
+      line-height: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .heart-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      color: #ddd;
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    .heart-btn:active {
+      transform: scale(1.15);
+    }
+
+    .heart-btn.fav {
+      color: #ff2d55;
+      background: rgba(0,0,0,0.75);
+    }
+
+    .loading,
+    .empty,
+    .error,
+    .load-more,
+    .sentinel {
+      flex: 0 0 100%;
+      width: 100%;
+      text-align: center;
+      padding: 28px 16px;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .error {
+      color: #ff6b6b;
+    }
+
+    .load-more {
+      padding: 16px;
+      color: #777;
+      font-size: 12px;
+    }
+
+    .sentinel {
+      height: 1px;
+      padding: 0;
+      margin: 0;
+      visibility: hidden;
+    }
+
+    #playerView {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 100;
+      flex-direction: column;
+    }
+
+    #playerView.active {
+      display: flex;
+    }
+
+    .player-top {
+      flex-shrink: 0;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      /* Video üzerinde yarı saydam, siyah bar yok */
+      background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 70%, transparent 100%);
+      border-bottom: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 25;
+      transition: opacity .35s ease, transform .35s ease, visibility .35s;
+    }
+    .player-top.chrome-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+    /* iframe tıklamayı yutar — gizliyken tam ekran yakalayıcı */
+    .player-chrome-tap {
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      z-index: 24;
+      background: transparent;
+      cursor: pointer;
+    }
+    .player-chrome-tap.active {
+      display: block;
+    }
+    #playerView {
+      /* player-area tam ekran kullanabilsin */
+    }
+    #playerView .player-area {
+      position: absolute;
+      inset: 0;
+    }
+
+    .back-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 0;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.9rem;
-      font-weight: 600;
-      z-index: 5;
+      flex-shrink: 0;
     }
-    .loading.show { display: flex; }
+    .back-btn svg {
+      width: 22px; height: 22px; fill: currentColor;
+    }
+    .back-btn:active {
+      background: #ff2d55;
+      color: #000;
+    }
 
-    .quality-selector {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .q-btn {
-      padding: 8px 12px;
-      background: #2a2a2a;
-      color: #ddd;
-      border: 1px solid #444;
-      border-radius: 6px;
-      cursor: pointer;
+    .player-title {
+      flex: 1;
       font-size: 13px;
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #f0f0f0;
+      min-width: 0;
+      padding-right: 8px;
     }
-    .q-btn:hover { background: #333; color: #fff; }
-    .q-btn.active {
+
+    .player-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-shrink: 0;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .player-nav button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 48px;
+      height: 40px;
+      padding: 0 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, transform .12s, border-color .15s;
+      backdrop-filter: blur(8px);
+    }
+    .player-nav button svg {
+      width: 18px; height: 18px; fill: currentColor; flex-shrink: 0;
+    }
+    .player-nav .nav-icon {
+      font-size: 17px;
+      line-height: 1;
+      flex-shrink: 0;
+      display: none;
+    }
+    .player-nav .nav-text {
+      line-height: 1;
+    }
+    .player-nav button:active {
+      background: #ff2d55;
+      color: #000;
+      border-color: #ff2d55;
+      transform: scale(0.96);
+    }
+
+    .player-nav button.nav-settings {
+      min-width: 40px;
+      width: 40px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .player-nav button.nav-settings svg {
+      width: 20px; height: 20px; fill: currentColor;
+    }
+    .player-nav button.nav-settings:active {
+      background: #ff2d55;
+      color: #000;
+    }
+    .player-nav button.voice-player-btn {
+      min-width: 40px;
+      width: 40px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .player-nav button.voice-player-btn svg {
+      width: 20px; height: 20px; fill: currentColor;
+    }
+    .player-nav button.voice-player-btn.listening {
+      background: rgba(255,45,85,0.25);
+      color: #ff2d55;
+      box-shadow: 0 0 14px rgba(255,45,85,0.4);
+    }
+    /* Sesli komut tam ekran katmanı */
+    .voice-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 80;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+    .voice-overlay.show { display: flex; }
+    .voice-orb {
+      position: relative;
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .voice-mic-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #ff2d55, #ff4d6d);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 28px rgba(255,45,85,0.55);
+      z-index: 2;
+    }
+    .voice-mic-icon svg { width: 34px; height: 34px; fill: #fff; }
+    .voice-wave {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 72px; height: 72px;
+      margin: -36px 0 0 -36px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,45,85,0.55);
+      animation: voice-pulse 1.6s ease-out infinite;
+      z-index: 1;
+    }
+    .voice-wave.w2 { animation-delay: 0.4s; }
+    .voice-wave.w3 { animation-delay: 0.8s; }
+    @keyframes voice-pulse {
+      0% { transform: scale(1); opacity: 0.75; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .voice-transcript {
+      margin-top: 22px;
+      max-width: 80%;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+      min-height: 28px;
+      letter-spacing: -0.2px;
+    }
+    .voice-hint {
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.65);
+    }
+    /* Sağdan ses arama paneli */
+    .voice-search-backdrop {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 85;
+      background: rgba(0,0,0,0.45);
+    }
+    .voice-search-backdrop.show { display: block; }
+    .voice-search-panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: min(360px, 92vw);
+      z-index: 90;
+      background: #12121a;
+      border-left: 1px solid rgba(255,45,85,0.25);
+      box-shadow: -12px 0 40px rgba(0,0,0,0.55);
+      transform: translateX(105%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      flex-direction: column;
+    }
+    .voice-search-panel.open {
+      transform: translateX(0);
+    }
+    .vsp-head {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,45,85,0.12), transparent);
+    }
+    .vsp-title {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .vsp-close {
+      width: 36px; height: 36px;
+      border: none; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .vsp-close:active { background: rgba(255,45,85,0.35); }
+    .vsp-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px;
+    }
+    .vsp-loading, .vsp-empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .vsp-item {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .vsp-item:active, .vsp-item:hover {
+      background: rgba(255,45,85,0.12);
+    }
+    .vsp-thumb {
+      width: 96px;
+      height: 54px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #1a1a24;
+      flex-shrink: 0;
+    }
+    .vsp-meta { min-width: 0; flex: 1; }
+    .vsp-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .vsp-item-author {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @media (max-width: 520px) {
+      .player-nav .nav-text { display: none; }
+      .player-nav button { min-width: 40px; width: 40px; padding: 0; border-radius: 50%; }
+      .player-nav { gap: 6px; }
+    }
+
+    /* Gece parlaklığı — player ekranı karartma */
+    .player-dim-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 40;
+      transition: opacity .2s;
+    }
+    .bright-panel-idx {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 54px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #242424 0%, #1a1a1a 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 16px 18px 14px;
+      z-index: 50;
+      width: min(300px, 92vw);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
+      backdrop-filter: blur(12px);
+    }
+    .bright-panel-idx.show { display: block; animation: panel-in .2s ease; }
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .sp-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 14px;
+      letter-spacing: 0.2px;
+    }
+    .sp-section {
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sp-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .sp-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .sp-row-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ddd;
+    }
+    .sp-row-sub {
+      font-size: 11px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .sp-toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .sp-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .sp-toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #3a3a3a;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .sp-toggle-track::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .sp-toggle input:checked + .sp-toggle-track {
+      background: #ff2d55;
+    }
+    .sp-toggle input:checked + .sp-toggle-track::after {
+      transform: translateX(18px);
+    }
+    .sp-seconds {
+      display: none;
+      margin-top: 10px;
+    }
+    .sp-seconds.show { display: block; }
+    .sp-seconds-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .sp-seconds-top span {
+      font-size: 11px;
+      color: #999;
+      font-weight: 600;
+    }
+    .sp-seconds-val {
+      font-size: 13px;
+      font-weight: 800;
+      color: #ff2d55;
+      font-variant-numeric: tabular-nums;
+    }
+    .bright-panel-idx input[type=range] {
+      width: 100%;
+      accent-color: #ff2d55;
+      height: 4px;
+      cursor: pointer;
+    }
+    .bright-panel-idx label.sp-field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ddd;
+      margin-bottom: 8px;
+    }
+    .sp-dim-val {
+      float: right;
+      font-size: 12px;
+      font-weight: 800;
+      color: #ff2d55;
+    }
+
+
+    .sp-quality-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .sp-q-btn {
+      appearance: none;
+      border: 1px solid #444;
+      background: #2a2a2a;
+      color: #ddd;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .sp-q-btn:hover { background: #333; color: #fff; }
+    .sp-q-btn.active {
       background: #ff2d55;
       border-color: #ff2d55;
       color: #000;
     }
-    .q-btn:disabled {
+    .sp-q-btn:disabled {
       opacity: 0.35;
       cursor: not-allowed;
     }
-
-    .bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-    .btn {
-      appearance: none;
-      border: none;
-      border-radius: 8px;
-      padding: 9px 14px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-      background: #2563eb;
-      color: #fff;
-    }
-    .btn:hover { background: #1d4ed8; }
-    .btn.sec { background: #2a2a2a; color: #ddd; }
-    .btn.sec:hover { background: #333; }
-
-    .info {
-      font-size: 0.78rem;
+    .sp-q-status {
+      margin-top: 8px;
+      font-size: 11px;
       color: #888;
-      margin-left: auto;
+      line-height: 1.35;
     }
-    .info strong { color: #4ade80; }
+    .sp-q-status strong { color: #4ade80; font-weight: 700; }
+    .sp-q-status .sp-q-warn { color: #fbbf24; }
 
-    .plist {
-      list-style: none;
-      margin: 0 0 14px 0;
-      padding: 0;
-      background: #141414;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      overflow: hidden;
+    .player-area {
+      flex: 1;
+      position: relative;
+      background: #000;
+      min-height: 0;
+      overflow: hidden; /* cover için kenarları kes */
     }
-    .plist li {
+
+    /* Video ekranı tamamen doldursun (cover) — oran bozulmaz, fazla kısım kesilir */
+    #ytplayer,
+    #ytplayer-host,
+    .player-area iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 177.78vh);   /* 16:9 genişlik */
+      height: max(100%, 56.25vw);   /* 16:9 yükseklik */
+      min-width: 100%;
+      min-height: 100%;
+      transform: translate(-50%, -50%);
+      border: none;
+      background: #000;
+    }
+
+    .player-loading {
+      display: none;
+      position: absolute;
+      inset: 0;
+      /* Tam opak: şarkı geçişinde YT orta pause/play butonu görünmesin */
+      background: #000;
+      z-index: 30;
+      align-items: center;
+      justify-content: center;
+      color: #b3b3b3;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      pointer-events: none;
+    }
+
+    .player-loading.show {
+      display: flex;
+    }
+
+    @media (max-width: 400px) {
+      .results {
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .card {
+        flex: 0 0 148px;
+        width: 148px;
+        height: 148px;
+      }
+
+      .card img {
+        width: 148px;
+        height: 84px;
+      }
+
+      .card-info {
+        width: 148px;
+        height: 64px;
+      }
+    }
+
+    @media (orientation: landscape) and (max-height: 480px) {
+      .topbar {
+        min-height: 44px;
+        padding: 4px 10px;
+      }
+
+      .mic-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+      }
+
+      .cats {
+        padding: 6px 8px;
+      }
+
+      .cat {
+        padding: 5px 10px;
+        font-size: 11px;
+      }
+
+      .player-top {
+        height: 34px;
+      }
+    }
+
+    /* Bağlantı kodu rozeti */
+
+
+    .room-badge {
+      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 10px;
       cursor: pointer;
-      border-bottom: 1px solid #1f1f1f;
-      font-size: 0.82rem;
+      user-select: none;
     }
-    .plist li:last-child { border-bottom: none; }
-    .plist li:hover { background: #1c1c1c; }
-    .plist li.active { background: rgba(255,45,85,0.12); }
-    .plist .idx {
-      width: 22px; height: 22px;
-      border-radius: 6px;
+    .room-badge:active { border-color: #ff2d55; }
+    .room-badge .room-label {
+      font-size: 10px;
+      color: #888;
+      line-height: 1;
+    }
+    .room-badge .room-code {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #ff2d55;
+      font-variant-numeric: tabular-nums;
+    }
+    .room-toast {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
       background: #222;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.7rem; font-weight: 700; color: #999;
+      color: #eee;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      z-index: 200;
+      border: 1px solid #333;
     }
-    .plist li.active .idx { background: #ff2d55; color: #000; }
-    .plist .title { font-weight: 600; }
-    .plist .id {
-      font-size: 0.7rem;
-      color: #666;
-      margin-left: auto;
-      font-family: ui-monospace, monospace;
-    }
+    .room-toast.show { display: block; }
 
-    .note {
-      margin-bottom: 12px;
-      padding: 10px 12px;
-      background: rgba(255,255,255,0.04);
-      border-radius: 8px;
-      border-left: 3px solid #fbbf24;
-      font-size: 0.75rem;
-      color: #ccc;
+    /* QR / bağlantı popup */
+    .qr-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    .note strong { color: #fbbf24; }
-
-    #log {
-      background: #0f0f0f;
-      border: 1px solid #222;
+    .qr-overlay.show {
+      display: flex;
+    }
+    .qr-modal {
+      background: #161616;
+      border: 1px solid #333;
       border-radius: 12px;
       padding: 10px;
-      max-height: 280px;
-      overflow: auto;
-      font-family: ui-monospace, monospace;
-      font-size: 11px;
-      white-space: pre-wrap;
-      word-break: break-word;
+      width: min(220px, calc(100vw - 20px));
+      max-height: min(85vh, 380px);
+      overflow-y: auto;
+      text-align: center;
+      box-sizing: border-box;
     }
-    .log-line { margin-bottom: 2px; padding-bottom: 2px; border-bottom: 1px solid #1a1a1a; }
-    .log-line .t { color: #555; margin-right: 6px; }
-    .log-ok { color: #86efac; }
-    .log-err { color: #f87171; }
-    .log-info { color: #93c5fd; }
-    .log-warn { color: #fbbf24; }
+    .qr-modal h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #eee;
+      margin: 0 0 2px;
+    }
+    .qr-modal .qr-hint {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .qr-modal img {
+      width: 120px;
+      height: 120px;
+      max-width: 100%;
+      background: #fff;
+      border-radius: 6px;
+      display: block;
+      margin: 0 auto 6px;
+    }
+    .qr-code-big {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #ff2d55;
+      margin-bottom: 4px;
+    }
+    .qr-url {
+      font-size: 9px;
+      color: #666;
+      word-break: break-all;
+      margin-bottom: 6px;
+      line-height: 1.25;
+      max-height: 2.5em;
+      overflow: hidden;
+    }
+    .qr-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .qr-actions button {
+      flex: 1;
+      height: 34px;
+      border: none;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .qr-copy {
+      background: #ff2d55;
+      color: #000;
+    }
+    .qr-close {
+      background: #2a2a2a;
+      color: #ccc;
+    }
+    #regenCodeBtn {
+      margin-top: 6px !important;
+      padding: 5px 8px !important;
+      font-size: 10px !important;
+      width: 100%;
+      box-sizing: border-box;
+    }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <h1>YT setPlaybackQuality Gerçek Test</h1>
-    <p class="sub">
-      tiny / small / medium / large / hd720 / hd1080 / highres ·
-      Büyük player + available levels kontrolü
-    </p>
+  <div id="home">
 
-    <div class="note">
-      <strong>Önemli:</strong> YouTube çoğu modern ortamda <code>setPlaybackQuality</code> değerini yok sayabilir.
-      Bu sayfa hem denemeyi yapar hem de gerçek sonucu loglar. Yüksek kalite için player yeterince büyük tutuldu.
-    </div>
+    <div class="topbar" style="flex-wrap: wrap;">
+      <div class="logo" title="SuperYT">
+        <img src="superyt-logo.png" alt="SuperYT">
+      </div>
 
-    <div class="player-wrap">
-      <div id="playerHost"></div>
-      <div class="loading" id="loading">Yükleniyor…</div>
-    </div>
+      <div class="voice-area">
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="Arama"
+          autocomplete="off"
+          enterkeyhint="search"
+          inputmode="search"
+          lang="tr"
+        />
 
-    <div class="quality-selector" id="qualitySelector">
-      <button type="button" class="q-btn" data-q="default">default (Oto)</button>
-      <button type="button" class="q-btn" data-q="tiny">tiny (144p)</button>
-      <button type="button" class="q-btn" data-q="small">small (240p)</button>
-      <button type="button" class="q-btn" data-q="medium">medium (360p)</button>
-      <button type="button" class="q-btn" data-q="large">large (480p)</button>
-      <button type="button" class="q-btn" data-q="hd720">hd720</button>
-      <button type="button" class="q-btn" data-q="hd1080">hd1080</button>
-      <button type="button" class="q-btn" data-q="highres">highres (4K+)</button>
-    </div>
-
-    <div class="bar">
-      <button type="button" class="btn sec" id="btnPrev">◀ Önceki</button>
-      <button type="button" class="btn sec" id="btnNext">Sonraki ▶</button>
-      <button type="button" class="btn" id="btnPlay">Oynat</button>
-      <button type="button" class="btn sec" id="btnApply">Kaliteyi Uygula</button>
-      <button type="button" class="btn sec" id="btnLevels">Seviyeleri Göster</button>
-      <div class="info">
-        Tercih: <strong id="prefLabel">—</strong>
-        · Şu an: <strong id="curLabel">—</strong>
-        · Durum: <strong id="stateLabel">—</strong>
+      </div>
+      <div class="room-badge" id="roomBadge" title="Playlist bağlantı kodu — dokun, kopyala">
+        <div>
+          <div class="room-label">Playlist</div>
+          <div class="room-code" id="roomCodeEl">······</div>
+        </div>
       </div>
     </div>
 
-    <ul class="plist" id="plist"></ul>
+    <div class="room-toast" id="roomToast">Kod kopyalandı</div>
 
-    <div id="log"></div>
+    <div class="qr-overlay" id="qrOverlay">
+      <div class="qr-modal">
+        <h2>Playlist bağlantısı</h2>
+        <div class="qr-hint">QR kodu okut — diğer cihaz playlist’e bağlanır</div>
+        <img id="qrImage" alt="QR kod" width="120" height="120" />
+        <div class="qr-code-big" id="qrCodeBig">······</div>
+        <button type="button" id="regenCodeBtn" style="margin-top:10px;padding:8px 14px;background:#1c1c1c;border:1px solid #333;border-radius:10px;color:#aaa;font-size:12px;cursor:pointer;">Kodu yenile</button>
+        <div class="qr-url" id="qrUrlText"></div>
+        <div class="qr-actions">
+          <button type="button" class="qr-copy" id="qrCopyBtn">Linki kopyala</button>
+          <button type="button" class="qr-close" id="qrCloseBtn">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cats" id="cats">
+      <div class="cat" data-cat="favorites">♥ Favoriler</div>
+      <div class="cat active" data-cat="turkce-pop">Türkçe Pop</div>
+      <div class="cat" data-cat="turkce-rock">Türkçe Rock</div>
+      <div class="cat" data-cat="arabesk">Arabesk</div>
+      <div class="cat" data-cat="rap">Rap</div>
+      <div class="cat" data-cat="slow">Slow</div>
+      <div class="cat" data-cat="yabanci-pop">Yabancı Pop</div>
+      <div class="cat" data-cat="klasik">Klasik</div>
+      <div class="cat" data-cat="lofi">Lofi</div>
+      <div class="cat" data-cat="populer">Popüler</div>
+    </div>
+
+    <div class="results" id="results">
+      <div class="loading">Yükleniyor...</div>
+    </div>
   </div>
 
+  <div id="playerView">
+    <!-- Sesli komut görsel katmanı -->
+    <div class="voice-overlay" id="voiceOverlay" aria-hidden="true">
+      <div class="voice-orb">
+        <span class="voice-wave w1"></span>
+        <span class="voice-wave w2"></span>
+        <span class="voice-wave w3"></span>
+        <div class="voice-mic-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </div>
+      </div>
+      <div class="voice-transcript" id="voiceTranscript"></div>
+      <div class="voice-hint" id="voiceHint">Dinliyorum…</div>
+    </div>
+    <!-- Ses arama sonuç paneli (sağdan) -->
+    <div class="voice-search-backdrop" id="voiceSearchBackdrop"></div>
+    <aside class="voice-search-panel" id="voiceSearchPanel" aria-hidden="true">
+      <div class="vsp-head">
+        <div class="vsp-title" id="voiceSearchTitle">Arama</div>
+        <button type="button" class="vsp-close" id="voiceSearchClose" aria-label="Kapat">×</button>
+      </div>
+      <div class="vsp-body" id="voiceSearchBody">
+        <div class="vsp-loading">Aranıyor…</div>
+      </div>
+    </aside>
+    <div class="player-top">
+      <button class="back-btn" id="backBtn" title="Geri" aria-label="Geri">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <div class="player-title" id="playerTitle"></div>
+
+      <div class="player-nav">
+        <button type="button" id="prevBtn" title="Önceki video" aria-label="Önceki video">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          <span class="nav-text">Önceki</span>
+        </button>
+        <button type="button" class="nav-settings" id="settingsBtn" title="Parlaklık" aria-label="Parlaklık ayarı">
+          <svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        </button>
+        <button type="button" id="voicePlayerBtn" class="voice-player-btn" title="Sesli komut" aria-label="Sesli komut">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </button>
+        <button type="button" id="nextBtn" title="Sonraki video" aria-label="Sonraki video">
+          <span class="nav-text">Sonraki</span>
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+      <div class="bright-panel-idx" id="brightPanelIdx">
+        <div class="sp-title">Ayarlar</div>
+
+        <div class="sp-section">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Kontrolleri gizle</div>
+              <div class="sp-row-sub">Hareketsizken üst bar kaybolsun</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="chromeHideToggle" checked />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-seconds show" id="chromeSecondsWrap">
+            <div class="sp-seconds-top">
+              <span>Gizlenme süresi</span>
+              <span class="sp-seconds-val" id="chromeSecondsVal">3 sn</span>
+            </div>
+            <input type="range" id="chromeSecondsRange" min="1" max="15" value="3" step="1" />
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <label class="sp-field-label" for="brightRangeIdx">
+            Gece parlaklığı
+            <span class="sp-dim-val" id="brightValLabel">0%</span>
+          </label>
+          <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
+        </div>
+
+        <div class="sp-section" id="qualitySection">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Video kalitesi</div>
+              <div class="sp-row-sub">IFrame API ile zorlanır (YouTube yok sayabilir)</div>
+            </div>
+          </div>
+          <div class="sp-quality-grid" id="qualityGrid">
+            <button type="button" class="sp-q-btn" data-q="default">Oto</button>
+            <button type="button" class="sp-q-btn" data-q="tiny">144p</button>
+            <button type="button" class="sp-q-btn" data-q="small">240p</button>
+            <button type="button" class="sp-q-btn" data-q="medium">360p</button>
+            <button type="button" class="sp-q-btn" data-q="large">480p</button>
+            <button type="button" class="sp-q-btn" data-q="hd720">720p</button>
+            <button type="button" class="sp-q-btn" data-q="hd1080">1080p</button>
+            <button type="button" class="sp-q-btn" data-q="highres">4K+</button>
+          </div>
+          <div class="sp-q-status" id="qualityStatus">
+            Tercih: <strong id="qPrefLabel">Oto</strong>
+            · Şu an: <strong id="qCurLabel">—</strong>
+            <div class="sp-q-warn" id="qAvailLabel" style="margin-top:4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="player-area">
+      <div class="player-dim-overlay" id="playerDimOverlay"></div>
+      <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
+      <div class="player-loading" id="playerLoading">
+        Sonraki şarkı yükleniyor...
+      </div>
+
+      <div id="playerPoster" style="position:absolute;inset:0;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;">
+        <div style="font-size:64px;opacity:0.35;">🎵</div>
+      </div>
+
+      <!-- Parent sayfada ses odağı: direksiyon / Bluetooth AVRCP track tuşları için gerekli -->
+      <audio id="audioPlayer" playsinline webkit-playsinline preload="auto" loop style="display:none;"></audio>
+
+      <iframe
+        id="ytplayer"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen"
+        playsinline
+        webkit-playsinline
+        referrerpolicy="strict-origin-when-cross-origin"
+        style="position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
+      ></iframe>
+
+
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
-    const PLAYLIST = [
-      { id: "EQyuKThNXwk", title: "KÖK$VL & Sir Speedy - ZIPLA" },
-      { id: "A7ShtPRP2Mc", title: "Test 2" },
-      { id: "q2IMrkhSjSA", title: "Test 3" },
-      { id: "69L-nKRY3ac", title: "Test 4" },
-      { id: "HaJSYCFsgOY", title: "Test 5" }
-    ];
+    document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
 
-    // Resmi desteklenen değerler
-    const VALID_QUALITIES = [
-      "default", "tiny", "small", "medium", "large", "hd720", "hd1080", "highres"
-    ];
+    const SEARCH_INSTANCES = ["https://invidious.f5.si", "https://yt.chocolatemoo53.com", "https://invidious.nerdvpn.de", "https://invidious.tiekoetter.com"];
+    const FAV_KEY = "minimal_yt_favorites";
+    const ROOM_PREFIX = "mm-";
+    const STORAGE_KEY = "minimal_muzik_sync";
+    const BC_NAME = "minimal_muzik_bc";
+    // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
+    const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
+    const MQTT_PREFIX = "superyt/v1/";
 
-    const PREF_KEY = "yt_q_real_test";
-    let pref = "default";
-    let index = 0;
-    let player = null;
-    let ytReady = false;
-    let loadToken = 0;
-    let lastAvailable = [];
+    // Her kategori için birden fazla sorgu varyasyonu — her seferinde farklı set
+    const CATEGORY_VARIANTS = {
+      "turkce-pop": [
+        "türkçe pop müzik",
+        "türkçe pop 2024",
+        "türkçe pop 2025",
+        "en popüler türkçe pop",
+        "türkçe hit şarkılar",
+        "türkçe popüler müzik",
+        "netd müzik pop",
+        "türkçe pop listesi",
+        "yeni türkçe pop",
+        "90lar türkçe pop"
+      ],
+      "turkce-rock": [
+        "türkçe rock",
+        "türk rock müzik",
+        "anadolu rock",
+        "türkçe rock en iyiler",
+        "türkçe alternatif rock",
+        "duman mor ve ötesi",
+        "türk rock grupları",
+        "türkçe hard rock"
+      ],
+      "arabesk": [
+        "arabesk müzik",
+        "arabesk şarkılar",
+        "en iyi arabesk",
+        "müslüm gürses",
+        "orhan gencebay",
+        "ferdi tayfur",
+        "ibrahim tatlıses",
+        "arabesk klasik"
+      ],
+      "rap": [
+        "rap türkçe",
+        "türkçe rap",
+        "türkçe hip hop",
+        "en iyi türkçe rap",
+        "türkçe trap",
+        "ceza sagopa",
+        "yeni türkçe rap",
+        "türkçe rap 2024"
+      ],
+      "slow": [
+        "slow müzik",
+        "slow şarkılar türkçe",
+        "romantik şarkılar",
+        "acı şarkılar",
+        "slow türkçe",
+        "duygusal şarkılar",
+        "aşk şarkıları türkçe"
+      ],
+      "yabanci-pop": [
+        "pop hits 2024",
+        "english pop songs",
+        "top pop hits",
+        "billboard hot 100",
+        "pop music 2025",
+        "international pop",
+        "viral pop songs"
+      ],
+      "klasik": [
+        "klasik müzik",
+        "classical music",
+        "beethoven mozart",
+        "orkestra klasik",
+        "piano klasik",
+        "klasik müzik en iyiler"
+      ],
+      "lofi": [
+        "lofi hip hop",
+        "lofi beats",
+        "chill lofi",
+        "lofi study music",
+        "lofi jazz hop",
+        "relaxing lofi"
+      ],
+      "populer": [
+        "en çok dinlenen şarkılar",
+        "türkiye trend müzik",
+        "youtube müzik trend",
+        "popüler türkçe şarkılar",
+        "viral türkçe şarkılar",
+        "en popüler müzik"
+      ]
+    };
 
-    try {
-      const s = localStorage.getItem(PREF_KEY);
-      if (s && VALID_QUALITIES.includes(s)) pref = s;
-    } catch (e) {}
+    // Eski tek liste (load more rotasyonu için)
+    const ALL_QUERIES = Object.values(CATEGORY_VARIANTS).flat();
 
-    const loadingEl = document.getElementById("loading");
-    const logEl = document.getElementById("log");
-    const qualityButtons = document.querySelectorAll(".q-btn");
+    let currentMode = "search";
+    let currentCatKey = "turkce-pop";
+    let currentQuery = "türkçe pop müzik";
+    let currentPage = 1;
+    let isLoadingMore = false;
+    let hasMore = true;
+    let seenIds = new Set();
+    let categoryRotateIndex = 0;
+    let useCategoryRotate = true;
+    let observer = null;
+    let loadGen = 0;
+    let batchSize = 24;
+    let awaitingSwipe = false;
+    let lastScrollTop = 0;
 
-    function ts() {
-      const d = new Date();
-      return d.toLocaleTimeString("tr-TR") + "." + String(d.getMilliseconds()).padStart(3, "0");
+    // Kalıcı çalma kuyruğu + şu an çalan
+    let playQueue = [];
+    let playIndex = -1;
+    let currentPlayingId = "";
+    let currentPlayingTitle = "";
+    let currentPlayingAuthor = "";
+    let queueLocked = false;
+
+    // —— Playlist bağlantı sistemi (canlı senkron) ——
+    let roomCode = "";
+    let syncBc = null;
+    let peerHost = null;
+    let peerConns = [];
+    let _syncHeartbeatTimer = null;
+    let _peerHostRetryTimer = null;
+    let _peerWatchdogTimer = null;
+    let _lastCmdTs = 0;
+    let _seenCmdKeys = {};
+    let _hostRestartBusy = false;
+    let mqttClient = null;
+    let mqttReady = false;
+
+    var ROOM_CODE_KEY = "minimal_muzik_room_code";
+
+    function mqttTopic(suffix) {
+      return MQTT_PREFIX + String(roomCode || "").toLowerCase() + "/" + suffix;
     }
-    function log(kind, msg, obj) {
-      const line = document.createElement("div");
-      line.className = "log-line log-" + (kind || "info");
-      let text = typeof msg === "string" ? msg : JSON.stringify(msg);
-      if (obj !== undefined) {
-        try { text += " " + JSON.stringify(obj); } catch (e) {}
-      }
-      line.innerHTML = `<span class="t">${ts()}</span>${text.replace(/</g, "&lt;")}`;
-      logEl.appendChild(line);
-      logEl.scrollTop = logEl.scrollHeight;
-      console.log("[Q-TEST]", text, obj || "");
+
+    function mqttPublish(suffix, obj, retain) {
+      if (!mqttClient || !mqttReady || !roomCode) return;
+      try {
+        mqttClient.publish(mqttTopic(suffix), JSON.stringify(obj), {
+          qos: 0,
+          retain: !!retain
+        });
+      } catch (e) {}
     }
 
-    function syncActiveButtons() {
-      qualityButtons.forEach(btn => {
-        const q = btn.getAttribute("data-q");
-        btn.classList.toggle("active", q === pref);
-
-        // Mevcut videoda desteklenmeyenleri soluk göster
-        if (lastAvailable.length && q !== "default") {
-          btn.disabled = !lastAvailable.includes(q);
-        } else {
-          btn.disabled = false;
-        }
-      });
-      document.getElementById("prefLabel").textContent = pref;
-    }
-
-    function renderPlaylist() {
-      const ul = document.getElementById("plist");
-      ul.innerHTML = "";
-      PLAYLIST.forEach((item, i) => {
-        const li = document.createElement("li");
-        if (i === index) li.className = "active";
-        li.innerHTML = `
-          <span class="idx">${i + 1}</span>
-          <span class="title">${item.title || item.id}</span>
-          <span class="id">${item.id}</span>`;
-        li.onclick = () => playIndex(i);
-        ul.appendChild(li);
-      });
-    }
-
-    function setLoading(on, text) {
-      if (on) {
-        loadingEl.textContent = text || "Yükleniyor…";
-        loadingEl.classList.add("show");
-      } else {
-        loadingEl.classList.remove("show");
-      }
-    }
-
-    // ——— Asıl kalite fonksiyonu (senin önerdiğin sade hali + ekstra kontrol) ———
-    function applyQuality(source) {
-      if (!player || typeof player.setPlaybackQuality !== "function") {
-        log("warn", "Player henüz hazır değil");
+    function startMqttHost() {
+      if (typeof mqtt === "undefined" || !roomCode) {
+        console.warn("[MM] MQTT kütüphanesi yok");
         return;
       }
-
-      log("info", `Kalite ayarlanıyor: ${pref} (Kaynak: ${source})`);
-
-      // 1) Klasik yöntem
       try {
-        player.setPlaybackQuality(pref);
-      } catch (e) {
-        log("err", "setPlaybackQuality hata: " + (e && e.message));
-      }
-
-      // 2) Range ile sabitlemeye çalışma
-      try {
-        if (typeof player.setPlaybackQualityRange === "function") {
-          if (pref === "default") {
-            player.setPlaybackQualityRange("tiny", "highres");
-          } else {
-            player.setPlaybackQualityRange(pref, pref);
-          }
+        if (mqttClient) {
+          try { mqttClient.end(true); } catch (e) {}
+          mqttClient = null;
+          mqttReady = false;
         }
-      } catch (e) {
-        log("warn", "setPlaybackQualityRange hata: " + (e && e.message));
-      }
-
-      // Sonucu birkaç kez oku
-      setTimeout(() => reportQuality("0.8s sonra"), 800);
-      setTimeout(() => reportQuality("2s sonra"), 2000);
-    }
-
-    function reportQuality(label) {
-      if (!player) return;
-      try {
-        const current = player.getPlaybackQuality ? player.getPlaybackQuality() : "?";
-        const levels = player.getAvailableQualityLevels ? player.getAvailableQualityLevels() : [];
-        lastAvailable = levels || [];
-        document.getElementById("curLabel").textContent = current || "—";
-        syncActiveButtons(); // desteklenmeyen butonları soluklaştır
-
-        log("ok", "Rapor (" + (label || "") + ")", {
-          current,
-          available: levels,
-          tercih: pref,
-          eşleşti: current === pref
+        var cid = "mmh-" + roomCode.toLowerCase() + "-" + Math.random().toString(16).slice(2, 8);
+        mqttClient = mqtt.connect(MQTT_URL, {
+          clientId: cid,
+          clean: true,
+          reconnectPeriod: 2000,
+          connectTimeout: 12000,
+          keepalive: 20
+        });
+        mqttClient.on("connect", function() {
+          mqttReady = true;
+          console.log("[MM] MQTT bağlı");
+          try {
+            mqttClient.subscribe(mqttTopic("cmd"), { qos: 0 });
+            mqttClient.subscribe(mqttTopic("ping"), { qos: 0 });
+          } catch (e) {}
+          // Retain'li son state — telefon uyanınca hemen alır
+          try { broadcastState(); } catch (e) {}
+        });
+        mqttClient.on("reconnect", function() {
+          console.log("[MM] MQTT yeniden bağlanıyor…");
+        });
+        mqttClient.on("close", function() {
+          mqttReady = false;
+        });
+        mqttClient.on("error", function(err) {
+          console.warn("[MM] MQTT hata", err && err.message ? err.message : err);
+          mqttReady = false;
+        });
+        mqttClient.on("message", function(topic, buf) {
+          if (!roomCode) return;
+          var text = "";
+          try { text = buf.toString(); } catch (e) { return; }
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) { return; }
+          if (!data) return;
+          if (topic.indexOf("/cmd") >= 0) {
+            var cmd = data.cmd || data;
+            if (cmd && cmd.type) handleRemoteCommand(cmd);
+            return;
+          }
+          if (topic.indexOf("/ping") >= 0) {
+            broadcastState();
+            replyToPlaylist("pong", { state: buildSyncState() });
+          }
         });
       } catch (e) {
-        log("warn", "Kalite okunamadı: " + (e && e.message));
+        console.warn("[MM] MQTT başlatılamadı", e);
       }
     }
 
-    function showLevels() {
-      if (!player) {
-        log("warn", "Player yok");
-        return;
+    function generateRoomCode() {
+      var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      var code = "";
+      for (var i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
       }
+      return code;
+    }
+
+    // Bu cihaza özel kalıcı kod — her açılışta aynı kalır
+    function getOrCreateRoomCode() {
       try {
-        const levels = player.getAvailableQualityLevels ? player.getAvailableQualityLevels() : [];
-        const current = player.getPlaybackQuality ? player.getPlaybackQuality() : "?";
-        lastAvailable = levels || [];
-        syncActiveButtons();
-        log("info", "Mevcut kalite seviyeleri", { current, available: levels });
-      } catch (e) {
-        log("err", "getAvailableQualityLevels hata");
-      }
+        var saved = (localStorage.getItem(ROOM_CODE_KEY) || "").trim().toUpperCase();
+        if (/^[A-Z0-9]{4,8}$/.test(saved)) {
+          return saved;
+        }
+      } catch (e) {}
+      var code = generateRoomCode();
+      try {
+        localStorage.setItem(ROOM_CODE_KEY, code);
+      } catch (e) {}
+      return code;
     }
 
-    // ——— Player ———
-    function createPlayer(videoId, token) {
-      setLoading(true, "Player oluşturuluyor…");
+    function regenerateRoomCode() {
+      var code = generateRoomCode();
+      try {
+        localStorage.setItem(ROOM_CODE_KEY, code);
+      } catch (e) {}
+      return code;
+    }
 
-      if (player) {
-        try { player.destroy(); } catch (e) {}
-        player = null;
-      }
-      document.getElementById("playerHost").innerHTML = "";
+    var _remotePlaying = false;
+    var _remotePos = 0;
+    var _remoteDur = 0;
 
-      player = new YT.Player("playerHost", {
-        videoId: videoId,
-        width: "100%",
-        height: "100%",
-        playerVars: {
-          autoplay: 1,
-          controls: 1,
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          fs: 1,
-          enablejsapi: 1
-        },
-        events: {
-          onReady: function (e) {
-            if (token !== loadToken) return;
-            log("ok", "Player ready · " + videoId);
-            setLoading(false);
-            try { e.target.playVideo(); } catch (err) {}
-            // Biraz bekleyip levels + kalite uygula
-            setTimeout(() => {
-              showLevels();
-              applyQuality("onReady");
-            }, 400);
-          },
-          onStateChange: function (e) {
-            if (token !== loadToken) return;
-            const map = {
-              "-1": "UNSTARTED", "0": "ENDED", "1": "PLAYING",
-              "2": "PAUSED", "3": "BUFFERING", "5": "CUED"
-            };
-            const name = map[String(e.data)] || e.data;
-            document.getElementById("stateLabel").textContent = name;
-            log("info", "State → " + name);
-
-            if (e.data === YT.PlayerState.PLAYING) {
-              setLoading(false);
-              // Oynama başladığında tekrar dene + levels güncelle
-              setTimeout(() => {
-                showLevels();
-                applyQuality("PLAYING");
-              }, 300);
-            }
-            if (e.data === YT.PlayerState.BUFFERING) {
-              setTimeout(() => reportQuality("BUFFERING"), 500);
-            }
-            if (e.data === YT.PlayerState.ENDED) {
-              playIndex((index + 1) % PLAYLIST.length);
-            }
-          },
-          onError: function (e) {
-            log("err", "Player error code: " + e.data);
-            setLoading(false);
-          },
-          onPlaybackQualityChange: function (e) {
-            log("ok", "onPlaybackQualityChange → " + e.data);
-            document.getElementById("curLabel").textContent = e.data || "—";
+    function samplePlayerProgress() {
+      try {
+        if (ytPlayerInstance && typeof YT !== "undefined") {
+          if (typeof ytPlayerInstance.getPlayerState === "function") {
+            var st = ytPlayerInstance.getPlayerState();
+            _remotePlaying = st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING;
+          }
+          if (typeof ytPlayerInstance.getCurrentTime === "function") {
+            _remotePos = ytPlayerInstance.getCurrentTime() || 0;
+          }
+          if (typeof ytPlayerInstance.getDuration === "function") {
+            var d = ytPlayerInstance.getDuration() || 0;
+            if (d > 0) _remoteDur = d;
           }
         }
-      });
+      } catch (e) {}
+      if (_remoteDur <= 0 && window._ytDuration) _remoteDur = window._ytDuration;
+      if (_remotePos <= 0 && window._ytLastKnownTime) _remotePos = window._ytLastKnownTime;
     }
 
-    function loadVideo(videoId, token) {
-      if (!player || typeof player.loadVideoById !== "function") {
-        createPlayer(videoId, token);
-        return;
-      }
-      setLoading(true, "Video yükleniyor…");
-      lastAvailable = [];
+    function buildSyncState() {
+      samplePlayerProgress();
+      return {
+        room: roomCode,
+        now: currentPlayingId
+          ? {
+              id: currentPlayingId,
+              title: currentPlayingTitle || "",
+              author: currentPlayingAuthor || ""
+            }
+          : null,
+        queue: playQueue.map(function(x) {
+          return { id: x.id, title: x.title || "", author: x.author || "" };
+        }),
+        index: playIndex,
+        playing: !!_remotePlaying,
+        position: Math.max(0, Number(_remotePos) || 0),
+        duration: Math.max(0, Number(_remoteDur) || 0),
+        updated: Date.now()
+      };
+    }
+
+    function broadcastState() {
+      if (!roomCode) return;
+      var state = buildSyncState();
       try {
-        player.loadVideoById({ videoId: videoId, startSeconds: 0 });
-        log("info", "loadVideoById → " + videoId);
-        setTimeout(() => {
-          if (token !== loadToken) return;
-          setLoading(false);
-          showLevels();
-          applyQuality("loadVideoById");
-        }, 600);
-      } catch (e) {
-        log("warn", "loadVideoById başarısız, recreate");
-        createPlayer(videoId, token);
-      }
+        localStorage.setItem(STORAGE_KEY + "_" + roomCode, JSON.stringify(state));
+        // keepalive işareti — playlist poll ile görür
+        localStorage.setItem(STORAGE_KEY + "_alive_" + roomCode, String(state.updated));
+      } catch (e) {}
+      try {
+        if (syncBc) {
+          syncBc.postMessage({ kind: "state", room: roomCode, state: state });
+        }
+      } catch (e) {}
+      peerConns.forEach(function(c) {
+        try {
+          if (c.open) c.send({ kind: "state", state: state });
+        } catch (e) {}
+      });
+      // MQTT retain: telefon uyanınca broker son state'i hemen verir
+      mqttPublish("state", { kind: "state", room: roomCode, state: state, ts: state.updated }, true);
     }
 
-    function playIndex(i) {
-      if (i < 0 || i >= PLAYLIST.length) return;
-      index = i;
-      renderPlaylist();
-      loadToken++;
-      const token = loadToken;
-      const item = PLAYLIST[index];
+    function replyToPlaylist(kind, extra) {
+      if (!roomCode) return;
+      var msg = Object.assign({ kind: kind, room: roomCode, ts: Date.now() }, extra || {});
+      try {
+        if (syncBc) syncBc.postMessage(msg);
+      } catch (e) {}
+      try {
+        localStorage.setItem(STORAGE_KEY + "_reply_" + roomCode, JSON.stringify(msg));
+        localStorage.removeItem(STORAGE_KEY + "_reply_" + roomCode);
+      } catch (e) {}
+      peerConns.forEach(function(c) {
+        try {
+          if (c.open) c.send(msg);
+        } catch (e) {}
+      });
+      mqttPublish("pong", msg, false);
+    }
 
-      log("info", `—— ${index + 1}/${PLAYLIST.length} · ${item.id} · tercih=${pref} ——`);
-      document.getElementById("stateLabel").textContent = "…";
-      document.getElementById("curLabel").textContent = "—";
+    function startSyncHeartbeat() {
+      if (_syncHeartbeatTimer) clearInterval(_syncHeartbeatTimer);
+      // Daha sık: remote progress bar akıcı olsun
+      _syncHeartbeatTimer = setInterval(function() {
+        if (!roomCode) return;
+        broadcastState();
+      }, 1000);
+    }
 
-      if (!ytReady) {
-        setLoading(true, "YT API bekleniyor…");
-        const t = setInterval(() => {
-          if (ytReady) {
-            clearInterval(t);
-            loadVideo(item.id, token);
-          }
-        }, 200);
+    function cmdDedupeKey(cmd) {
+      if (!cmd) return "";
+      return String(cmd.type || "") + "|" + String(cmd.id || "") + "|" + String(cmd.ts || "");
+    }
+
+    function handleRemoteCommand(cmd) {
+      if (!cmd || !cmd.type) return;
+
+      // Aynı komutu (BC + storage + Peer) üç kez gelmesin diye dedupe
+      var dk = cmdDedupeKey(cmd);
+      if (dk && cmd.ts) {
+        if (_seenCmdKeys[dk]) return;
+        _seenCmdKeys[dk] = Date.now();
+        // eski anahtarları temizle
+        var now = Date.now();
+        Object.keys(_seenCmdKeys).forEach(function(k) {
+          if (now - _seenCmdKeys[k] > 15000) delete _seenCmdKeys[k];
+        });
+      }
+      if (cmd.ts && cmd.ts < _lastCmdTs - 5000) return; // çok eski
+      if (cmd.ts && cmd.ts > _lastCmdTs) _lastCmdTs = cmd.ts;
+
+      if (cmd.type === "ping" || cmd.type === "sync") {
+        broadcastState();
+        replyToPlaylist("pong", { state: buildSyncState() });
         return;
       }
-      loadVideo(item.id, token);
+
+      if (cmd.type === "fullscreen") {
+          return;
+      }
+      if (cmd.type === "next") {
+        playNext();
+        return;
+      }
+      if (cmd.type === "prev") {
+        playPrev();
+        return;
+      }
+      if (cmd.type === "pause") {
+        msPause();
+        _remotePlaying = false;
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "resume" || cmd.type === "playPause") {
+        // playPause = toggle
+        if (cmd.type === "playPause") {
+          samplePlayerProgress();
+          if (_remotePlaying) {
+            msPause();
+            _remotePlaying = false;
+          } else {
+            msPlay();
+            _remotePlaying = true;
+          }
+        } else {
+          msPlay();
+          _remotePlaying = true;
+        }
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "seek" && typeof cmd.position === "number") {
+        try {
+          var sec = Math.max(0, cmd.position);
+          if (ytPlayerInstance && typeof ytPlayerInstance.seekTo === "function") {
+            ytPlayerInstance.seekTo(sec, true);
+            _remotePos = sec;
+          }
+        } catch (e) {}
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "setMode") {
+        queueLocked = cmd.mode === "manual";
+        if (!queueLocked) {
+          // Shuffle'a dönünce DOM listesine geri dön
+          syncQueueFromDOM();
+        }
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "reorderQueue" && Array.isArray(cmd.queue)) {
+        // Sıra değişir, manual kilidi zorlama (shuffle kalabilir)
+        var curId = currentPlayingId;
+        playQueue = cmd.queue.map(function(x) {
+          return { id: x.id, title: x.title || "", author: x.author || "" };
+        }).filter(function(x) { return x.id; });
+        playIndex = 0;
+        if (curId) {
+          for (var ri = 0; ri < playQueue.length; ri++) {
+            if (playQueue[ri].id === curId) { playIndex = ri; break; }
+          }
+        }
+        broadcastState();
+        return;
+      }
+      if (cmd.type === "reshuffle") {
+        queueLocked = false;
+        try {
+          // Playlist anında boşalsın / yenilensin
+          playQueue = [];
+          playIndex = 0;
+          broadcastState();
+
+          if (currentMode === "favorites") {
+            showFavorites();
+            broadcastState();
+            return;
+          }
+          if (currentCatKey) {
+            currentQuery = pickRandomQuery(currentCatKey);
+            useCategoryRotate = true;
+            doSearch(currentQuery, true, true);
+          } else if (currentQuery) {
+            try { seenIds.clear(); } catch (eS) {}
+            currentPage = 1 + Math.floor(Math.random() * 5);
+            doSearch(currentQuery, true, true);
+          } else {
+            currentCatKey = "turkce-pop";
+            currentMode = "search";
+            useCategoryRotate = true;
+            currentQuery = pickRandomQuery("turkce-pop");
+            doSearch(currentQuery, true, true);
+          }
+        } catch (eR) {
+          console.warn("[MM] reshuffle", eR);
+          broadcastState();
+        }
+        return;
+      }
+      if (cmd.type === "setQueue" && Array.isArray(cmd.queue)) {
+        queueLocked = true;
+        playQueue = cmd.queue.map(function(x) {
+          return {
+            id: x.id,
+            title: x.title || "",
+            author: x.author || "",
+            duration: parseInt(x.duration, 10) || parseInt(x.lengthSeconds, 10) || 0
+          };
+        });
+        playIndex = -1;
+        if (currentPlayingId) {
+          for (var i = 0; i < playQueue.length; i++) {
+            if (playQueue[i].id === currentPlayingId) {
+              playIndex = i;
+              break;
+            }
+          }
+        }
+        // Hiçbir şey çalmıyorsa ve liste doluysa ilk şarkıyı otomatik başlat
+        if (!currentPlayingId && playQueue.length > 0) {
+          playAtIndex(0);
+        } else {
+          broadcastState();
+        }
+        return;
+      }
+      if (cmd.type === "play" && cmd.id) {
+        var found = null;
+        for (var i = 0; i < playQueue.length; i++) {
+          if (playQueue[i].id === cmd.id) {
+            found = playQueue[i];
+            playIndex = i;
+            break;
+          }
+        }
+        if (found) {
+          // Seçilen şarkı hemen autoplay ile çalsın
+          playVideo(found.id, found.title, found.author, true);
+        } else {
+          playQueue.push({
+            id: cmd.id,
+            title: cmd.title || "",
+            author: cmd.author || ""
+          });
+          playIndex = playQueue.length - 1;
+          playVideo(cmd.id, cmd.title || "", cmd.author || "", true);
+        }
+      }
     }
 
-    // ——— Butonlar ———
-    qualityButtons.forEach(button => {
-      button.addEventListener("click", () => {
-        if (button.disabled) {
-          log("warn", "Bu kalite mevcut videoda yok");
+    function attachPeerConnection(c) {
+      if (peerConns.indexOf(c) === -1) peerConns.push(c);
+      function pushState() {
+        try {
+          var st = buildSyncState();
+          c.send({ kind: "state", state: st });
+          c.send({ kind: "pong", room: roomCode, ts: Date.now(), state: st });
+        } catch (e) {}
+      }
+      c.on("open", function() {
+        console.log("[MM] Peer conn open");
+        pushState();
+      });
+      // Bazı ortamlarda open kaçabiliyor — hemen de dene
+      if (c.open) pushState();
+      c.on("data", function(data) {
+        if (!data) return;
+        if (data.kind === "cmd" && data.cmd) {
+          handleRemoteCommand(data.cmd);
           return;
         }
-        const quality = button.getAttribute("data-q");
-        pref = quality;
-        try { localStorage.setItem(PREF_KEY, pref); } catch (e) {}
-        syncActiveButtons();
-        log("info", "Buton tıklandı → " + quality);
-        applyQuality("buton tıklama");
+        if (data.kind === "hello" || data.kind === "ping" || data.kind === "sync") {
+          pushState();
+        }
       });
-    });
-
-    document.getElementById("btnPrev").onclick = () =>
-      playIndex((index - 1 + PLAYLIST.length) % PLAYLIST.length);
-    document.getElementById("btnNext").onclick = () =>
-      playIndex((index + 1) % PLAYLIST.length);
-    document.getElementById("btnPlay").onclick = () => playIndex(index);
-    document.getElementById("btnApply").onclick = () => applyQuality("manuel uygula");
-    document.getElementById("btnLevels").onclick = () => showLevels();
-
-    // YT API
-    window.onYouTubeIframeAPIReady = function () {
-      ytReady = true;
-      log("ok", "YouTube IFrame API hazır");
-    };
-    if (typeof YT !== "undefined" && YT.Player) {
-      ytReady = true;
-      log("ok", "YT API zaten yüklü");
+      c.on("close", function() {
+        peerConns = peerConns.filter(function(x) { return x !== c; });
+      });
+      c.on("error", function() {
+        peerConns = peerConns.filter(function(x) { return x !== c; });
+      });
     }
 
-    // Başlangıç
-    syncActiveButtons();
-    renderPlaylist();
-    log("info", "Hazır · tercih=" + pref);
-    log("info", "Player boyutu kasıtlı büyük tutuldu (yüksek kalite şansı için)");
+    function isPeerHostAlive() {
+      try {
+        return !!(peerHost && !peerHost.destroyed && peerHost.id && peerHost.open !== false);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function scheduleHostRestart(delayMs) {
+      delayMs = delayMs == null ? 2500 : delayMs;
+      if (_peerHostRetryTimer) clearTimeout(_peerHostRetryTimer);
+      _peerHostRetryTimer = setTimeout(function() {
+        _peerHostRetryTimer = null;
+        startPeerHost();
+      }, delayMs);
+    }
+
+    function startPeerHost() {
+      if (typeof Peer === "undefined" || !roomCode) {
+        console.warn("[MM] PeerJS yok veya roomCode boş — uzaktan bağlanılamaz");
+        return;
+      }
+      if (_hostRestartBusy) return;
+      _hostRestartBusy = true;
+      try {
+        if (peerHost) {
+          try { peerHost.destroy(); } catch (e) {}
+          peerHost = null;
+        }
+        peerConns = [];
+        var hostId = ROOM_PREFIX + roomCode.toLowerCase();
+        peerHost = new Peer(hostId);
+        peerHost.on("open", function(id) {
+          _hostRestartBusy = false;
+          if (_peerHostRetryTimer) {
+            clearTimeout(_peerHostRetryTimer);
+            _peerHostRetryTimer = null;
+          }
+          try { broadcastState(); } catch (e) {}
+        });
+        peerHost.on("connection", function(c) {
+          attachPeerConnection(c);
+        });
+        peerHost.on("error", function(err) {
+          _hostRestartBusy = false;
+          var msg = (err && (err.type || err.message)) || String(err);
+          console.warn("[MM] Peer host hata:", msg);
+          // id-taken: kısa bekle; network: biraz daha uzun
+          var d = (String(msg).indexOf("taken") >= 0 || String(msg).indexOf("unavailable-id") >= 0) ? 3500 : 2500;
+          scheduleHostRestart(d);
+        });
+        peerHost.on("disconnected", function() {
+          // Önce soft reconnect; olmazsa full restart
+          try {
+            if (peerHost && !peerHost.destroyed) {
+              peerHost.reconnect();
+              // 4 sn içinde open olmazsa full restart
+              setTimeout(function() {
+                if (!isPeerHostAlive()) scheduleHostRestart(500);
+              }, 4000);
+              return;
+            }
+          } catch (e) {}
+          _hostRestartBusy = false;
+          scheduleHostRestart(2000);
+        });
+        peerHost.on("close", function() {
+          _hostRestartBusy = false;
+          scheduleHostRestart(2000);
+        });
+      } catch (e) {
+        console.warn("[MM] Peer host exception", e);
+        _hostRestartBusy = false;
+        scheduleHostRestart(3000);
+      }
+    }
+
+    /** Arka plan: host düştüyse sessizce ayağa kaldır */
+    function ensurePeerHost() {
+      if (!roomCode || typeof Peer === "undefined") return;
+      if (isPeerHostAlive()) return;
+      if (_peerHostRetryTimer || _hostRestartBusy) return;
+      startPeerHost();
+    }
+
+    function startPeerWatchdog() {
+      if (_peerWatchdogTimer) clearInterval(_peerWatchdogTimer);
+      _peerWatchdogTimer = setInterval(function() {
+        if (!roomCode) return;
+        ensurePeerHost();
+        // Canlı host + state yayını (remote poll / peer için)
+        try {
+          if (isPeerHostAlive()) broadcastState();
+        } catch (e) {}
+        // Ölü peer bağlantılarını temizle
+        try {
+          peerConns = peerConns.filter(function(c) {
+            try { return c && c.open; } catch (e2) { return false; }
+          });
+        } catch (e3) {}
+      }, 4000);
+    }
+
+    function initRoomSync() {
+      roomCode = getOrCreateRoomCode();
+      var el = document.getElementById("roomCodeEl");
+      if (el) el.textContent = roomCode;
+
+      try {
+        syncBc = new BroadcastChannel(BC_NAME);
+        syncBc.onmessage = function(ev) {
+          var d = ev.data;
+          if (!d || d.room !== roomCode) return;
+          if (d.kind === "cmd" && d.cmd) handleRemoteCommand(d.cmd);
+          if (d.kind === "ping" || d.kind === "sync" || d.kind === "hello") {
+            broadcastState();
+            replyToPlaylist("pong", { state: buildSyncState() });
+          }
+        };
+      } catch (e) {}
+
+      window.addEventListener("storage", function(ev) {
+        if (!roomCode) return;
+        if (ev.key === STORAGE_KEY + "_cmd_" + roomCode && ev.newValue) {
+          try {
+            handleRemoteCommand(JSON.parse(ev.newValue));
+          } catch (e) {}
+        }
+        // playlist ping yazdıysa state bas
+        if (ev.key === STORAGE_KEY + "_ping_" + roomCode && ev.newValue) {
+          broadcastState();
+        }
+      });
+
+      // MQTT ana senkron (ekran kilidi dayanıklı) + PeerJS düşük gecikme
+      startMqttHost();
+      startPeerHost();
+      startSyncHeartbeat();
+      startPeerWatchdog();
+
+      // Sekme görünür / ağ geri gelince host'u zorla ayakta tut
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden || !roomCode) return;
+        ensurePeerHost();
+        broadcastState();
+      });
+      window.addEventListener("focus", function() {
+        if (!roomCode) return;
+        ensurePeerHost();
+        broadcastState();
+      });
+      window.addEventListener("online", function() {
+        if (!roomCode) return;
+        // Ağ koptu-geldi: soft değil full restart daha güvenilir
+        scheduleHostRestart(800);
+      });
+
+      var badge = document.getElementById("roomBadge");
+      var regenBtn = document.getElementById("regenCodeBtn");
+      if (regenBtn) {
+        regenBtn.addEventListener("click", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!confirm("Yeni bağlantı kodu oluşturulsun mu? Eski kod çalışan cihazlarda geçersiz olur.")) return;
+          roomCode = regenerateRoomCode();
+          var el = document.getElementById("roomCodeEl");
+          if (el) el.textContent = roomCode;
+          var big = document.getElementById("qrCodeBig");
+          if (big) big.textContent = roomCode;
+          // QR yenile
+          try {
+            var base = location.href.replace(/index\.html.*$/i, "").replace(/\/?$/, "/");
+            if (location.pathname.indexOf("index.html") === -1) {
+              base = location.origin + location.pathname.replace(/\/[^/]*$/, "/");
+            }
+            var plUrl = base + "playlist.html?c=" + roomCode;
+            var qrImage = document.getElementById("qrImage");
+            if (qrImage) {
+              qrImage.src = "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent(plUrl);
+            }
+          } catch (err) {}
+          if (toast) {
+            toast.textContent = "Yeni kod: " + roomCode;
+            toast.classList.add("show");
+            setTimeout(function() { toast.classList.remove("show"); }, 2000);
+          }
+          // Kritik: Peer + MQTT eski odada kalmasın — yeniden başlat
+          try { startMqttHost(); } catch (eMQ) {}
+          try { startPeerHost(); } catch (ePH) {}
+          try { broadcastState(); } catch (eBS) {}
+        });
+      }
+
+      var toast = document.getElementById("roomToast");
+      var qrOverlay = document.getElementById("qrOverlay");
+      var qrImage = document.getElementById("qrImage");
+      var qrCodeBig = document.getElementById("qrCodeBig");
+      var qrUrlText = document.getElementById("qrUrlText");
+      var qrCopyBtn = document.getElementById("qrCopyBtn");
+      var qrCloseBtn = document.getElementById("qrCloseBtn");
+
+      function getPlaylistUrl() {
+        // index ile aynı klasörde playlist.html
+        var base = location.href;
+        // .../index.html veya .../ veya .../repo/
+        if (/index\.html/i.test(base)) {
+          base = base.replace(/index\.html.*/i, "");
+        } else if (!base.endsWith("/")) {
+          // dosya adı yoksa dizin kabul et
+          var idx = base.lastIndexOf("/");
+          if (idx > 8) base = base.slice(0, idx + 1);
+        }
+        return base + "playlist.html?c=" + roomCode;
+      }
+
+      function openQrPopup() {
+        var url = getPlaylistUrl();
+        if (qrCodeBig) qrCodeBig.textContent = roomCode;
+        if (qrUrlText) qrUrlText.textContent = url;
+        if (qrImage) {
+          qrImage.src =
+            "https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=8&data=" +
+            encodeURIComponent(url);
+        }
+        if (qrOverlay) qrOverlay.classList.add("show");
+      }
+
+      function closeQrPopup() {
+        if (qrOverlay) qrOverlay.classList.remove("show");
+      }
+
+      if (badge) {
+        badge.addEventListener("click", function() {
+          openQrPopup();
+        });
+      }
+      if (qrCloseBtn) {
+        qrCloseBtn.addEventListener("click", closeQrPopup);
+      }
+      if (qrOverlay) {
+        qrOverlay.addEventListener("click", function(e) {
+          if (e.target === qrOverlay) closeQrPopup();
+        });
+      }
+      if (qrCopyBtn) {
+        qrCopyBtn.addEventListener("click", function() {
+          var url = getPlaylistUrl();
+          try {
+            navigator.clipboard.writeText(url);
+          } catch (e) {
+            try { navigator.clipboard.writeText(roomCode); } catch (e2) {}
+          }
+          if (toast) {
+            toast.textContent = "Playlist linki kopyalandı";
+            toast.classList.add("show");
+            setTimeout(function() { toast.classList.remove("show"); }, 2000);
+          }
+        });
+      }
+
+      broadcastState();
+    }
+
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+      }
+      return a;
+    }
+
+    function pickRandomQuery(catKey) {
+      var list = CATEGORY_VARIANTS[catKey] || ["türkçe pop müzik"];
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function getFavorites() {
+      try {
+        return JSON.parse(localStorage.getItem(FAV_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveFavorites(list) {
+      localStorage.setItem(FAV_KEY, JSON.stringify(list));
+    }
+
+    function isFavorite(id) {
+      return getFavorites().some(function(v) {
+        return v.videoId === id;
+      });
+    }
+
+    function toggleFavorite(video) {
+      var list = getFavorites();
+      var idx = list.findIndex(function(v) {
+        return v.videoId === video.videoId;
+      });
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      } else {
+        list.unshift({
+          videoId: video.videoId,
+          title: video.title || "",
+          author: video.author || "",
+          lengthSeconds: video.lengthSeconds || 0
+        });
+      }
+      saveFavorites(list);
+      return idx < 0;
+    }
+
+    var searchInput = document.getElementById("searchInput");
+    var resultsEl = document.getElementById("results");
+    var cats = document.getElementById("cats");
+    var micBtn = document.getElementById("micBtn"); // removed from UI
+
+    function runVoiceSearch(q) {
+      q = (q || "").trim();
+      if (!q) return;
+
+      document.querySelectorAll(".cat").forEach(function(c) {
+        c.classList.remove("active");
+      });
+
+      currentMode = "search";
+      currentCatKey = null;
+      currentQuery = q;
+      useCategoryRotate = false;
+      doSearch(q, true, false);
+    }
+
+    cats.addEventListener("click", function(e) {
+      var cat = e.target.closest(".cat");
+      if (!cat) return;
+
+      document.querySelectorAll(".cat").forEach(function(c) {
+        c.classList.remove("active");
+      });
+      cat.classList.add("active");
+      searchInput.value = "";
+
+      if (cat.dataset.cat === "favorites") {
+        currentMode = "favorites";
+        currentCatKey = null;
+        hasMore = false;
+        isLoadingMore = false;
+        awaitingSwipe = true;
+        loadGen++;
+        disconnectObserver();
+        showFavorites();
+      } else {
+        currentMode = "search";
+        currentCatKey = cat.dataset.cat;
+        currentQuery = pickRandomQuery(currentCatKey);
+        useCategoryRotate = true;
+        categoryRotateIndex = Math.floor(Math.random() * ALL_QUERIES.length);
+        doSearch(currentQuery, true, true);
+      }
+    });
+
+    searchInput.addEventListener("focus", function() {
+      if (searchInput.value) {
+        searchInput.value = "";
+      }
+    });
+
+    searchInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        var query = searchInput.value.trim();
+        if (!query) return;
+        runVoiceSearch(query);
+        searchInput.value = "";
+        try { searchInput.blur(); } catch (err) {}
+      }
+    });
+
+    if (micBtn) micBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      searchInput.value = "";
+      searchInput.focus();
+      setTimeout(function() {
+        try { searchInput.focus(); } catch (err) {}
+      }, 50);
+    });
+
+    function createCardHtml(v) {
+      var thumbUrl = "https://i.ytimg.com/vi/" + v.videoId + "/hqdefault.jpg";
+      var duration = formatDuration(v.lengthSeconds);
+      var views = v.viewCount ? formatViews(v.viewCount) : "";
+      var fav = isFavorite(v.videoId);
+      var heart = fav ? "♥" : "♡";
+      var heartClass = fav ? "heart-btn fav" : "heart-btn";
+      var meta = [];
+      if (v.author) meta.push(escapeHtml(v.author));
+      if (duration) meta.push(duration);
+      if (views) meta.push(views);
+
+      return (
+        '<div class="card" data-id="' + v.videoId +
+        '" data-title="' + escapeHtml(v.title) +
+        '" data-author="' + escapeHtml(v.author || "") +
+        '" data-len="' + (v.lengthSeconds || 0) + '">' +
+        '<img src="' + thumbUrl + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'https://i.ytimg.com/vi/' +
+        v.videoId + '/mqdefault.jpg\'" />' +
+        '<button class="' + heartClass + '" data-action="fav" title="' +
+        (fav ? "Favoriden çıkar" : "Favoriye ekle") + '">' + heart + '</button>' +
+        '<div class="card-info">' +
+        '<div class="card-title">' + escapeHtml(v.title) + '</div>' +
+        '<div class="card-meta">' + meta.join(" · ") + '</div>' +
+        '</div></div>'
+      );
+    }
+
+    function attachCardListeners() {
+      resultsEl.querySelectorAll(".card").forEach(function(card) {
+        if (card.dataset.bound) return;
+        card.dataset.bound = "1";
+
+        card.addEventListener("click", function(e) {
+          if (e.target.closest("[data-action=fav]")) {
+            e.stopPropagation();
+            var video = {
+              videoId: card.dataset.id,
+              title: card.dataset.title,
+              author: card.dataset.author,
+              lengthSeconds: parseInt(card.dataset.len, 10) || 0
+            };
+            var added = toggleFavorite(video);
+            var btn = card.querySelector("[data-action=fav]");
+            if (added) {
+              btn.textContent = "♥";
+              btn.classList.add("fav");
+              btn.title = "Favoriden çıkar";
+            } else {
+              btn.textContent = "♡";
+              btn.classList.remove("fav");
+              btn.title = "Favoriye ekle";
+              if (currentMode === "favorites") {
+                card.remove();
+                syncQueueFromDOM();
+                if (!resultsEl.querySelector(".card")) {
+                  resultsEl.innerHTML =
+                    '<div class="empty">Henüz favori yok.<br>Şarkılara ♥ basarak ekleyebilirsin.</div>';
+                }
+              }
+            }
+            return;
+          }
+          playVideo(card.dataset.id, card.dataset.title, card.dataset.author || "", false, parseInt(card.dataset.len, 10) || 0);
+        });
+      });
+    }
+
+    function ensureSentinel() {
+      var old = resultsEl.querySelector(".sentinel");
+      if (old) old.remove();
+      var tip = resultsEl.querySelector(".load-more");
+      if (tip) tip.remove();
+      if (!hasMore || currentMode === "favorites") return;
+
+      var sentinel = document.createElement("div");
+      sentinel.className = "sentinel";
+      sentinel.id = "scrollSentinel";
+      resultsEl.appendChild(sentinel);
+
+      if (observer) observer.disconnect();
+      observer = new IntersectionObserver(
+        function(entries) {
+          if (
+            entries[0].isIntersecting &&
+            hasMore &&
+            !isLoadingMore &&
+            !awaitingSwipe &&
+            currentMode !== "favorites"
+          ) {
+            loadMore();
+          }
+        },
+        {
+          root: document.getElementById("home"),
+          rootMargin: "80px",
+          threshold: 0
+        }
+      );
+      observer.observe(sentinel);
+    }
+
+    function disconnectObserver() {
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+    }
+
+    function syncQueueFromDOM() {
+      // Manuel playlist kilitliyken ana ekran listesi kuyruğu ezmesin
+      if (queueLocked) {
+        broadcastState();
+        return;
+      }
+      playQueue = [];
+      resultsEl.querySelectorAll(".card").forEach(function(card) {
+        playQueue.push({
+          id: card.dataset.id,
+          title: card.dataset.title || "",
+          author: card.dataset.author || "",
+          duration: parseInt(card.dataset.len, 10) || 0
+        });
+      });
+      // Mevcut şarkının index'ini koru
+      if (currentPlayingId) {
+        playIndex = -1;
+        for (var i = 0; i < playQueue.length; i++) {
+          if (playQueue[i].id === currentPlayingId) {
+            playIndex = i;
+            break;
+          }
+        }
+      }
+      broadcastState();
+    }
+
+    function renderCards(videos, isFavList, append) {
+      if (!append) {
+        disconnectObserver();
+        if (!videos.length) {
+          resultsEl.innerHTML = isFavList
+            ? '<div class="empty">Henüz favori yok.<br>Şarkılara ♥ basarak ekleyebilirsin.</div>'
+            : '<div class="empty">Sonuç bulunamadı</div>';
+          playQueue = [];
+          return;
+        }
+        // Her seferinde karıştır → aynı liste gibi görünmesin
+        videos = shuffle(videos);
+        resultsEl.innerHTML = videos.map(createCardHtml).join("");
+      } else {
+        if (!videos.length) {
+          ensureSentinel();
+          return;
+        }
+        resultsEl.querySelectorAll(".sentinel, .load-more, .loading").forEach(function(el) {
+          el.remove();
+        });
+        // Append edilenleri de hafif karıştır
+        videos = shuffle(videos);
+        resultsEl.insertAdjacentHTML("beforeend", videos.map(createCardHtml).join(""));
+      }
+
+      resultsEl.querySelectorAll(".loading").forEach(function(el) {
+        el.remove();
+      });
+      attachCardListeners();
+      syncQueueFromDOM();
+
+      if (currentMode !== "favorites") {
+        ensureSentinel();
+      }
+    }
+
+    function showFavorites() {
+      hasMore = false;
+      isLoadingMore = false;
+      disconnectObserver();
+      seenIds.clear();
+      var list = getFavorites();
+      list.forEach(function(v) { seenIds.add(v.videoId); });
+      if (!list.length) {
+        resultsEl.innerHTML =
+          '<div class="empty">Henüz favori yok.<br>Şarkılara ♥ basarak ekleyebilirsin.</div>';
+        playQueue = [];
+        return;
+      }
+      resultsEl.innerHTML = list.map(createCardHtml).join("");
+      attachCardListeners();
+      syncQueueFromDOM();
+    }
+
+    async function fetchSearch(query, page, preferViews) {
+      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
+        var inst = SEARCH_INSTANCES[i];
+        try {
+          var url =
+            inst +
+            "/api/v1/search?q=" +
+            encodeURIComponent(query) +
+            "&type=video&page=" +
+            page +
+            "&region=TR";
+
+          // Popüler / çok dinlenen için views sıralama
+          if (preferViews) {
+            url += "&sort=views";
+          }
+
+          var res = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+          });
+          if (!res.ok) continue;
+          var data = await res.json();
+          if (!Array.isArray(data)) continue;
+          return data.filter(function(item) {
+            return item.type === "video" && item.videoId;
+          });
+        } catch (e) {
+          console.warn("Search failed:", inst, e);
+        }
+      }
+      return null;
+    }
+
+    async function doSearch(query, reset, preferViews) {
+      if (preferViews === undefined) preferViews = true;
+
+      if (reset) {
+        loadGen++;
+        // Her açılışta rastgele sayfa ile başla (1–4) → farklı sonuçlar
+        currentPage = 1 + Math.floor(Math.random() * 4);
+        seenIds.clear();
+        hasMore = true;
+        isLoadingMore = false;
+        awaitingSwipe = false;
+        currentMode = "search";
+        disconnectObserver();
+        resultsEl.innerHTML = '<div class="loading">Aranıyor...</div>';
+        document.getElementById("home").scrollTop = 0;
+      }
+
+      var gen = loadGen;
+      isLoadingMore = true;
+
+      if (reset) {
+        var initialCollected = [];
+        var initialPages = 0;
+        var initialTarget = 20;
+        var maxInitialPages = 5;
+        var lastPageHadEnough = false;
+        var initialFailed = false;
+        var startPage = currentPage;
+
+        while (
+          initialCollected.length < initialTarget &&
+          initialPages < maxInitialPages
+        ) {
+          initialPages++;
+          var pageToFetch = startPage + initialPages - 1;
+          currentPage = pageToFetch;
+
+          // Kategori ise ara sıra farklı varyasyon dene
+          var q = query;
+          if (useCategoryRotate && currentCatKey && initialPages > 1 && Math.random() < 0.45) {
+            q = pickRandomQuery(currentCatKey);
+          }
+
+          var pageVideos = await fetchSearch(q, pageToFetch, preferViews);
+
+          if (gen !== loadGen || currentMode === "favorites") {
+            isLoadingMore = false;
+            return;
+          }
+
+          if (pageVideos === null) {
+            initialFailed = true;
+            break;
+          }
+
+          lastPageHadEnough = pageVideos.length >= 6;
+
+          for (var i = 0; i < pageVideos.length; i++) {
+            var v = pageVideos[i];
+            if (seenIds.has(v.videoId)) continue;
+            // Çok kısa videoları (shorts / intro) ele
+            if (v.lengthSeconds && v.lengthSeconds < 60) continue;
+            seenIds.add(v.videoId);
+            initialCollected.push(v);
+            if (initialCollected.length >= batchSize) break;
+          }
+
+          if (!pageVideos.length) break;
+        }
+
+        isLoadingMore = false;
+
+        if (initialFailed && !initialCollected.length) {
+          resultsEl.innerHTML =
+            '<div class="error">Bağlantı hatası. Sayfayı yenile veya biraz sonra dene.</div>';
+          hasMore = false;
+          return;
+        }
+
+        if (!initialCollected.length) {
+          resultsEl.innerHTML = '<div class="empty">Sonuç bulunamadı</div>';
+          hasMore = false;
+          return;
+        }
+
+        if (initialCollected.length > batchSize) {
+          initialCollected = initialCollected.slice(0, batchSize);
+        }
+
+        hasMore = lastPageHadEnough || initialCollected.length >= 12;
+        renderCards(initialCollected, false, false);
+        awaitingSwipe = false;
+        return;
+      }
+
+      // append path (load more)
+      var videos = await fetchSearch(query, currentPage, preferViews);
+
+      if (gen !== loadGen || currentMode === "favorites") {
+        isLoadingMore = false;
+        return;
+      }
+
+      isLoadingMore = false;
+
+      if (videos === null) {
+        hasMore = false;
+        return;
+      }
+
+      var unique = videos.filter(function(v) {
+        if (seenIds.has(v.videoId)) return false;
+        if (v.lengthSeconds && v.lengthSeconds < 60) return false;
+        seenIds.add(v.videoId);
+        return true;
+      });
+
+      if (unique.length > batchSize) {
+        unique = unique.slice(0, batchSize);
+      }
+
+      hasMore = videos.length >= 6;
+      renderCards(unique, false, true);
+      awaitingSwipe = false;
+    }
+
+    async function loadMore() {
+      if (isLoadingMore || !hasMore || currentMode === "favorites") return;
+      if (awaitingSwipe) return;
+
+      isLoadingMore = true;
+      awaitingSwipe = true;
+      var gen = loadGen;
+
+      var existing = resultsEl.querySelector(".load-more");
+      if (!existing) {
+        var tip = document.createElement("div");
+        tip.className = "load-more";
+        tip.textContent = "Daha fazla yükleniyor...";
+        var sen = resultsEl.querySelector(".sentinel");
+        if (sen) resultsEl.insertBefore(tip, sen);
+        else resultsEl.appendChild(tip);
+      }
+
+      var collected = [];
+      var attempts = 0;
+      var maxAttempts = 5;
+
+      while (collected.length < batchSize && attempts < maxAttempts) {
+        attempts++;
+        var videos = null;
+
+        if (useCategoryRotate && currentCatKey) {
+          // Aynı kategorinin farklı varyasyonlarından + rastgele sayfa
+          var nextQ = pickRandomQuery(currentCatKey);
+          var pageForCat = 1 + Math.floor(Math.random() * 6) + Math.floor(seenIds.size / 15);
+          videos = await fetchSearch(nextQ, pageForCat, true);
+        } else {
+          currentPage += 1;
+          videos = await fetchSearch(currentQuery, currentPage, false);
+        }
+
+        if (gen !== loadGen || currentMode === "favorites") {
+          isLoadingMore = false;
+          resultsEl.querySelectorAll(".load-more").forEach(function(el) { el.remove(); });
+          return;
+        }
+
+        if (videos === null) {
+          hasMore = false;
+          break;
+        }
+
+        if (videos.length < 4) {
+          hasMore = false;
+        }
+
+        for (var i = 0; i < videos.length && collected.length < batchSize; i++) {
+          var v = videos[i];
+          if (seenIds.has(v.videoId)) continue;
+          if (v.lengthSeconds && v.lengthSeconds < 60) continue;
+          seenIds.add(v.videoId);
+          collected.push(v);
+        }
+
+        if (!hasMore) break;
+      }
+
+      resultsEl.querySelectorAll(".load-more").forEach(function(el) { el.remove(); });
+
+      if (collected.length > 0) {
+        renderCards(collected, false, true);
+        hasMore = true;
+      } else {
+        hasMore = false;
+      }
+
+      isLoadingMore = false;
+    }
+
+    var homeEl = document.getElementById("home");
+    homeEl.addEventListener(
+      "scroll",
+      function() {
+        if (currentMode === "favorites" || isLoadingMore || !hasMore) return;
+        var st = homeEl.scrollTop;
+        var dist = homeEl.scrollHeight - st - homeEl.clientHeight;
+        if (st < lastScrollTop - 30) {
+          awaitingSwipe = false;
+        }
+        lastScrollTop = st;
+        if (dist < 120 && !awaitingSwipe) {
+          loadMore();
+        }
+      },
+      { passive: true }
+    );
+
+    var playerView = document.getElementById("playerView");
+    var ytplayer = document.getElementById("ytplayer");
+    var playerTitle = document.getElementById("playerTitle");
+    var backBtn = document.getElementById("backBtn");
+    var prevBtn = document.getElementById("prevBtn");
+    var nextBtn = document.getElementById("nextBtn");
+    var playerLoading = document.getElementById("playerLoading");
+
+    var _loadingWatchTimer = null;
+    var _loadToken = 0;
+    var _loadingExpectedId = "";
+    var _loadingRetryCount = 0;
+    var _loadingRetryForId = "";
+
+    function clearLoadingWatch() {
+      if (_loadingWatchTimer) {
+        clearTimeout(_loadingWatchTimer);
+        _loadingWatchTimer = null;
+      }
+    }
+
+    function setPlayerLoading(on, label) {
+      if (!playerLoading) return;
+      if (label) playerLoading.textContent = label;
+      if (on) playerLoading.classList.add("show");
+      else {
+        playerLoading.classList.remove("show");
+        clearLoadingWatch();
+        _loadingExpectedId = "";
+        _loadingRetryCount = 0;
+        _loadingRetryForId = "";
+      }
+    }
+
+    // Uzaktan seçimde loading sonsuza kadar kalmasın: 8 sn sonra player'ı yeniden kur (en fazla 2 kez)
+    function armLoadingWatch(expectedId) {
+      clearLoadingWatch();
+      _loadingExpectedId = expectedId || "";
+      if (!expectedId) return;
+      _loadingWatchTimer = setTimeout(function() {
+        _loadingWatchTimer = null;
+        if (!_loadingExpectedId || _loadingExpectedId !== expectedId) return;
+        if (!playerLoading || !playerLoading.classList.contains("show")) return;
+        if (currentPlayingId && currentPlayingId !== expectedId) return;
+        if (_loadingRetryForId !== expectedId) {
+          _loadingRetryForId = expectedId;
+          _loadingRetryCount = 0;
+        }
+        _loadingRetryCount++;
+        if (_loadingRetryCount > 2) {
+          console.warn("[MM] loading stuck, yeniden deneme tükendi", expectedId);
+          setPlayerLoading(false);
+          return;
+        }
+        console.warn("[MM] loading stuck → player yeniden kuruluyor", expectedId, "retry", _loadingRetryCount);
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.destroy === "function") {
+            ytPlayerInstance.destroy();
+          }
+        } catch (eD) {}
+        ytPlayerInstance = null;
+        var dur = _currentLoadDuration || 0;
+        loadOfficialYtPlayer(expectedId, !mediaUnlocked, dur);
+      }, 8000);
+    }
+
+    var mediaUnlocked = false;
+    try {
+      if (sessionStorage.getItem("mm_mediaUnlocked") === "1") mediaUnlocked = true;
+    } catch (eMu) {}
+    var pendingPlayId = null;
+    var audioPlayer = document.getElementById("audioPlayer");
+    var playerPoster = document.getElementById("playerPoster");
+
+    function markMediaUnlocked() {
+      mediaUnlocked = true;
+      try { sessionStorage.setItem("mm_mediaUnlocked", "1"); } catch (e) {}
+    }
+
+    function ensureYtUnmuted(target) {
+      target = target || ytPlayerInstance;
+      if (!target) return;
+      try {
+        if (typeof target.unMute === "function") target.unMute();
+        if (typeof target.setVolume === "function") target.setVolume(100);
+      } catch (e) {}
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "unMute", args: [] }), "*"
+          );
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "setVolume", args: [100] }), "*"
+          );
+        }
+      } catch (e2) {}
+    }
+
+    // Parent document HTMLMediaElement odağı: direksiyon / Bluetooth AVRCP
+    // track tuşları çoğu head-unit'te yalnızca sayfanın kendi audio'su çalarken
+    // Media Session handler'larına düşer (YT cross-origin iframe yetmez).
+    var _focusSrcReady = false;
+
+    function buildFocusAudioSrc() {
+      try {
+        var sr = 8000;
+        var seconds = 1;
+        var num = sr * seconds;
+        var dataSize = num * 2;
+        var buffer = new ArrayBuffer(44 + dataSize);
+        var v = new DataView(buffer);
+        function wstr(off, s) {
+          for (var i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+        }
+        wstr(0, "RIFF");
+        v.setUint32(4, 36 + dataSize, true);
+        wstr(8, "WAVE");
+        wstr(12, "fmt ");
+        v.setUint32(16, 16, true);
+        v.setUint16(20, 1, true);
+        v.setUint16(22, 1, true);
+        v.setUint32(24, sr, true);
+        v.setUint32(28, sr * 2, true);
+        v.setUint16(32, 2, true);
+        v.setUint16(34, 16, true);
+        wstr(36, "data");
+        v.setUint32(40, dataSize, true);
+        for (var i = 0; i < num; i++) {
+          var t = i / sr;
+          // ~40 Hz, çok düşük genlik — duyulmaz ama AudioFocus tutar
+          var sample = Math.sin(2 * Math.PI * 40 * t) * 180;
+          v.setInt16(44 + i * 2, sample | 0, true);
+        }
+        return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+      } catch (e) {
+        return "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      }
+    }
+
+    function ensureMediaFocusSrc() {
+      if (!audioPlayer || _focusSrcReady) return;
+      try {
+        audioPlayer.src = buildFocusAudioSrc();
+        audioPlayer.loop = true;
+        audioPlayer.volume = 0.001;
+        audioPlayer.muted = false;
+        audioPlayer.setAttribute("playsinline", "");
+        audioPlayer.setAttribute("webkit-playsinline", "");
+        _focusSrcReady = true;
+      } catch (e) {}
+    }
+
+    function startMediaFocus() {
+      if (!audioPlayer) return;
+      ensureMediaFocusSrc();
+      try {
+        audioPlayer.muted = false;
+        audioPlayer.volume = 0.001;
+        var p = audioPlayer.play();
+        if (p && typeof p.then === "function") p.catch(function() {});
+      } catch (e) {}
+      try {
+        if (typeof bumpMediaSessionPlaying === "function") bumpMediaSessionPlaying();
+        if (typeof bindMediaSessionHandlers === "function") bindMediaSessionHandlers();
+      } catch (e2) {}
+    }
+
+    function stopMediaFocus() {
+      if (!audioPlayer) return;
+      try { audioPlayer.pause(); } catch (e) {}
+    }
+
+    function unlockMedia() {
+      markMediaUnlocked();
+      var tip = document.getElementById("tapToPlay");
+      if (tip) tip.style.display = "none";
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          var ctx = new AC();
+          if (ctx.state === "suspended") ctx.resume();
+          var buf = ctx.createBuffer(1, 1, 22050);
+          var src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          src.start(0);
+        }
+      } catch (e) {}
+      // Focus audio'yu da gesture içinde başlat (autoplay policy)
+      ensureMediaFocusSrc();
+      try {
+        if (audioPlayer) {
+          audioPlayer.volume = 0.01;
+          var ap = audioPlayer.play();
+          if (ap && typeof ap.then === "function") ap.catch(function() {});
+        }
+      } catch (eA) {}
+      // Mevcut player varsa yeniden yükleme — sadece unmute (6.html modeli)
+      if (ytPlayerInstance) {
+        try {
+          ensureYtUnmuted(ytPlayerInstance);
+          ytPlayerInstance.playVideo();
+        } catch (eU) {}
+        pendingPlayId = null;
+        if (currentPlayingId) startMediaFocus();
+      } else if (pendingPlayId || currentPlayingId) {
+        var id = pendingPlayId || currentPlayingId;
+        pendingPlayId = null;
+        loadIframeNow(id, false);
+        startMediaFocus();
+      }
+    }
+
+    ["pointerdown", "touchstart", "click"].forEach(function(ev) {
+      document.addEventListener(ev, function() {
+        if (!mediaUnlocked) unlockMedia();
+      }, { capture: true, passive: true });
+    });
+
+    // —— YouTube IFrame API (bitiş → sonraki şarkı) ——
+    var ytApiReady = false;
+    var ytApiWaiters = [];
+    var ytPlayerInstance = null;
+
+    // —— Video kalite tercihi (IFrame API — YouTube yok sayabilir) ——
+    var YT_QUALITY_PREF_KEY = "minimal_muzik_yt_quality";
+    var YT_QUALITY_VALID = ["default","tiny","small","medium","large","hd720","hd1080","highres"];
+    var ytQualityPref = "default";
+    var ytQualityLastAvailable = [];
+    var ytQualityApplyTimer = null;
+    try {
+      var _qSaved = localStorage.getItem(YT_QUALITY_PREF_KEY);
+      if (_qSaved && YT_QUALITY_VALID.indexOf(_qSaved) !== -1) ytQualityPref = _qSaved;
+    } catch (eQ0) {}
+
+    function ytQualityLabel(q) {
+      var map = {
+        default: "Oto", tiny: "144p", small: "240p", medium: "360p",
+        large: "480p", hd720: "720p", hd1080: "1080p", highres: "4K+"
+      };
+      return map[q] || q;
+    }
+
+    function syncQualityButtonsUI() {
+      var grid = document.getElementById("qualityGrid");
+      if (!grid) return;
+      var buttons = grid.querySelectorAll(".sp-q-btn");
+      for (var i = 0; i < buttons.length; i++) {
+        var b = buttons[i];
+        var q = b.getAttribute("data-q");
+        if (q === ytQualityPref) b.classList.add("active");
+        else b.classList.remove("active");
+        // Desteklenmeyenleri soluk göster (default her zaman açık)
+        if (ytQualityLastAvailable && ytQualityLastAvailable.length && q !== "default") {
+          b.disabled = ytQualityLastAvailable.indexOf(q) === -1;
+        } else {
+          b.disabled = false;
+        }
+      }
+      var prefEl = document.getElementById("qPrefLabel");
+      if (prefEl) prefEl.textContent = ytQualityLabel(ytQualityPref);
+    }
+
+    function reportYtQuality(reason) {
+      if (!ytPlayerInstance) return;
+      try {
+        var current = "";
+        var levels = [];
+        if (typeof ytPlayerInstance.getPlaybackQuality === "function") {
+          current = ytPlayerInstance.getPlaybackQuality() || "";
+        }
+        if (typeof ytPlayerInstance.getAvailableQualityLevels === "function") {
+          levels = ytPlayerInstance.getAvailableQualityLevels() || [];
+        }
+        ytQualityLastAvailable = levels || [];
+        var curEl = document.getElementById("qCurLabel");
+        if (curEl) curEl.textContent = current || "—";
+        var avEl = document.getElementById("qAvailLabel");
+        if (avEl) {
+          if (levels && levels.length) {
+            avEl.textContent = "Mevcut: " + levels.join(", ");
+          } else {
+            avEl.textContent = "Mevcut seviyeler henüz okunamadı";
+          }
+        }
+        syncQualityButtonsUI();
+        if (window._debugYt) {
+          console.log("[MM][Q]", reason || "", {
+            tercih: ytQualityPref,
+            current: current,
+            available: levels,
+            match: current === ytQualityPref
+          });
+        }
+      } catch (eR) {
+        console.warn("[MM][Q] report", eR);
+      }
+    }
+
+    /**
+     * Kaliteyi mümkün olan tüm resmi API yollarıyla uygula.
+     * Cross-origin iframe içinde DOM tıklaması yapılamaz; sadece API.
+     */
+    function applyYtQualityPreference(reason) {
+      if (!ytPlayerInstance) return;
+      var target = ytQualityPref || "default";
+      var applied = false;
+
+      try {
+        if (typeof ytPlayerInstance.setPlaybackQuality === "function") {
+          ytPlayerInstance.setPlaybackQuality(target);
+          applied = true;
+        }
+      } catch (e1) {
+        console.warn("[MM][Q] setPlaybackQuality", e1 && e1.message);
+      }
+
+      try {
+        if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
+          if (target === "default") {
+            // Otomatik: geniş aralık
+            ytPlayerInstance.setPlaybackQualityRange("tiny", "highres");
+          } else {
+            // Tercihi dar aralığa kilitlemeye çalış
+            ytPlayerInstance.setPlaybackQualityRange(target, target);
+          }
+          applied = true;
+        }
+      } catch (e2) {
+        console.warn("[MM][Q] setPlaybackQualityRange", e2 && e2.message);
+      }
+
+      // Bazı sürümlerde setOption denemesi (sessizce)
+      try {
+        if (typeof ytPlayerInstance.setOption === "function") {
+          ytPlayerInstance.setOption("playbackQuality", target);
+        }
+      } catch (e3) {}
+
+      if (window._debugYt || reason) {
+        console.log("[MM][Q] apply", reason || "", target, applied ? "ok" : "no-method");
+      }
+
+      // Gecikmeli doğrulama — YouTube adaptif geçiş yapabilir
+      if (ytQualityApplyTimer) clearTimeout(ytQualityApplyTimer);
+      ytQualityApplyTimer = setTimeout(function() {
+        reportYtQuality((reason || "apply") + "+0.9s");
+      }, 900);
+      setTimeout(function() {
+        reportYtQuality((reason || "apply") + "+2.2s");
+      }, 2200);
+    }
+
+    function setYtQualityPref(q, fromUI) {
+      if (YT_QUALITY_VALID.indexOf(q) === -1) return;
+      ytQualityPref = q;
+      try { localStorage.setItem(YT_QUALITY_PREF_KEY, q); } catch (eS) {}
+      syncQualityButtonsUI();
+      applyYtQualityPreference(fromUI ? "ui" : "set");
+    }
+
+    var ytHostId = "ytplayer-host";
+
+    // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
+    var sponsorSkipEnabled = localStorage.getItem("mm_sponsorSkip") !== "false";
+    var sponsorSegments = [];
+    var sponsorCheckInterval = null;
+    var lastSkippedSegment = null;
+    var SPONSOR_CATEGORIES = [
+      "sponsor",
+      "selfpromo",
+      "interaction",
+      "intro",
+      "outro",
+      "preview",
+      "music_offtopic",
+      "filler"
+    ];
+
+    async function fetchSponsorSegments(videoId) {
+      sponsorSegments = [];
+      lastSkippedSegment = null;
+      if (!sponsorSkipEnabled || !videoId) return;
+      try {
+        var cats = JSON.stringify(SPONSOR_CATEGORIES);
+        var url =
+          "https://sponsor.ajay.app/api/skipSegments?videoID=" +
+          encodeURIComponent(videoId) +
+          "&categories=" +
+          encodeURIComponent(cats) +
+          '&actionTypes=["skip","mute"]';
+        var res = await fetch(url);
+        if (res.status === 404) return;
+        if (!res.ok) throw new Error("SB HTTP " + res.status);
+        var data = await res.json();
+        sponsorSegments = Array.isArray(data) ? data : [];
+      } catch (e) {
+        sponsorSegments = [];
+      }
+    }
+
+    function checkAndSkipSponsorSegments() {
+      if (!sponsorSkipEnabled || !ytPlayerInstance || !sponsorSegments.length) return;
+      try {
+        if (typeof ytPlayerInstance.getPlayerState === "function") {
+          if (typeof YT !== "undefined" && ytPlayerInstance.getPlayerState() !== YT.PlayerState.PLAYING) return;
+        }
+        var t = ytPlayerInstance.getCurrentTime ? ytPlayerInstance.getCurrentTime() : 0;
+        for (var i = 0; i < sponsorSegments.length; i++) {
+          var seg = sponsorSegments[i];
+          if (!seg || !seg.segment) continue;
+          var start = seg.segment[0];
+          var end = seg.segment[1];
+          var uid = seg.UUID || start + "-" + end;
+          if (t >= start && t < end && lastSkippedSegment !== uid) {
+            lastSkippedSegment = uid;
+            try {
+              ytPlayerInstance.seekTo(end, true);
+            } catch (eSeek) {}
+            showSponsorSkipToast(seg.category || "sponsor", end - start);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    function startSponsorCheck(videoId) {
+      stopSponsorCheck();
+      if (!sponsorSkipEnabled) return;
+      if (videoId) {
+        fetchSponsorSegments(videoId).then(function() {
+          if (!sponsorSegments.length) return;
+          sponsorCheckInterval = setInterval(checkAndSkipSponsorSegments, 500);
+        });
+      } else {
+        sponsorCheckInterval = setInterval(checkAndSkipSponsorSegments, 500);
+      }
+    }
+
+    function stopSponsorCheck() {
+      if (sponsorCheckInterval) {
+        clearInterval(sponsorCheckInterval);
+        sponsorCheckInterval = null;
+      }
+    }
+
+    function showSponsorSkipToast(category, seconds) {
+      try {
+        var existing = document.getElementById("mm-sponsor-toast");
+        if (existing) existing.remove();
+        var names = {
+          sponsor: "Sponsor",
+          selfpromo: "Self promo",
+          interaction: "Etkileşim",
+          intro: "Intro",
+          outro: "Outro",
+          preview: "Önizleme",
+          music_offtopic: "Off-topic",
+          filler: "Filler"
+        };
+        var label = names[category] || category;
+        var el = document.createElement("div");
+        el.id = "mm-sponsor-toast";
+        el.textContent = "Atlandı: " + label + " (" + (seconds || 0).toFixed(1) + "s)";
+        el.style.cssText =
+          "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+          "background:rgba(0,0,0,0.85);color:#fff;padding:10px 18px;border-radius:8px;" +
+          "font-size:14px;z-index:99999;pointer-events:none;opacity:0;transition:opacity .2s;";
+        document.body.appendChild(el);
+        requestAnimationFrame(function() {
+          el.style.opacity = "1";
+        });
+        setTimeout(function() {
+          el.style.opacity = "0";
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+          }, 300);
+        }, 2200);
+      } catch (e) {}
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+      ytApiReady = true;
+      ytApiWaiters.forEach(function(fn) {
+        try { fn(); } catch (e) {}
+      });
+      ytApiWaiters = [];
+    };
+    // API bazen bizden önce yüklenir
+    if (typeof YT !== "undefined" && YT.Player) {
+      ytApiReady = true;
+    }
+
+    function whenYtReady(fn) {
+      if (ytApiReady || (typeof YT !== "undefined" && YT.Player)) {
+        ytApiReady = true;
+        fn();
+      } else {
+        ytApiWaiters.push(fn);
+        // iframe_api yoksa yedek: postMessage ile ENDED dinle
+        setTimeout(function() {
+          if (!ytApiReady) fn();
+        }, 2500);
+      }
+    }
+
+    function ensureYtHost() {
+      var area = document.querySelector(".player-area");
+      if (!area) return null;
+      var tip = document.getElementById("tapToPlay");
+
+      // Eski statik iframe varsa sadece gizle (player oturumunu bozma)
+      var oldFrame = document.getElementById("ytplayer");
+      if (oldFrame && oldFrame.tagName === "IFRAME") {
+        try { oldFrame.style.display = "none"; } catch (e) {}
+      }
+      var host = document.getElementById(ytHostId);
+      if (!host) {
+        host = document.createElement("div");
+        host.id = ytHostId;
+        host.style.cssText =
+          "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
+        if (tip && tip.parentNode === area) {
+          area.insertBefore(host, tip);
+        } else {
+          area.appendChild(host);
+        }
+      }
+      // Host varsa dokunma — tek player oturumu korunur (6.html modeli)
+      return host;
+    }
+
+    function onYtStateChange(event) {
+      // 0 = ENDED, 1 = PLAYING
+      try {
+        if (typeof YT !== "undefined") {
+          if (event.data === YT.PlayerState.ENDED) {
+            playNext();
+            return;
+          }
+          if (event.data === YT.PlayerState.PLAYING) {
+          }
+        }
+      } catch (e) {}
+      if (event && event.data === 0) {
+        playNext();
+      }
+      if (event && event.data === 1) {
+      }
+    }
+
+    // YouTube videosunun kendi fullscreen modu (iframe üzerinde — playerView değil)
+    function getYoutubeIframeEl() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
+          var iframe = ytPlayerInstance.getIframe();
+          if (iframe) return iframe;
+        }
+      } catch (e) {}
+      var el = document.getElementById("ytplayer");
+      if (el && el.tagName === "IFRAME") return el;
+      // YT.Player host içindeki iframe
+      var host = document.getElementById("ytplayer-host");
+      if (host) {
+        var inner = host.querySelector("iframe");
+        if (inner) return inner;
+      }
+      return null;
+    }
+
+    function goPlayerFullscreen() {
+      try {
+        var el = getYoutubeIframeEl();
+        if (!el) return false;
+        var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
+                   document.mozFullScreenElement || document.msFullscreenElement;
+        // Zaten bu YouTube iframe fullscreen ise tamam
+        if (fsEl === el) return true;
+        var req =
+          el.requestFullscreen ||
+          el.webkitRequestFullscreen ||
+          el.webkitRequestFullScreen ||
+          el.mozRequestFullScreen ||
+          el.msRequestFullscreen;
+        if (req) {
+          var p = req.call(el);
+          if (p && typeof p.catch === "function") p.catch(function() {});
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    // Otomatik tam ekran kapalı (kullanıcı isteği)
+    var _fsRemoteTimer = null;
+    function forceFullscreenFromPlaylist() {
+      // no-op: zorla fullscreen yapılmaz
+      if (_fsRemoteTimer) {
+        try { clearInterval(_fsRemoteTimer); } catch (e) {}
+        _fsRemoteTimer = null;
+      }
+    }
+
+    // Aktif yükleme süresi (end= parametresi + timer)
+    var _currentLoadDuration = 0;
+
+    // —— Resmi YouTube IFrame API player (tek oturum + loadVideoById = 6.html modeli) ——
+    // Uzaktan play komutlarında yarış / takılma olmasın: en son istek kazanır + loading watchdog
+    function loadOfficialYtPlayer(id, muted, durationSec) {
+      if (!id) return;
+      durationSec = Number(durationSec) || 0;
+      _currentLoadDuration = durationSec;
+      var myToken = ++_loadToken;
+      pendingPlayId = id;
+      setPlayerLoading(true, "Yükleniyor...");
+      armLoadingWatch(id);
+
+      whenYtReady(function() {
+        // Daha yeni bir yükleme isteği geldiyse bu oturumu iptal et
+        if (myToken !== _loadToken) return;
+
+        // Mevcut oturumda şarkı değişimi (atlama / playlist) → asla yeniden mute etme
+        // Sessiz sadece ilk player oluşturulurken ve henüz unlock yoksa
+        var hasExistingPlayer =
+          !!(ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function");
+        var wantMute = !hasExistingPlayer && !mediaUnlocked && !!muted;
+
+        // Eski statik iframe (#ytplayer) gizle — src'yi blank yapma (oturum bozulmasın)
+        try {
+          var old = document.getElementById("ytplayer");
+          if (old && old.tagName === "IFRAME") {
+            old.style.display = "none";
+            old.onload = null;
+          }
+        } catch (e0) {}
+
+        function applyMuteAndPlay(target) {
+          try {
+            if (wantMute) {
+              target.mute();
+            } else {
+              // Atlama / sonraki şarkı: sesi koru
+              ensureYtUnmuted(target);
+            }
+            target.playVideo();
+          } catch (e2) {}
+        }
+
+        function armDurationFromApi(target) {
+          _earlySkipDoneFor = "";
+          try {
+            var apiDur = 0;
+            if (target && typeof target.getDuration === "function") {
+              apiDur = target.getDuration() || 0;
+            }
+            if (apiDur > 8) durationSec = apiDur;
+          } catch (eDur) {}
+          if (durationSec >= 8) {
+            armTrackEndWatch(durationSec, true);
+          }
+        }
+
+        function finishLoadSuccess(target) {
+          if (myToken !== _loadToken) return;
+          pendingPlayId = null;
+          applyMuteAndPlay(target || ytPlayerInstance);
+          // Loading KAPATMA — YT ortadaki pause butonu görünmesin;
+          // sadece PLAYING (veya watchdog) kapatır
+          bindMediaSessionHandlers();
+          bumpMediaSessionPlaying();
+          armDurationFromApi(target || ytPlayerInstance);
+          try {
+            setTimeout(function() {
+              reportYtQuality("loadVideoById");
+              applyYtQualityPreference("loadVideoById");
+            }, 400);
+          } catch (eQLoad) {}
+          // Güvenlik: 2.5 sn içinde PLAYING gelmezse yine kapat
+          setTimeout(function() {
+            if (myToken !== _loadToken) return;
+            try {
+              if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
+                var st = ytPlayerInstance.getPlayerState();
+                if (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING) {
+                  setPlayerLoading(false);
+                  return;
+                }
+                // Hâlâ paused ise bir kez daha play dene
+                if (st === YT.PlayerState.PAUSED || st === YT.PlayerState.CUED) {
+                  applyMuteAndPlay(ytPlayerInstance);
+                }
+              }
+            } catch (e) {}
+            setTimeout(function() {
+              if (myToken === _loadToken) setPlayerLoading(false);
+            }, 1200);
+          }, 2500);
+        }
+
+        // —— Aynı player oturumu: loadVideoById (pre-roll riskini düşürür) ——
+        if (ytPlayerInstance && typeof ytPlayerInstance.loadVideoById === "function") {
+          try {
+            ytPlayerInstance.loadVideoById({ videoId: id, startSeconds: 0 });
+            setTimeout(function() {
+              if (myToken !== _loadToken) return;
+              // Player gerçekten bu videoya geçti mi? Değilse oturumu yenile
+              var switched = false;
+              try {
+                var vd = ytPlayerInstance.getVideoData && ytPlayerInstance.getVideoData();
+                if (vd && vd.video_id === id) switched = true;
+                // video_id henüz güncellenmemiş olabilir; state BUFFERING/PLAYING/CUED de kabul
+                if (!switched && typeof ytPlayerInstance.getPlayerState === "function" && typeof YT !== "undefined") {
+                  var st = ytPlayerInstance.getPlayerState();
+                  if (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING || st === YT.PlayerState.CUED) {
+                    switched = true;
+                  }
+                }
+              } catch (eChk) {
+                switched = true; // kontrol başarısızsa yine de play dene
+              }
+              if (!switched) {
+                console.warn("[MM] loadVideoById geçiş doğrulanamadı, player yeniden oluşturulacak", id);
+                try {
+                  if (ytPlayerInstance && ytPlayerInstance.destroy) ytPlayerInstance.destroy();
+                } catch (eD2) {}
+                ytPlayerInstance = null;
+                // Aynı token ile yeniden oluştur (token artırmadan)
+                loadOfficialYtPlayer._recreate(id, wantMute, durationSec, myToken);
+                return;
+              }
+              finishLoadSuccess(ytPlayerInstance);
+            }, 400);
+            return;
+          } catch (eLoad) {
+            console.warn("[MM] loadVideoById başarısız, player yeniden oluşturulacak", eLoad);
+            try {
+              if (ytPlayerInstance.destroy) ytPlayerInstance.destroy();
+            } catch (eD) {}
+            ytPlayerInstance = null;
+          }
+        }
+
+        loadOfficialYtPlayer._recreate(id, wantMute, durationSec, myToken);
+      });
+    }
+
+    // Player sıfırdan oluştur (loadOfficialYtPlayer içinden / watchdog'tan)
+    loadOfficialYtPlayer._recreate = function(id, wantMute, durationSec, myToken) {
+      if (myToken != null && myToken !== _loadToken) return;
+
+      var host = ensureYtHost();
+      if (!host) {
+        console.warn("[MM] yt host yok");
+        setPlayerLoading(false);
+        return;
+      }
+
+      // Host içi boş değilse (önceki destroy kalıntısı) temiz host
+      try {
+        if (host.childNodes && host.childNodes.length) {
+          var parent = host.parentNode;
+          var fresh = document.createElement("div");
+          fresh.id = ytHostId;
+          fresh.style.cssText = host.style.cssText;
+          if (parent) parent.replaceChild(fresh, host);
+          host = fresh;
+        }
+      } catch (eHost) {}
+
+      // Skipcut ile aynı reklam/kalabalık azaltma parametreleri
+      var playerVars = {
+        autoplay: 1,
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        iv_load_policy: 3,
+        cc_load_policy: 0,
+        fs: 1,
+        playsinline: 1,
+        disablekb: 0,
+        enablejsapi: 1,
+        origin: window.location.origin || undefined
+      };
+      if (wantMute) playerVars.mute = 1;
+
+      function applyMuteAndPlayRecreate(target) {
+        try {
+          if (wantMute) {
+            target.mute();
+          } else {
+            ensureYtUnmuted(target);
+          }
+          target.playVideo();
+        } catch (e2) {}
+      }
+
+      function armDurationFromApiRecreate(target) {
+        _earlySkipDoneFor = "";
+        try {
+          var apiDur = 0;
+          if (target && typeof target.getDuration === "function") {
+            apiDur = target.getDuration() || 0;
+          }
+          if (apiDur > 8) durationSec = apiDur;
+        } catch (eDur) {}
+        if (durationSec >= 8) {
+          armTrackEndWatch(durationSec, true);
+        }
+      }
+
+      ytPlayerInstance = new YT.Player(ytHostId, {
+        videoId: id,
+        width: "100%",
+        height: "100%",
+        playerVars: playerVars,
+        events: {
+          onReady: function(ev) {
+            if (myToken != null && myToken !== _loadToken) return;
+            pendingPlayId = null;
+            applyMuteAndPlayRecreate(ev.target);
+            // Loading'i burada kapatma — PLAYING gelene kadar siyah örtü YT pause butonunu gizler
+            try {
+              var iframe = ev.target.getIframe && ev.target.getIframe();
+              if (iframe) {
+                iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
+                iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+                ytplayer = iframe;
+              }
+            } catch (e3) {}
+            bindMediaSessionHandlers();
+            bumpMediaSessionPlaying();
+            armDurationFromApiRecreate(ev.target);
+            // Kalite tercihini uygula (player hazır)
+            try {
+              setTimeout(function() {
+                reportYtQuality("onReady");
+                applyYtQualityPreference("onReady");
+              }, 350);
+            } catch (eQReady) {}
+          },
+          onStateChange: function(event) {
+            try {
+              if (typeof YT === "undefined") return;
+              if (event.data === YT.PlayerState.ENDED) {
+                stopSponsorCheck();
+                var ignoreUntil = window._ytIgnoreEndedUntil || 0;
+                if (Date.now() < ignoreUntil) return;
+                if (_earlySkipDoneFor === currentPlayingId) return;
+                _earlySkipDoneFor = currentPlayingId || "";
+                playNext();
+                return;
+              }
+              if (event.data === YT.PlayerState.BUFFERING) {
+                // Sadece şarkı geçişi sırasında örtüyü tut (orta şarkıda buffer'da siyah ekran olmasın)
+                if (playerLoading && playerLoading.classList.contains("show")) {
+                  setPlayerLoading(true, "Yükleniyor...");
+                }
+              }
+              if (event.data === YT.PlayerState.PLAYING) {
+                setPlayerLoading(false);
+                _remotePlaying = true;
+                // Oynama başladıysa sesi aç — atlama/playlist sonrası mute kalmasın
+                markMediaUnlocked();
+                try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
+                bumpMediaSessionPlaying();
+                // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
+                if (currentPlayingId) startSponsorCheck(currentPlayingId);
+                try { broadcastState(); } catch (eB) {}
+                // Kalite tercihini her PLAYING'de yeniden uygula (şarkı geçişi / adaptif düşüş)
+                try {
+                  setTimeout(function() {
+                    reportYtQuality("PLAYING");
+                    applyYtQualityPreference("PLAYING");
+                  }, 280);
+                } catch (eQPlay) {}
+              }
+              if (event.data === YT.PlayerState.PAUSED) {
+                stopSponsorCheck();
+                // Şarkı değişimi sırasında YT kısa PAUSED basarsa hemen tekrar oynat
+                // (kullanıcı bilinçli pause değilse — loading hâlâ açıksa)
+                try {
+                  if (playerLoading && playerLoading.classList.contains("show") && ytPlayerInstance) {
+                    setTimeout(function() {
+                      try {
+                        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === "function") {
+                          ytPlayerInstance.playVideo();
+                        }
+                      } catch (eR) {}
+                    }, 120);
+                  } else {
+                    _remotePlaying = false;
+                    try { broadcastState(); } catch (eB2) {}
+                  }
+                } catch (eP) {}
+              }
+            } catch (e5) {}
+          },
+          onError: function(event) {
+            var code = event && event.data;
+            console.warn("[MM] YT error", code);
+            setPlayerLoading(false);
+            // Açılmayan video → playlist sırasındaki sonraki şarkıya geç
+            // force: ardışık hatalı videolarda 2.8sn kilit takılmasın
+            var failedId = currentPlayingId;
+            setTimeout(function() {
+              if (failedId && currentPlayingId && currentPlayingId !== failedId) return;
+              playNext({ force: true });
+            }, 500);
+          }
+        }
+      });
+    };
+
+    function forceLoadVideo(id, durationSec) {
+
+      setPlayerLoading(true, "Yükleniyor...");
+      pendingPlayId = id;
+      if (playerPoster) {
+        playerPoster.style.backgroundImage =
+          "url(https://i.ytimg.com/vi/" + id + "/hqdefault.jpg)";
+      }
+      loadOfficialYtPlayer(id, !mediaUnlocked, durationSec || _currentLoadDuration || 0);
+    }
+
+    function loadVideoInSamePlayer(id, durationSec) {
+      forceLoadVideo(id, durationSec);
+    }
+
+    function loadIframeNow(id, muted) {
+      loadOfficialYtPlayer(id, muted, _currentLoadDuration || 0);
+    }
+
+    var _playNextLockUntil = 0;
+    var _trackEndTimer = null;
+    var _trackWatchdog = null;
+    var _armedForId = "";
+    var _trackStartedAt = 0;
+    var _trackDurationSec = 0;
+    var _lastKnownPos = 0;
+    var _debugYt = false; // true yaparsan [MM][YT-MSG] detay log
+    // Öneri ekranı çıkmasın diye bitişten bu kadar sn önce sonraki şarkıya geç
+    var EARLY_SKIP_SEC = 1.5;
+    var _earlySkipDoneFor = ""; // aynı şarkıda çift playNext engeli
+
+    function clearTrackTimers() {
+      if (_trackEndTimer) {
+        clearTimeout(_trackEndTimer);
+        _trackEndTimer = null;
+      }
+      if (_trackWatchdog) {
+        clearInterval(_trackWatchdog);
+        _trackWatchdog = null;
+      }
+      stopSponsorCheck();
+    }
+
+    function scheduleEndFromPosition(positionSec, durationSec, reason) {
+      clearTrackTimers();
+      positionSec = Math.max(0, Number(positionSec) || 0);
+      durationSec = Number(durationSec) || _trackDurationSec || 0;
+      _lastKnownPos = positionSec;
+      if (durationSec < 8) {
+        if (_debugYt) console.log("[MM] scheduleEnd: süre yok, timer yok", reason);
+        return;
+      }
+      // Bitişten EARLY_SKIP_SEC sn önce geç → öneri ekranı açılmaz
+      var remaining = durationSec - positionSec - EARLY_SKIP_SEC;
+      if (remaining < 1) remaining = 1;
+      var durMs = remaining * 1000;
+      if (_debugYt) console.log(
+        "[MM] scheduleEnd",
+        reason,
+        "pos=",
+        positionSec.toFixed(1),
+        "dur=",
+        durationSec,
+        "early=",
+        EARLY_SKIP_SEC,
+        "remaining≈",
+        remaining.toFixed(1),
+        "sn"
+      );
+      _trackEndTimer = setTimeout(function() {
+        if (_earlySkipDoneFor === currentPlayingId) return;
+        _earlySkipDoneFor = currentPlayingId || "";
+        console.log("[MM] erken geçiş → sıradaki", "dur=", durationSec, "reason=", reason);
+        _armedForId = "";
+        playNext();
+      }, durMs);
+      _armedForId = currentPlayingId || "";
+
+      // YT.Player varsa konum poll: süre API'den gelince daha isabetli erken geçiş
+      if (_trackWatchdog) {
+        try { clearInterval(_trackWatchdog); } catch (e) {}
+        _trackWatchdog = null;
+      }
+      _trackWatchdog = setInterval(function() {
+        try {
+          if (!ytPlayerInstance || !currentPlayingId) return;
+          if (_earlySkipDoneFor === currentPlayingId) return;
+          if (Date.now() < (window._ytIgnoreEndedUntil || 0)) return;
+          var t = 0;
+          var d = durationSec || _trackDurationSec || 0;
+          try {
+            if (typeof ytPlayerInstance.getCurrentTime === "function") {
+              t = ytPlayerInstance.getCurrentTime() || 0;
+            }
+            if (typeof ytPlayerInstance.getDuration === "function") {
+              var gd = ytPlayerInstance.getDuration() || 0;
+              if (gd > 8) d = gd;
+            }
+          } catch (e1) {}
+          if (d < 8) return;
+          _lastKnownPos = t;
+          if (t >= d - EARLY_SKIP_SEC) {
+            _earlySkipDoneFor = currentPlayingId || "";
+            clearTrackTimers();
+            console.log("[MM] poll erken geçiş", t.toFixed(1), "/", d.toFixed(1));
+            playNext();
+          }
+        } catch (e2) {}
+      }, 500);
+    }
+
+    function armTrackEndWatch(durationSec, force) {
+      durationSec = parseInt(durationSec, 10) || 0;
+      _trackDurationSec = durationSec;
+      _trackStartedAt = Date.now();
+      _lastKnownPos = 0;
+      if (!force && _armedForId && _armedForId === currentPlayingId && _trackEndTimer) {
+        return;
+      }
+      scheduleEndFromPosition(0, durationSec, "start");
+    }
+
+    // Seek / konum güncellemesi — embed currentTime verirse timer yenilenir
+    function onTrackPosition(positionSec, durationSec) {
+      if (!currentPlayingId) return;
+      if (Date.now() < (window._ytIgnoreEndedUntil || 0)) return;
+      durationSec = durationSec || _trackDurationSec || window._ytDuration || 0;
+      positionSec = Number(positionSec) || 0;
+
+      // Loop: büyük zamandan başa sıçrama
+      if (_lastKnownPos > 15 && positionSec < 3) {
+        console.log("[MM] loop/seek-to-start tespit → playNext");
+        playNext();
+        return;
+      }
+
+      // Anlamlı seek: 3 sn'den fazla zıplama → timer'ı kalan süreye göre kur
+      if (Math.abs(positionSec - _lastKnownPos) > 3) {
+        scheduleEndFromPosition(positionSec, durationSec, "seek/pos");
+      } else {
+        _lastKnownPos = positionSec;
+      }
+      window._ytLastKnownTime = positionSec;
+      if (durationSec > 0) window._ytDuration = durationSec;
+    }
+
+    function playAtIndex(idx) {
+      if (!playQueue.length) {
+        console.warn("[MM] playAtIndex: kuyruk boş");
+        return;
+      }
+      if (idx < 0) idx = playQueue.length - 1;
+      if (idx >= playQueue.length) idx = 0;
+
+      // Aynı şarkıya yapışmayı engelle
+      var tries = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[idx].id === currentPlayingId &&
+        tries < playQueue.length
+      ) {
+        idx = (idx + 1) % playQueue.length;
+        tries++;
+      }
+
+      playIndex = idx;
+      var item = playQueue[idx];
+      if (_debugYt) console.log("[MM] playAtIndex", idx, item.id, item.title, "queue=", playQueue.length);
+      playVideo(item.id, item.title, item.author, true, item.duration || 0);
+    }
+
+    function playNext(opts) {
+      opts = opts || {};
+      var force = !!opts.force;
+      var now = Date.now();
+      // Çift tetiklemeyi kes (ended + timer aynı anda).
+      // force=true: hatalı video zincirinde kilit atlanır
+      if (!force && now < _playNextLockUntil) {
+        if (_debugYt) console.log("[MM] playNext kilitli, atlandı");
+        return;
+      }
+      _playNextLockUntil = now + (force ? 500 : 2800);
+      clearTrackTimers();
+      _armedForId = "";
+      _trackStartedAt = 0;
+      if (force) _earlySkipDoneFor = "";
+      window._ytIgnoreEndedUntil = now + (force ? 900 : 3500);
+
+
+      if (!queueLocked) {
+        syncQueueFromDOM();
+      }
+
+      if (!playQueue.length && currentPlayingId) {
+        playQueue = [{
+          id: currentPlayingId,
+          title: currentPlayingTitle || "",
+          author: currentPlayingAuthor || "",
+          duration: 0
+        }];
+        playIndex = 0;
+      }
+
+      if (!playQueue.length) {
+        console.warn("[MM] playNext: kuyruk boş");
+        return;
+      }
+
+      // Mevcut index
+      var found = -1;
+      for (var j = 0; j < playQueue.length; j++) {
+        if (playQueue[j].id === currentPlayingId) {
+          found = j;
+          break;
+        }
+      }
+      if (found >= 0) playIndex = found;
+      if (playIndex < 0 || playIndex >= playQueue.length) playIndex = 0;
+
+      var next = playIndex + 1;
+      if (next >= playQueue.length) next = 0;
+
+      // Aynı ID ise atla
+      var guard = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[next].id === currentPlayingId &&
+        guard < playQueue.length
+      ) {
+        next = (next + 1) % playQueue.length;
+        guard++;
+      }
+
+      if (_debugYt) console.log(
+        "[MM] playNext",
+        playIndex,
+        "→",
+        next,
+        playQueue[next] && playQueue[next].id,
+        "locked=",
+        queueLocked,
+        "len=",
+        playQueue.length
+      );
+
+      // Aynı player oturumunu bozma — src blank yapma; sadece stop, loadVideoById yapacak
+      try {
+        if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
+      } catch (e1) {}
+
+      playAtIndex(next);
+      // otomatik tam ekran yok
+    }
+
+    function playPrev() {
+      var now = Date.now();
+      if (now < _playNextLockUntil) return;
+      _playNextLockUntil = now + 2800;
+      clearTrackTimers();
+      _armedForId = "";
+      _trackStartedAt = 0;
+      window._ytIgnoreEndedUntil = now + 3500;
+
+      if (!queueLocked) {
+        syncQueueFromDOM();
+      }
+      if (!playQueue.length && currentPlayingId) {
+        playQueue = [{
+          id: currentPlayingId,
+          title: currentPlayingTitle || "",
+          author: currentPlayingAuthor || "",
+          duration: 0
+        }];
+        playIndex = 0;
+      }
+      if (!playQueue.length) return;
+
+      var found = -1;
+      for (var j = 0; j < playQueue.length; j++) {
+        if (playQueue[j].id === currentPlayingId) {
+          found = j;
+          break;
+        }
+      }
+      if (found >= 0) playIndex = found;
+
+      var prev = playIndex - 1;
+      if (prev < 0) prev = playQueue.length - 1;
+
+      var guard = 0;
+      while (
+        playQueue.length > 1 &&
+        playQueue[prev].id === currentPlayingId &&
+        guard < playQueue.length
+      ) {
+        prev = prev - 1;
+        if (prev < 0) prev = playQueue.length - 1;
+        guard++;
+      }
+
+      try {
+        if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
+      } catch (e) {}
+
+      playAtIndex(prev);
+    }
+
+    // —— Agresif Media Session (direksiyon / kulaklık / sistem medya tuşları) ——
+    var _msBindTimer = null;
+
+    function msPlay() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === "function") {
+          ytPlayerInstance.playVideo();
+        } else {
+          var f = getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*"
+            );
+          }
+        }
+      } catch (e) {}
+      startMediaFocus();
+      try { navigator.mediaSession.playbackState = "playing"; } catch (e2) {}
+    }
+
+    function msPause() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.pauseVideo === "function") {
+          ytPlayerInstance.pauseVideo();
+        } else {
+          var f = getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "pauseVideo", args: [] }), "*"
+            );
+          }
+        }
+      } catch (e) {}
+      stopMediaFocus();
+      try { navigator.mediaSession.playbackState = "paused"; } catch (e2) {}
+    }
+
+    function bumpMediaSessionPlaying() {
+      if (!("mediaSession" in navigator)) return;
+      try {
+        navigator.mediaSession.playbackState = "playing";
+        if (window._ytDuration > 0) {
+          navigator.mediaSession.setPositionState({
+            duration: window._ytDuration,
+            playbackRate: 1,
+            position: Math.min(window._ytLastKnownTime || 0, window._ytDuration)
+          });
+        }
+      } catch (e) {}
+      // Head-unit'ler handler'ı unutabiliyor — sık yenile + focus audio canlı tut
+      if (!_msBindTimer) {
+        _msBindTimer = setInterval(function() {
+          if (currentPlayingId) {
+            bindMediaSessionHandlers();
+            // Focus audio durmuşsa yeniden başlat (bazı ROM'lar arka planda keser)
+            try {
+              if (audioPlayer && audioPlayer.paused && mediaUnlocked) {
+                var p = audioPlayer.play();
+                if (p && typeof p.then === "function") p.catch(function() {});
+              }
+            } catch (eR) {}
+          } else {
+            clearInterval(_msBindTimer);
+            _msBindTimer = null;
+          }
+        }, 3000);
+      }
+    }
+
+    function bindMediaSessionHandlers() {
+      if (!("mediaSession" in navigator)) return;
+      function safeSet(action, handler) {
+        try {
+          // Önce null — bazı Android sürümlerinde yeniden kayıt için gerekli
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch (e0) {}
+        try {
+          navigator.mediaSession.setActionHandler(action, handler);
+        } catch (e1) {}
+      }
+      try {
+        safeSet("play", msPlay);
+        safeSet("pause", msPause);
+        safeSet("stop", function() {
+          try {
+            if (ytPlayerInstance && ytPlayerInstance.stopVideo) ytPlayerInstance.stopVideo();
+          } catch (e) {}
+          try {
+            if (ytplayer) ytplayer.src = "";
+          } catch (e2) {}
+          stopMediaFocus();
+          playerView.classList.remove("active");
+          currentPlayingId = "";
+          try { navigator.mediaSession.playbackState = "none"; } catch (e3) {}
+        });
+
+        // Direksiyon / kulaklık / Bluetooth AVRCP — sonraki / önceki
+        safeSet("nexttrack", function() { playNext(); });
+        safeSet("previoustrack", function() { playPrev(); });
+
+        // Bazı sistemler seek / skip kullanır
+        safeSet("seekforward", function() { playNext(); });
+        safeSet("seekbackward", function() { playPrev(); });
+
+        safeSet("seekto", function(details) {
+          if (details && typeof details.seekTime === "number" && ytPlayerInstance && ytPlayerInstance.seekTo) {
+            ytPlayerInstance.seekTo(details.seekTime, true);
+          }
+        });
+      } catch (e) {
+        console.warn("MediaSession handlers", e);
+      }
+    }
+
+    function updateMediaSession(title, author, videoId) {
+      if (!("mediaSession" in navigator)) return;
+      try {
+        var art = videoId
+          ? [
+              { src: "https://i.ytimg.com/vi/" + videoId + "/default.jpg", sizes: "120x90", type: "image/jpeg" },
+              { src: "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" },
+              { src: "https://i.ytimg.com/vi/" + videoId + "/maxresdefault.jpg", sizes: "1280x720", type: "image/jpeg" }
+            ]
+          : [];
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: title || "Minimal Müzik",
+          artist: author || "YouTube",
+          album: "Minimal Müzik",
+          artwork: art
+        });
+        navigator.mediaSession.playbackState = "playing";
+        bindMediaSessionHandlers();
+      } catch (e) {
+        console.warn("MediaSession error", e);
+      }
+    }
+
+    function clearMediaSession() {
+      if (!("mediaSession" in navigator)) return;
+      try {
+        navigator.mediaSession.playbackState = "none";
+        navigator.mediaSession.metadata = null;
+      } catch (e) {}
+      if (window._ytPollTimer) {
+        clearInterval(window._ytPollTimer);
+        window._ytPollTimer = null;
+      }
+    }
+
+    function playVideo(id, title, author, fromQueue, durationSec) {
+      if (!id) return;
+      clearTrackTimers();
+      sponsorSegments = [];
+      lastSkippedSegment = null;
+
+      if (!fromQueue) {
+        if (!queueLocked) syncQueueFromDOM();
+        playIndex = -1;
+        for (var i = 0; i < playQueue.length; i++) {
+          if (playQueue[i].id === id) {
+            playIndex = i;
+            break;
+          }
+        }
+        if (playIndex < 0) {
+          playQueue.push({
+            id: id,
+            title: title || "",
+            author: author || "",
+            duration: durationSec || 0
+          });
+          playIndex = playQueue.length - 1;
+        }
+      }
+
+      // Süre: argüman veya kuyruktan
+      var dur = durationSec || 0;
+      if (!dur && playIndex >= 0 && playQueue[playIndex]) {
+        dur = playQueue[playIndex].duration || 0;
+      }
+
+      currentPlayingId = id;
+      currentPlayingTitle = title || "";
+      currentPlayingAuthor = author || "";
+      _earlySkipDoneFor = "";
+      playerTitle.textContent = title || "";
+      updateMediaSession(title, author, id);
+      broadcastState();
+      // Yeni video için SponsorBlock segmentlerini önceden çek
+      if (sponsorSkipEnabled) fetchSponsorSegments(id);
+
+      // Süre biliniyorsa yedek bitiş zamanlayıcısı (ENDED kaçarsa)
+      armTrackEndWatch(dur);
+
+      _currentLoadDuration = dur || 0;
+      if (_debugYt) console.log("[MM] playVideo", id, "dur=", dur, "queue=", playQueue.length, "idx=", playIndex);
+
+      var alreadyOpen = playerView.classList.contains("active");
+      if (alreadyOpen) {
+        setPlayerLoading(true, fromQueue ? "Sonraki şarkı yükleniyor..." : "Yükleniyor...");
+        loadVideoInSamePlayer(id, dur);
+      } else {
+        playerView.classList.add("active");
+        setPlayerLoading(true, "Yükleniyor...");
+        loadVideoInSamePlayer(id, dur);
+      }
+      // Direksiyon track tuşları için parent sayfada AudioFocus tut
+      if (mediaUnlocked) startMediaFocus();
+      else {
+        // Gesture yoksa yine dene; policy engellerse unlockMedia tamamlar
+        try { startMediaFocus(); } catch (eF) {}
+      }
+    }
+
+    backBtn.addEventListener("click", function() {
+      stopMediaFocus();
+      try {
+        if (audioPlayer) {
+          audioPlayer.pause();
+          audioPlayer.removeAttribute("src");
+          audioPlayer.load();
+          _focusSrcReady = false;
+        }
+      } catch (e) {}
+      try {
+        if (ytplayer) {
+          ytplayer.onload = null;
+          ytplayer.src = "";
+        }
+      } catch (e) {}
+      stopSponsorCheck();
+      sponsorSegments = [];
+      lastSkippedSegment = null;
+      clearTrackTimers();
+      playerView.classList.remove("active");
+      setPlayerLoading(false);
+      currentPlayingId = "";
+      currentPlayingTitle = "";
+      currentPlayingAuthor = "";
+      clearMediaSession();
+      broadcastState();
+    });
+
+
+    // Sekme tekrar görünür olunca çalmaya devam etmeyi dene
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden) return;
+      if (!currentPlayingId) return;
+      try {
+        var f = document.getElementById("ytplayer");
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+            "*"
+          );
+          f.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "unMute", args: [] }),
+            "*"
+          );
+        }
+      } catch (e) {}
+      try {
+        bumpMediaSessionPlaying();
+        bindMediaSessionHandlers();
+      } catch (e2) {}
+    });
+
+
+    // Player ayarları + chrome gizleme + parlaklık
+    (function initPlayerSettings() {
+      var top = document.querySelector(".player-top");
+      var view = document.getElementById("playerView");
+      var panel = document.getElementById("brightPanelIdx");
+      var range = document.getElementById("brightRangeIdx");
+      var dim = document.getElementById("playerDimOverlay");
+      var btn = document.getElementById("settingsBtn");
+      var hideToggle = document.getElementById("chromeHideToggle");
+      var secRange = document.getElementById("chromeSecondsRange");
+      var secVal = document.getElementById("chromeSecondsVal");
+      var secWrap = document.getElementById("chromeSecondsWrap");
+      var brightLabel = document.getElementById("brightValLabel");
+
+      var KEY_DIM = "minimal_muzik_player_dim";
+      var KEY_HIDE = "minimal_muzik_chrome_hide";
+      var KEY_SEC = "minimal_muzik_chrome_sec";
+
+      var hideTimer = null;
+      var chromeHideOn = true;
+      var hideSec = 3;
+
+      try {
+        var hs = localStorage.getItem(KEY_HIDE);
+        if (hs === "0") chromeHideOn = false;
+        hideSec = Math.max(1, Math.min(15, parseInt(localStorage.getItem(KEY_SEC) || "3", 10) || 3));
+      } catch (e) {}
+
+      function syncSecondsUI() {
+        if (secRange) secRange.value = String(hideSec);
+        if (secVal) secVal.textContent = hideSec + " sn";
+        if (secWrap) {
+          if (chromeHideOn) secWrap.classList.add("show");
+          else secWrap.classList.remove("show");
+        }
+        if (hideToggle) hideToggle.checked = chromeHideOn;
+      }
+      syncSecondsUI();
+
+      var tapLayer = document.getElementById("playerChromeTap");
+
+      function setTapLayer(on) {
+        if (!tapLayer) return;
+        if (on) tapLayer.classList.add("active");
+        else tapLayer.classList.remove("active");
+      }
+
+      function showChrome() {
+        if (!top) return;
+        top.classList.remove("chrome-hidden");
+        setTapLayer(false);
+        clearTimeout(hideTimer);
+        if (!chromeHideOn) return;
+        hideTimer = setTimeout(function() {
+          if (panel && panel.classList.contains("show")) return;
+          if (!view || !view.classList.contains("active")) return;
+          top.classList.add("chrome-hidden");
+          setTapLayer(true);
+        }, hideSec * 1000);
+      }
+
+      function onInteract() {
+        if (!view || !view.classList.contains("active")) return;
+        showChrome();
+      }
+
+      if (tapLayer) {
+        tapLayer.addEventListener("click", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showChrome();
+        });
+        tapLayer.addEventListener("touchend", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showChrome();
+        }, { passive: false });
+      }
+
+      if (view) {
+        view.addEventListener("click", onInteract, true);
+        view.addEventListener("touchstart", onInteract, { capture: true, passive: true });
+        var obs = new MutationObserver(function() {
+          if (view.classList.contains("active")) showChrome();
+          else {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+            setTapLayer(false);
+          }
+        });
+        obs.observe(view, { attributes: true, attributeFilter: ["class"] });
+      }
+
+      if (hideToggle) {
+        hideToggle.addEventListener("change", function() {
+          chromeHideOn = !!hideToggle.checked;
+          try { localStorage.setItem(KEY_HIDE, chromeHideOn ? "1" : "0"); } catch (e) {}
+          syncSecondsUI();
+          if (!chromeHideOn) {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+          } else {
+            showChrome();
+          }
+        });
+      }
+      if (secRange) {
+        secRange.addEventListener("input", function() {
+          hideSec = Math.max(1, Math.min(15, parseInt(secRange.value, 10) || 3));
+          if (secVal) secVal.textContent = hideSec + " sn";
+          try { localStorage.setItem(KEY_SEC, String(hideSec)); } catch (e) {}
+          showChrome();
+        });
+      }
+
+      // Parlaklık
+      var v = 0;
+      try { v = parseInt(localStorage.getItem(KEY_DIM) || "0", 10) || 0; } catch (e) {}
+      if (range) range.value = String(v);
+      if (dim) dim.style.opacity = String(Math.min(0.85, v / 100));
+      if (brightLabel) brightLabel.textContent = v + "%";
+
+      // Video kalite butonları (Ayarlar paneli)
+      (function initQualitySettingsUI() {
+        var grid = document.getElementById("qualityGrid");
+        if (!grid) return;
+        syncQualityButtonsUI();
+        grid.addEventListener("click", function(ev) {
+          var b = ev.target && ev.target.closest ? ev.target.closest(".sp-q-btn") : null;
+          if (!b || b.disabled) return;
+          var q = b.getAttribute("data-q");
+          if (!q) return;
+          setYtQualityPref(q, true);
+          // Panel açık kalsın; kullanıcı sonucu görsün
+          try { reportYtQuality("ui-click"); } catch (e) {}
+        });
+        // Panel her açıldığında güncel seviyeleri oku
+        var sbtn = document.getElementById("settingsBtn");
+        if (sbtn) {
+          sbtn.addEventListener("click", function() {
+            setTimeout(function() {
+              try { reportYtQuality("panel-open"); } catch (e2) {}
+            }, 200);
+          });
+        }
+      })();
+      if (btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          if (panel) panel.classList.toggle("show");
+          if (panel && panel.classList.contains("show")) {
+            clearTimeout(hideTimer);
+            if (top) top.classList.remove("chrome-hidden");
+          } else {
+            showChrome();
+          }
+        });
+      }
+      if (range) {
+        range.addEventListener("input", function() {
+          var n = parseInt(range.value, 10) || 0;
+          if (dim) dim.style.opacity = String(Math.min(0.85, n / 100));
+          if (brightLabel) brightLabel.textContent = n + "%";
+          try { localStorage.setItem(KEY_DIM, String(n)); } catch (e) {}
+        });
+      }
+      document.addEventListener("click", function(e) {
+        if (!panel || !panel.classList.contains("show")) return;
+        if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+        panel.classList.remove("show");
+        showChrome();
+      });
+    })();
+
+    prevBtn.addEventListener("click", function() {
+      playPrev();
+    });
+
+    nextBtn.addEventListener("click", function() {
+      playNext();
+    });
+
+    // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
+    window.addEventListener("keydown", function(e) {
+      var k = e.key || e.code || "";
+      if (
+        k === "MediaTrackNext" || k === "MediaNextTrack" ||
+        k === "AudioTrackNext" || e.keyCode === 176
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        playNext();
+      } else if (
+        k === "MediaTrackPrevious" || k === "MediaPreviousTrack" ||
+        k === "AudioTrackPrevious" || e.keyCode === 177
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        playPrev();
+      } else if (k === "MediaPlayPause" || e.keyCode === 179) {
+        e.preventDefault();
+        e.stopPropagation();
+        // toggle
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === "function") {
+            var st = ytPlayerInstance.getPlayerState();
+            if (typeof YT !== "undefined" && st === YT.PlayerState.PLAYING) msPause();
+            else msPlay();
+          } else {
+            msPlay();
+          }
+        } catch (err) { msPlay(); }
+      }
+    }, true); // capture = true → iframe odakli olsa bile yakala
+
+    // Sayfa görünür olunca / odak gelince handler'ları yenile
+    document.addEventListener("visibilitychange", function() {
+      if (!document.hidden && currentPlayingId) {
+        bindMediaSessionHandlers();
+        bumpMediaSessionPlaying();
+        updateMediaSession(currentPlayingTitle, currentPlayingAuthor, currentPlayingId);
+      }
+    });
+    window.addEventListener("focus", function() {
+      if (currentPlayingId) {
+        bindMediaSessionHandlers();
+        bumpMediaSessionPlaying();
+      }
+    });
+    // Sayfa yüklenir yüklenmez bir kez bağla
+    try { bindMediaSessionHandlers(); } catch (e) {}
+
+    function formatDuration(sec) {
+      if (!sec) return "";
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return m + ":" + s.toString().padStart(2, "0");
+    }
+
+    function formatViews(n) {
+      if (!n) return "";
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+      if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+      return String(n);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // İlk yükleme — rastgele sorgu + views sıralama + karıştırma
+    useCategoryRotate = true;
+    currentCatKey = "turkce-pop";
+    currentQuery = pickRandomQuery("turkce-pop");
+
+    // ── Oyuncu ekranı sesli komut (Vosk TR) ──
+    (function initPlayerVoice() {
+      var btn = document.getElementById("voicePlayerBtn");
+      if (!btn) return;
+      var overlay = document.getElementById("voiceOverlay");
+      var transcriptEl = document.getElementById("voiceTranscript");
+      var hintEl = document.getElementById("voiceHint");
+      var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
+      var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
+      var LISTEN_MS = 4000;
+      var listening = false, busy = false, applied = false;
+      var voskModel = null, voskReady = null;
+      var mediaStream = null, audioContext = null, processorNode = null, sourceNode = null;
+      var listenTimer = null, lastPartial = "";
+      var cmdLockUntil = 0, cmdLastKey = "";
+
+      function toast(msg) {
+        var t = document.getElementById("roomToast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(function() { t.classList.remove("show"); }, 2200);
+      }
+      function showOverlay(hint) {
+        if (overlay) {
+          overlay.classList.add("show");
+          overlay.setAttribute("aria-hidden", "false");
+        }
+        if (transcriptEl) transcriptEl.textContent = "";
+        if (hintEl) hintEl.textContent = hint || "Dinliyorum…";
+      }
+      function setTranscript(text) {
+        if (transcriptEl) transcriptEl.textContent = text || "";
+      }
+      function hideOverlay(delayMs) {
+        delayMs = delayMs == null ? 0 : delayMs;
+        setTimeout(function() {
+          if (overlay) {
+            overlay.classList.remove("show");
+            overlay.setAttribute("aria-hidden", "true");
+          }
+          if (transcriptEl) transcriptEl.textContent = "";
+          if (hintEl) hintEl.textContent = "Dinliyorum…";
+        }, delayMs);
+      }
+      function setListening(on) {
+        listening = !!on;
+        btn.classList.toggle("listening", listening);
+      }
+      function norm(raw) {
+        var t = String(raw || "").toLowerCase();
+        t = t.replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ö/g,"o").replace(/ç/g,"c");
+        return t.replace(/[.,!?;:"""']/g," ").replace(/\s+/g," ").trim();
+      }
+      function matchCmd(raw) {
+        var text = norm(raw);
+        if (!text) return null;
+        // Kontrol komutları (tam / başta)
+        if (/^(sonraki|next|skip|atla|gec)(\s|$)/.test(text) || /^sonraki\b/.test(text))
+          return { cmd: "next", terminal: true };
+        if (/^(onceki|previous|prev|geri)(\s|$)/.test(text) || /^onceki\b/.test(text))
+          return { cmd: "prev", terminal: true };
+        if (/^(duraklat|durdur|dur|pause|stop|beklet)(\s|$)/.test(text))
+          return { cmd: "pause", terminal: true };
+        if (/^(devam|resume|surdur)(\s|$)/.test(text))
+          return { cmd: "resume", terminal: true };
+        // "tarkan cal" / "cal tarkan"
+        var mSuf = text.match(/^(.+?)\s+(cal|oynat|play)$/);
+        if (mSuf && mSuf[1]) return { cmd: "search", q: mSuf[1].trim(), terminal: true };
+        var mPre = text.match(/^(cal|oynat|play|ara|bul)\s+(.+)$/);
+        if (mPre && mPre[2]) return { cmd: "search", q: mPre[2].trim(), terminal: true };
+        if (/^(cal|oynat|play|baslat)$/.test(text)) return { cmd: "resume", terminal: true };
+        // Serbest şarkı adı → arama (çal demese bile)
+        if (text.length >= 2) return { cmd: "search", q: text, terminal: false };
+        return null;
+      }
+      var panel = document.getElementById("voiceSearchPanel");
+      var panelBody = document.getElementById("voiceSearchBody");
+      var panelTitle = document.getElementById("voiceSearchTitle");
+      var panelClose = document.getElementById("voiceSearchClose");
+      var panelBackdrop = document.getElementById("voiceSearchBackdrop");
+
+      function openSearchPanel(query) {
+        if (panelTitle) panelTitle.textContent = query ? ('"' + query + '"') : "Arama";
+        if (panelBody) panelBody.innerHTML = '<div class="vsp-loading">Aranıyor…</div>';
+        if (panel) {
+          panel.classList.add("open");
+          panel.setAttribute("aria-hidden", "false");
+        }
+        if (panelBackdrop) panelBackdrop.classList.add("show");
+      }
+      function closeSearchPanel() {
+        if (panel) {
+          panel.classList.remove("open");
+          panel.setAttribute("aria-hidden", "true");
+        }
+        if (panelBackdrop) panelBackdrop.classList.remove("show");
+      }
+      function renderSearchPanel(videos, query) {
+        if (!panelBody) return;
+        if (!videos || !videos.length) {
+          panelBody.innerHTML = '<div class="vsp-empty">Sonuç bulunamadı</div>';
+          return;
+        }
+        var html = videos.slice(0, 20).map(function(v) {
+          var id = v.videoId || v.id || "";
+          var title = v.title || "";
+          var author = v.author || v.authorId || "";
+          var thumb = "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+          return (
+            '<div class="vsp-item" data-id="' + id +
+            '" data-title="' + escapeHtml(title) +
+            '" data-author="' + escapeHtml(author) + '">' +
+            '<img class="vsp-thumb" src="' + thumb + '" alt="" loading="lazy" />' +
+            '<div class="vsp-meta">' +
+            '<div class="vsp-item-title">' + escapeHtml(title) + '</div>' +
+            '<div class="vsp-item-author">' + escapeHtml(author) + '</div>' +
+            '</div></div>'
+          );
+        }).join("");
+        panelBody.innerHTML = html;
+        panelBody.querySelectorAll(".vsp-item").forEach(function(item) {
+          item.addEventListener("click", function() {
+            var id = item.getAttribute("data-id");
+            var title = item.getAttribute("data-title") || "";
+            var author = item.getAttribute("data-author") || "";
+            if (!id) return;
+            closeSearchPanel();
+            playVideo(id, title, author, false, 0);
+            toast("Çalıyor: " + (title || id));
+          });
+        });
+      }
+      if (panelClose) panelClose.addEventListener("click", function() { closeSearchPanel(); });
+      if (panelBackdrop) panelBackdrop.addEventListener("click", function() { closeSearchPanel(); });
+
+      function runCmd(spec) {
+        if (!spec || applied) return;
+        var key = spec.cmd + "|" + (spec.q || "");
+        var now = Date.now();
+        if (key === cmdLastKey && now < cmdLockUntil) {
+          console.log("[MM] voice debounce", key);
+          return;
+        }
+        applied = true;
+        cmdLastKey = key;
+        cmdLockUntil = now + 2500;
+
+        if (spec.cmd === "next") { playNext({ force: true }); toast("Sonraki"); hideOverlay(600); return; }
+        if (spec.cmd === "prev") { playPrev(); toast("Önceki"); hideOverlay(600); return; }
+        if (spec.cmd === "pause") { msPause(); toast("Duraklatıldı"); hideOverlay(600); return; }
+        if (spec.cmd === "resume") { msPlay(); toast("Devam"); hideOverlay(600); return; }
+        if (spec.cmd === "search" && spec.q) {
+          if (hintEl) hintEl.textContent = "Aranıyor…";
+          setTranscript(spec.q);
+          // Metni göster → paneli aç → API ara (home #results'a bağımlı değil)
+          setTimeout(function() {
+            hideOverlay(0);
+            openSearchPanel(spec.q);
+            fetchSearch(spec.q, 1, false).then(function(list) {
+              renderSearchPanel(list || [], spec.q);
+            }).catch(function(err) {
+              console.warn("[MM] voice search", err);
+              if (panelBody) panelBody.innerHTML = '<div class="vsp-empty">Arama başarısız</div>';
+            });
+          }, 700);
+        }
+      }
+      function loadScript(src) {
+        return new Promise(function(res, rej) {
+          if (window.Vosk && Vosk.createModel) return res();
+          var s = document.createElement("script");
+          s.src = src; s.async = true;
+          s.onload = function() { res(); };
+          s.onerror = function() { rej(new Error("vosk js")); };
+          document.head.appendChild(s);
+        });
+      }
+      function ensureModel() {
+        if (voskModel) return Promise.resolve(voskModel);
+        if (voskReady) return voskReady;
+        voskReady = loadScript(VOSK_JS).then(function() {
+          toast("Ses modeli yükleniyor…");
+          return Vosk.createModel(VOSK_MODEL_TR);
+        }).then(function(m) {
+          voskModel = m;
+          toast("Ses modeli hazır");
+          return m;
+        }).catch(function(e) { voskReady = null; throw e; });
+        return voskReady;
+      }
+      function cleanup() {
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        try { if (processorNode) { processorNode.onaudioprocess = null; processorNode.disconnect(); } } catch (e) {}
+        processorNode = null;
+        try { if (sourceNode) sourceNode.disconnect(); } catch (e2) {}
+        sourceNode = null;
+        if (mediaStream) {
+          try { mediaStream.getTracks().forEach(function(t) { t.stop(); }); } catch (e3) {}
+          mediaStream = null;
+        }
+        if (audioContext) { try { audioContext.close(); } catch (e4) {} audioContext = null; }
+      }
+      function stopListen(text) {
+        if (!listening && !busy) return;
+        setListening(false);
+        busy = false;
+        cleanup();
+        var t = (text || lastPartial || "").trim();
+        lastPartial = "";
+        if (t) setTranscript(t);
+        var spec = matchCmd(t);
+        if (spec) {
+          if (hintEl) hintEl.textContent = spec.cmd === "search" ? "Aranıyor…" : "Tamam";
+          runCmd(spec);
+        } else if (t) {
+          if (hintEl) hintEl.textContent = "Anlaşılamadı";
+          toast("Anlaşılamadı: " + t);
+          hideOverlay(1200);
+        } else {
+          if (hintEl) hintEl.textContent = "Ses duyulmadı";
+          toast("Ses duyulmadı");
+          hideOverlay(900);
+        }
+      }
+      function startListen() {
+        if (busy) return;
+        busy = true;
+        applied = false;
+        lastPartial = "";
+        setListening(true);
+        // Mikrofon açılınca çalan şarkıyı durdur
+        try { msPause(); } catch (eP) {}
+        showOverlay("Dinliyorum…");
+        ensureModel().then(function(model) {
+          return navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, sampleRate: 16000 }
+          }).then(function(stream) { return { model: model, stream: stream }; });
+        }).then(function(ctx) {
+          mediaStream = ctx.stream;
+          var recognizer;
+          try { recognizer = new ctx.model.KaldiRecognizer(16000); }
+          catch (e) { recognizer = new ctx.model.KaldiRecognizer(); }
+          var gotFinal = false;
+          recognizer.on("result", function(msg) {
+            var t = (msg && msg.result && msg.result.text) || "";
+            if (String(t).trim()) { gotFinal = true; stopListen(String(t).trim()); }
+          });
+          recognizer.on("partialresult", function(msg) {
+            var p = (msg && msg.result && msg.result.partial) || "";
+            p = String(p).trim();
+            if (!p || gotFinal || applied) return;
+            lastPartial = p;
+            setTranscript(p);
+            var spec = matchCmd(p);
+            if (spec && spec.terminal) {
+              gotFinal = true;
+              stopListen(p);
+            }
+          });
+          audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          if (audioContext.state === "suspended") try { audioContext.resume(); } catch (eR) {}
+          sourceNode = audioContext.createMediaStreamSource(mediaStream);
+          processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+          processorNode.onaudioprocess = function(ev) {
+            try { if (!gotFinal && !applied) recognizer.acceptWaveform(ev.inputBuffer); } catch (err) {}
+          };
+          sourceNode.connect(processorNode);
+          var gain = audioContext.createGain();
+          gain.gain.value = 0;
+          processorNode.connect(gain);
+          gain.connect(audioContext.destination);
+          listenTimer = setTimeout(function() {
+            if (!gotFinal) stopListen(lastPartial);
+          }, LISTEN_MS);
+        }).catch(function(err) {
+          busy = false;
+          setListening(false);
+          cleanup();
+          hideOverlay(0);
+          toast("Mikrofon / model açılamadı");
+          console.warn("[MM] voice", err);
+        });
+      }
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if (listening || busy) { stopListen(lastPartial); return; }
+        startListen();
+      });
+
+      // ── TEST: Ses açma tuşuna basılı tut (~500ms) → mikrofon ──
+      // Masaüstü / bazı Android klavye olayları; iOS genelde vermez.
+      (function volumeHoldTest() {
+        var HOLD_MS = 500;
+        var holdTimer = null;
+        var held = false;
+
+        function isVolumeUp(e) {
+          var k = e.key || "";
+          var c = e.code || "";
+          // Standart medya tuşları + yedekler (test için)
+          if (k === "AudioVolumeUp" || c === "AudioVolumeUp") return true;
+          if (k === "VolumeUp" || c === "VolumeUp") return true;
+          // Klavyeden denemek için: Shift + Ok Yukarı da kabul (garanti test)
+          if (e.shiftKey && (k === "ArrowUp" || c === "ArrowUp")) return true;
+          return false;
+        }
+
+        function clearHold() {
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
+          held = false;
+        }
+
+        window.addEventListener("keydown", function(e) {
+          if (!isVolumeUp(e)) return;
+          // Player görünür değilse de dene (test)
+          if (held || holdTimer) return;
+          held = true;
+          holdTimer = setTimeout(function() {
+            holdTimer = null;
+            if (listening || busy) {
+              toast("Mikrofon zaten açık");
+              return;
+            }
+            toast("Ses tuşu → mikrofon (test)");
+            console.log("[MM] volume-hold → startListen");
+            startListen();
+          }, HOLD_MS);
+        }, true);
+
+        window.addEventListener("keyup", function(e) {
+          if (isVolumeUp(e)) clearHold();
+        }, true);
+
+        window.addEventListener("blur", clearHold);
+        console.log("[MM] volume-hold test aktif: AudioVolumeUp 500ms veya Shift+↑");
+      })();
+    })();
+
+    initRoomSync();
+    doSearch(currentQuery, true, true);
   </script>
 </body>
 </html>
