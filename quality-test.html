@@ -1,45 +1,5 @@
 <!DOCTYPE html>
 <html lang="tr">
-  (function() {
-    const MASTER_Q = 'tiny';
-
-    // 1. Orijinal setPlaybackQuality'yi prototipten yakala
-    const forceQuality = (player) => {
-        if (player && typeof player.setPlaybackQuality === 'function') {
-            player.setPlaybackQuality(MASTER_Q);
-            player.setPlaybackQualityRange(MASTER_Q, MASTER_Q);
-        }
-    };
-
-    // 2. Mevcut ve yeni iframe'leri sürekli denetle
-    setInterval(() => {
-        // YT API üzerinden bağlı player'ları tara
-        if (window.YT && window.YT.get) {
-            const players = document.querySelectorAll('iframe[src*="youtube.com"]');
-            players.forEach(iframe => {
-                const player = YT.get(iframe.id);
-                if (player && player.getPlayerState() === 1) { // 1 = Playing
-                    forceQuality(player);
-                }
-            });
-        }
-    }, 1000);
-
-    // 3. postMessage müdahalesini genişlet
-    const originalPost = Window.prototype.postMessage;
-    Window.prototype.postMessage = function(msg, origin, transfer) {
-        try {
-            let data = typeof msg === 'string' ? JSON.parse(msg) : msg;
-            if (data && data.event === 'command') {
-                if (['setPlaybackQuality', 'setPlaybackQualityRange'].includes(data.func)) {
-                    data.args = [MASTER_Q, MASTER_Q];
-                    msg = JSON.stringify(data);
-                }
-            }
-        } catch (e) {}
-        return originalPost.call(this, msg, origin, transfer);
-    };
-})();
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -1313,6 +1273,62 @@
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+(function() {
+    const MASTER_Q = 'tiny'; // 144p
+
+    // YouTube Player'a doğrudan komut gönderen fonksiyon
+    const forceQuality = () => {
+        const frames = document.querySelectorAll('iframe[src*="youtube.com"]');
+        frames.forEach(f => {
+            try {
+                // Widget ID'sini URL'den al (genelde 1'dir)
+                const url = new URL(f.src);
+                const wId = url.searchParams.get('widgetid') || 1;
+                
+                const cmd = JSON.stringify({
+                    event: 'command',
+                    func: 'setPlaybackQuality',
+                    args: [MASTER_Q],
+                    id: wId,
+                    channel: 'widget'
+                });
+                
+                // Hem ana kanaldan hem range kanalından zorla
+                f.contentWindow.postMessage(cmd, '*');
+                f.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'setPlaybackQualityRange',
+                    args: [MASTER_Q, MASTER_Q],
+                    id: wId,
+                    channel: 'widget'
+                }), '*');
+            } catch (e) {}
+        });
+    };
+
+    // 1. Oynatıcıdan gelen mesajları dinle (Video başladığında tetiklenir)
+    window.addEventListener('message', (event) => {
+        try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            // Video her durum değiştirdiğinde (oynatma başladığında, kalite değiştiğinde vb.)
+            if (data.event === 'onStateChange' || data.event === 'infoDelivery') {
+                forceQuality();
+            }
+        } catch (e) {}
+    });
+
+    // 2. Sayfada API metodlarını prototip üzerinden kilitle
+    if (window.YT && YT.Player) {
+        YT.Player.prototype.setPlaybackQuality = function() { return MASTER_Q; };
+    }
+
+    // 3. Agresif döngü: Her 2 saniyede bir kontrol et (YouTube otomatik yükseltirse geri çekmek için)
+    setInterval(forceQuality, 2000);
+
+    console.log('%c[SuperYT] 144p Kilidi Aktif!', 'color: red; font-weight: bold;');
+})();
+</script>
   <script>
     document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
 
