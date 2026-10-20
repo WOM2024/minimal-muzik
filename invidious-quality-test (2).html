@@ -198,11 +198,13 @@
         <button type="button" class="q-btn" data-q="2160">2160p</button>
       </div>
       <div class="note">
-        <strong>Not:</strong> Videolar seçili kalitede açılır. İstenen çözünürlük yoksa mevcut en yüksek (tercihe kadar) kullanılır.
+        <strong>Not:</strong> Videolar seçili kalitede açılır. İstenen çözünürlük yoksa mevcut en yüksek (tercihe kadar) kullanılır.<br>
+        <strong>CORS Proxy:</strong> Resmi instance’ların çoğu API’yi kapattığı için proxy kullanılıyor (geçici çözüm).
       </div>
       <div class="toggles">
         <label><input type="checkbox" id="sbToggle" checked /> SponsorBlock atla</label>
         <label><input type="checkbox" id="autoNext" checked /> Bitince sonraki</label>
+        <label><input type="checkbox" id="proxyToggle" checked /> CORS Proxy kullan</label>
       </div>
     </div>
 
@@ -241,14 +243,18 @@
       { id: "kXKhNI4DLHM", title: "…" }
     ];
 
+    // Öncelik sırası: CORS destekleyen + yedekler
     var INSTANCES = [
       "https://invidious.f5.si",
-      "https://yt.chocolatemoo53.com",
-      "https://invidious.nerdvpn.de",
-      "https://invidious.tiekoetter.com",
       "https://inv.nadeko.net",
+      "https://yt.chocolatemoo53.com",
+      "https://invidious.tiekoetter.com",
+      "https://invidious.nerdvpn.de",
       "https://yewtu.be"
     ];
+
+    // Basit public CORS proxy (test için). İstersen değiştir.
+    var CORS_PROXY = "https://corsproxy.io/?";
 
     var SB_API = "https://sponsor.ajay.app/api/skipSegments";
     var SB_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic"];
@@ -263,7 +269,7 @@
     var index = 0;
     var videoFormats = [];
     var audioFormats = [];
-    var segments = []; // {start, end, category}
+    var segments = [];
     var loadToken = 0;
     var loadRetries = 0;
     var MAX_RETRIES = 2;
@@ -441,19 +447,30 @@
       }, 1000);
     }
 
+    function buildFetchUrl(base, videoId) {
+      var apiUrl = base.replace(/\/$/, "") + "/api/v1/videos/" + videoId;
+      if (document.getElementById("proxyToggle").checked) {
+        return CORS_PROXY + encodeURIComponent(apiUrl);
+      }
+      return apiUrl;
+    }
+
     async function fetchVideoJson(videoId) {
       var lastErr = null;
+      var useProxy = document.getElementById("proxyToggle").checked;
+
       for (var i = 0; i < INSTANCES.length; i++) {
         var base = INSTANCES[i];
-        var url = base.replace(/\/$/, "") + "/api/v1/videos/" + videoId;
+        var url = buildFetchUrl(base, videoId);
         var ctrl = new AbortController();
-        var timer = setTimeout(function() { ctrl.abort(); }, 12000);
+        var timer = setTimeout(function() { ctrl.abort(); }, 14000);
         try {
-          log("info", "API " + base);
+          log("info", (useProxy ? "[Proxy] " : "") + "API " + base);
           var res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
           clearTimeout(timer);
           if (!res.ok) throw new Error("HTTP " + res.status);
           var data = await res.json();
+          if (data.error) throw new Error(data.error);
           return { base: base, data: data };
         } catch (e) {
           clearTimeout(timer);
@@ -633,6 +650,7 @@
         if (token !== loadToken) return;
         setLoading(false);
         log("err", "Yükleme hatası: " + (e.message || e));
+        log("warn", "Not: Çoğu resmi instance API'yi kapattı. Proxy açıkken dene veya kendi Invidious kur.");
       }
     }
 
@@ -646,7 +664,6 @@
       syncQualityUI();
       log("info", "Kalite tercihi sabit: " + prefText() + " (sonraki ve mevcut şarkıya uygulanır)");
       if (videoFormats.length) {
-        // aynı şarkıda kalite değiştir — yeniden yükleme token
         loadToken++;
         loadRetries = 0;
         var token = loadToken;
@@ -674,7 +691,7 @@
     syncQualityUI();
     renderPlaylist();
     log("info", "Hazır · " + PLAYLIST.length + " şarkı · tercih=" + prefText());
-    // ilk şarkıyı otomatik yükleme — kullanıcı Oynat’a bassın veya tıklasın
+    log("info", "CORS Proxy varsayılan açık (resmi instance'lar API'yi kapattığı için)");
   </script>
 </body>
 </html>
