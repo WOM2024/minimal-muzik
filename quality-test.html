@@ -1221,7 +1221,7 @@
           <div class="sp-row">
             <div>
               <div class="sp-row-label">Video kalitesi</div>
-              <div class="sp-row-sub">IFrame API ile zorlanır (YouTube yok sayabilir)</div>
+              <div class="sp-row-sub">API + iframe DOM menü tıklama (cross-origin’de DOM engellenir)</div>
             </div>
           </div>
           <div class="sp-quality-grid" id="qualityGrid">
@@ -2969,14 +2969,156 @@
     }
 
     /**
-     * Kaliteyi mümkün olan tüm resmi API yollarıyla uygula.
-     * Cross-origin iframe içinde DOM tıklaması yapılamaz; sadece API.
+     * Kalite: 1) Resmi API  2) iframe DOM (çark menüsü tıklama)
+     * Not: Cross-origin embed'de DOM adımı tarayıcı tarafından engellenir (SecurityError).
+     * Same-origin proxy kullanılırsa DOM yolu devreye girer.
      */
+    var YT_Q_DOM_LABEL = {
+      default: ["Otomatik", "Auto", "Automatic"],
+      tiny: ["144p", "144"],
+      small: ["240p", "240"],
+      medium: ["360p", "360"],
+      large: ["480p", "480"],
+      hd720: ["720p", "720", "HD"],
+      hd1080: ["1080p", "1080", "Full HD", "FHD"],
+      highres: ["1440p", "2160p", "4320p", "4K", "8K", "Highres", "highres"]
+    };
+
+    function getYtPlayerIframeEl() {
+      try {
+        if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
+          var f = ytPlayerInstance.getIframe();
+          if (f) return f;
+        }
+      } catch (e0) {}
+      try {
+        var host = document.getElementById(ytHostId || "ytplayer-host");
+        if (host) {
+          var inner = host.querySelector("iframe");
+          if (inner) return inner;
+        }
+      } catch (e1) {}
+      try {
+        var legacy = document.getElementById("ytplayer");
+        if (legacy && legacy.tagName === "IFRAME") return legacy;
+      } catch (e2) {}
+      return null;
+    }
+
+    /** iframe document'ine erişmeyi dene — cross-origin'de null döner */
+    function tryGetYtIframeDocument(iframe) {
+      if (!iframe) return { doc: null, err: "no-iframe" };
+      try {
+        var doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+        if (doc) return { doc: doc, err: null };
+        return { doc: null, err: "doc-null" };
+      } catch (e) {
+        return { doc: null, err: (e && e.name ? e.name : "Error") + ": " + (e && e.message ? e.message : String(e)) };
+      }
+    }
+
+    /**
+     * DOM ile kalite menüsünden seçim (youtube.com console script mantığı).
+     * Cross-origin embed'de SecurityError ile başarısız olur.
+     */
+    function forceYtQualityViaDom(apiQuality, reason) {
+      var iframe = getYtPlayerIframeEl();
+      if (!iframe) {
+        console.warn("[MM][Q][DOM] iframe yok", reason || "");
+        return false;
+      }
+
+      var got = tryGetYtIframeDocument(iframe);
+      if (!got.doc) {
+        console.warn("[MM][Q][DOM] erişim engelli (beklenen cross-origin):", got.err, reason || "");
+        var avEl = document.getElementById("qAvailLabel");
+        if (avEl) {
+          avEl.textContent = "DOM: iframe içi erişilemiyor (cross-origin). API denendi.";
+        }
+        return false;
+      }
+
+      var doc = got.doc;
+      var labels = YT_Q_DOM_LABEL[apiQuality] || [apiQuality];
+      console.log("[MM][Q][DOM] document erişildi, menü deneniyor", labels, reason || "");
+
+      try {
+        var settingsBtn =
+          doc.querySelector(".ytp-settings-button") ||
+          doc.querySelector('button[aria-label*="Settings"]') ||
+          doc.querySelector('button[aria-label*="Ayarlar"]') ||
+          doc.querySelector('button[data-tooltip-target-id*="settings"]');
+
+        if (!settingsBtn) {
+          console.warn("[MM][Q][DOM] çark butonu bulunamadı");
+          return false;
+        }
+
+        if (settingsBtn.getAttribute("aria-expanded") !== "true") {
+          settingsBtn.click();
+        }
+
+        setTimeout(function() {
+          try {
+            var items = doc.querySelectorAll(".ytp-menuitem");
+            var qMenu = null;
+            for (var i = 0; i < items.length; i++) {
+              var t = (items[i].textContent || "");
+              if (/Kalite|Quality|Piksel|Quality/i.test(t)) {
+                qMenu = items[i];
+                break;
+              }
+            }
+            if (!qMenu) {
+              console.warn("[MM][Q][DOM] Kalite menü satırı yok");
+              if (settingsBtn.getAttribute("aria-expanded") === "true") settingsBtn.click();
+              return;
+            }
+            qMenu.click();
+
+            setTimeout(function() {
+              try {
+                var opts = doc.querySelectorAll(".ytp-menuitem");
+                var target = null;
+                for (var j = 0; j < opts.length; j++) {
+                  var ot = (opts[j].textContent || "").replace(/\s+/g, " ");
+                  for (var k = 0; k < labels.length; k++) {
+                    if (ot.indexOf(labels[k]) !== -1) {
+                      target = opts[j];
+                      break;
+                    }
+                  }
+                  if (target) break;
+                }
+                if (target) {
+                  target.click();
+                  console.log("[MM][Q][DOM] seçildi", target.textContent);
+                  setTimeout(function() { reportYtQuality("dom-click"); }, 500);
+                } else {
+                  console.warn("[MM][Q][DOM] etiket listede yok", labels);
+                  if (settingsBtn.getAttribute("aria-expanded") === "true") settingsBtn.click();
+                }
+              } catch (e3) {
+                console.warn("[MM][Q][DOM] seçim hatası", e3);
+              }
+            }, 400);
+          } catch (e2) {
+            console.warn("[MM][Q][DOM] menü hatası", e2);
+          }
+        }, 400);
+        return true;
+      } catch (e) {
+        console.warn("[MM][Q][DOM] hata", e);
+        return false;
+      }
+    }
+
     function applyYtQualityPreference(reason) {
       if (!ytPlayerInstance) return;
       var target = ytQualityPref || "default";
       var applied = false;
 
+      // —— 1) Resmi API ——
       try {
         if (typeof ytPlayerInstance.setPlaybackQuality === "function") {
           ytPlayerInstance.setPlaybackQuality(target);
@@ -2989,10 +3131,8 @@
       try {
         if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
           if (target === "default") {
-            // Otomatik: geniş aralık
             ytPlayerInstance.setPlaybackQualityRange("tiny", "highres");
           } else {
-            // Tercihi dar aralığa kilitlemeye çalış
             ytPlayerInstance.setPlaybackQualityRange(target, target);
           }
           applied = true;
@@ -3001,18 +3141,28 @@
         console.warn("[MM][Q] setPlaybackQualityRange", e2 && e2.message);
       }
 
-      // Bazı sürümlerde setOption denemesi (sessizce)
       try {
         if (typeof ytPlayerInstance.setOption === "function") {
           ytPlayerInstance.setOption("playbackQuality", target);
         }
       } catch (e3) {}
 
-      if (window._debugYt || reason) {
-        console.log("[MM][Q] apply", reason || "", target, applied ? "ok" : "no-method");
+      // —— 2) DOM (iframe içi çark menüsü) ——
+      var domOk = false;
+      try {
+        domOk = forceYtQualityViaDom(target, reason || "apply");
+      } catch (eDom) {
+        console.warn("[MM][Q][DOM] exception", eDom);
       }
 
-      // Gecikmeli doğrulama — YouTube adaptif geçiş yapabilir
+      console.log(
+        "[MM][Q] apply",
+        reason || "",
+        target,
+        "api=" + (applied ? "yes" : "no"),
+        "dom=" + (domOk ? "started" : "blocked")
+      );
+
       if (ytQualityApplyTimer) clearTimeout(ytQualityApplyTimer);
       ytQualityApplyTimer = setTimeout(function() {
         reportYtQuality((reason || "apply") + "+0.9s");
