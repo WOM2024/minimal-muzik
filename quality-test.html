@@ -1,5 +1,62 @@
 <!DOCTYPE html>
 <html lang="tr">
+  <!-- SuperYT 144p Test Kilitleyici -->
+<script>
+(function() {
+    // TEST İÇİN 144p (tiny) OLARAK AYARLANDI
+    const MASTER_Q = 'tiny'; 
+
+    console.log('%c[TEST-MODE] Kalite 144p olarak kilitlendi!', 'color: yellow; background: black; font-weight: bold; padding: 5px;');
+
+    // 1. postMessage Kanalını Kökten Filtrele
+    const originalPost = Window.prototype.postMessage;
+    Object.defineProperty(Window.prototype, 'postMessage', {
+        value: function(msg, origin, transfer) {
+            try {
+                let data = typeof msg === 'string' ? JSON.parse(msg) : msg;
+                if (data && data.event === 'command' && 
+                   (data.func === 'setPlaybackQuality' || data.func === 'setPlaybackQualityRange' || data.func === 'setOption')) {
+                    
+                    // Sitedeki script ne derse desin havada 'tiny' (144p) yapıyoruz
+                    data.args = (data.func === 'setPlaybackQualityRange') ? [MASTER_Q, MASTER_Q] : [MASTER_Q];
+                    if (data.func === 'setOption' && data.args.length > 1) data.args[1] = MASTER_Q;
+                    
+                    msg = JSON.stringify(data);
+                }
+            } catch (e) {}
+            return originalPost.call(this, msg, origin, transfer);
+        },
+        configurable: false,
+        writable: false
+    });
+
+    // 2. YouTube API Nesnelerini Takibe Al
+    const enforceAPI = () => {
+        if (window.YT && YT.Player && YT.Player.prototype) {
+            const originalSet = YT.Player.prototype.setPlaybackQuality;
+            YT.Player.prototype.setPlaybackQuality = function() {
+                return originalSet.apply(this, [MASTER_Q]);
+            };
+            
+            // Mevcut tüm iframe'leri tara ve 144p komutu gönder
+            document.querySelectorAll('iframe[src*="youtube.com"]').forEach(f => {
+                const wId = new URL(f.src).searchParams.get('widgetid') || 1;
+                f.contentWindow.postMessage(JSON.stringify({
+                    event: 'command', func: 'setPlaybackQuality', args: [MASTER_Q], id: wId, channel: 'widget'
+                }), '*');
+            });
+        }
+    };
+
+    // API'nin yüklenmesini bekle
+    const tracker = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+            enforceAPI();
+            clearInterval(tracker);
+        }
+    }, 100);
+})();
+</script>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
