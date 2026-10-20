@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kalite + Playlist + SponsorBlock test</title>
+  <title>Invidious Kalite + Playlist + SB</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -15,7 +15,7 @@
       line-height: 1.45;
     }
     .wrap { max-width: 780px; margin: 0 auto; }
-    h1 { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    h1 { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
     .sub { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
 
     .card {
@@ -27,6 +27,7 @@
     }
     .card-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 2px; }
     .card-desc { font-size: 0.75rem; color: #888; margin-bottom: 10px; }
+
     .q-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
@@ -49,6 +50,7 @@
       border-color: #ff2d55;
       color: #000;
     }
+
     .note {
       margin-top: 12px;
       padding: 9px 11px;
@@ -74,7 +76,7 @@
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.65);
+      background: rgba(0,0,0,0.7);
       align-items: center;
       justify-content: center;
       font-size: 0.85rem;
@@ -105,15 +107,10 @@
     .btn:hover { background: #1d4ed8; }
     .btn.sec { background: #2a2a2a; color: #ddd; }
     .btn.sec:hover { background: #333; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .live { font-size: 0.75rem; color: #888; flex: 1; min-width: 140px; }
     .live strong { color: #4ade80; }
 
-    .plist {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
+    .plist { list-style: none; margin: 0; padding: 0; }
     .plist li {
       display: flex;
       align-items: center;
@@ -130,16 +127,11 @@
       border-color: rgba(255,45,85,0.35);
     }
     .plist .idx {
-      width: 22px;
-      height: 22px;
+      width: 22px; height: 22px;
       border-radius: 6px;
       background: #222;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: #999;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700; color: #999;
       flex-shrink: 0;
     }
     .plist li.active .idx { background: #ff2d55; color: #000; }
@@ -148,12 +140,8 @@
     .plist .id { font-size: 0.7rem; color: #666; font-family: ui-monospace, monospace; }
 
     .toggles {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 10px;
-      font-size: 0.78rem;
-      color: #bbb;
+      display: flex; flex-wrap: wrap; gap: 14px;
+      margin-top: 10px; font-size: 0.78rem; color: #bbb;
     }
     .toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
@@ -163,7 +151,7 @@
       border: 1px solid #222;
       border-radius: 12px;
       padding: 10px;
-      max-height: 240px;
+      max-height: 260px;
       overflow: auto;
       font-family: ui-monospace, monospace;
       font-size: 11px;
@@ -177,17 +165,16 @@
     .log-info { color: #93c5fd; }
     .log-warn { color: #fbbf24; }
     .log-sb { color: #c4b5fd; }
-    code { background: #222; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Kalite + Playlist + SponsorBlock</h1>
-    <p class="sub">Kalite tercihi şarkı geçişinde sabit kalır · yükleme loop’u engelli · SB segment atlama</p>
+    <h1>Invidious Kalite + Playlist + SponsorBlock</h1>
+    <p class="sub">Kalite tercihi şarkı değişiminde sabit kalır · ayrı ses/video senkron · SB atlama</p>
 
     <div class="card">
-      <div class="card-title">Kalite</div>
-      <div class="card-desc">Bundan sonraki tüm videolar bu tercihle açılır.</div>
+      <div class="card-title">Kalite Tercihi</div>
+      <div class="card-desc">Seçtiğin kalite sonraki tüm videolara uygulanır.</div>
       <div class="q-grid" id="qGrid">
         <button type="button" class="q-btn" data-q="auto">Oto</button>
         <button type="button" class="q-btn" data-q="360">360p</button>
@@ -198,13 +185,11 @@
         <button type="button" class="q-btn" data-q="2160">2160p</button>
       </div>
       <div class="note">
-        <strong>Not:</strong> Videolar seçili kalitede açılır. İstenen çözünürlük yoksa mevcut en yüksek (tercihe kadar) kullanılır.<br>
-        <strong>CORS Proxy:</strong> Resmi instance’ların çoğu API’yi kapattığı için proxy kullanılıyor (geçici çözüm).
+        <strong>Not:</strong> İstenen çözünürlük yoksa, tercihe en yakın (altında kalan en yüksek) kalite seçilir.
       </div>
       <div class="toggles">
-        <label><input type="checkbox" id="sbToggle" checked /> SponsorBlock atla</label>
-        <label><input type="checkbox" id="autoNext" checked /> Bitince sonraki</label>
-        <label><input type="checkbox" id="proxyToggle" checked /> CORS Proxy kullan</label>
+        <label><input type="checkbox" id="sbToggle" checked> SponsorBlock atla</label>
+        <label><input type="checkbox" id="autoNext" checked> Bitince sonraki</label>
       </div>
     </div>
 
@@ -217,10 +202,10 @@
     <div class="bar">
       <button type="button" class="btn sec" id="btnPrev">◀ Önceki</button>
       <button type="button" class="btn sec" id="btnNext">Sonraki ▶</button>
-      <button type="button" class="btn" id="btnPlay">Oynat / yenile</button>
+      <button type="button" class="btn" id="btnPlay">Oynat / Yenile</button>
       <div class="live">
         Tercih: <strong id="prefLabel">—</strong>
-        · Oynayan: <strong id="playLabel">—</strong>
+        · Gerçek: <strong id="playLabel">—</strong>
         · SB: <strong id="sbLabel">—</strong>
       </div>
     </div>
@@ -234,7 +219,9 @@
   </div>
 
   <script>
-    var PLAYLIST = [
+    // ——— AYARLAR ———
+    const PLAYLIST = [
+      { id: "EQyuKThNXwk", title: "KÖK$VL & Sir Speedy - ZIPLA" },
       { id: "A7ShtPRP2Mc", title: "…" },
       { id: "q2IMrkhSjSA", title: "…" },
       { id: "69L-nKRY3ac", title: "…" },
@@ -243,92 +230,83 @@
       { id: "kXKhNI4DLHM", title: "…" }
     ];
 
-    // Öncelik sırası: CORS destekleyen + yedekler
-    var INSTANCES = [
-      "https://invidious.f5.si",
-      "https://inv.nadeko.net",
-      "https://yt.chocolatemoo53.com",
-      "https://invidious.tiekoetter.com",
-      "https://invidious.nerdvpn.de",
-      "https://yewtu.be"
+    // Sadece çalışan instance (CORS + API açık)
+    const INSTANCES = [
+      "https://invidious.f5.si"
     ];
 
-    // Basit public CORS proxy (test için). İstersen değiştir.
-    var CORS_PROXY = "https://corsproxy.io/?";
+    const SB_API = "https://sponsor.ajay.app/api/skipSegments";
+    const SB_CATEGORIES = ["sponsor","selfpromo","interaction","intro","outro","preview","music_offtopic"];
+    const PREF_KEY = "iv_quality_pref";
 
-    var SB_API = "https://sponsor.ajay.app/api/skipSegments";
-    var SB_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic"];
+    // ——— STATE ———
+    let pref = "auto";
+    let index = 0;
+    let videoFormats = [];
+    let audioFormats = [];
+    let segments = [];
+    let loadToken = 0;
+    let sbTimer = null;
 
-    var PREF_KEY = "iv_quality_pref_height";
-    var videoEl = document.getElementById("vid");
-    var audioEl = document.getElementById("aud");
-    var logEl = document.getElementById("log");
-    var loadingOv = document.getElementById("loadingOv");
+    const videoEl = document.getElementById("vid");
+    const audioEl = document.getElementById("aud");
+    const logEl   = document.getElementById("log");
+    const loadingOv = document.getElementById("loadingOv");
 
-    var pref = "auto";
-    var index = 0;
-    var videoFormats = [];
-    var audioFormats = [];
-    var segments = [];
-    var loadToken = 0;
-    var loadRetries = 0;
-    var MAX_RETRIES = 2;
-    var loading = false;
-    var sbTimer = null;
-
+    // Kaydedilmiş kaliteyi yükle
     try {
-      var saved = localStorage.getItem(PREF_KEY);
-      if (saved === "auto") pref = "auto";
-      else if (saved && /^\d+$/.test(saved)) pref = parseInt(saved, 10);
-    } catch (e) {}
+      const s = localStorage.getItem(PREF_KEY);
+      if (s === "auto" || /^\d+$/.test(s)) pref = s === "auto" ? "auto" : parseInt(s, 10);
+    } catch(e){}
 
+    // ——— YARDIMCI ———
     function ts() {
-      var d = new Date();
-      return d.toLocaleTimeString("tr-TR") + "." + String(d.getMilliseconds()).padStart(3, "0");
+      const d = new Date();
+      return d.toLocaleTimeString("tr-TR") + "." + String(d.getMilliseconds()).padStart(3,"0");
     }
     function escapeHtml(s) {
       return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     }
     function log(kind, msg, obj) {
-      var line = document.createElement("div");
+      const line = document.createElement("div");
       line.className = "log-line log-" + (kind || "info");
-      var text = typeof msg === "string" ? msg : JSON.stringify(msg);
+      let text = typeof msg === "string" ? msg : JSON.stringify(msg);
       if (obj !== undefined) {
-        try { text += " " + JSON.stringify(obj); } catch (e) {}
+        try { text += " " + JSON.stringify(obj); } catch(e){}
       }
-      line.innerHTML = '<span class="t">' + ts() + "</span>" + escapeHtml(text);
+      line.innerHTML = `<span class="t">${ts()}</span>${escapeHtml(text)}`;
       logEl.appendChild(line);
       logEl.scrollTop = logEl.scrollHeight;
-      console.log("[TEST]", text, obj !== undefined ? obj : "");
     }
 
     function prefText() { return pref === "auto" ? "Oto" : pref + "p"; }
 
     function syncQualityUI() {
-      document.querySelectorAll(".q-btn").forEach(function(b) {
-        var q = b.getAttribute("data-q");
+      document.querySelectorAll(".q-btn").forEach(b => {
+        const q = b.getAttribute("data-q");
         b.classList.toggle("active", (q === "auto" && pref === "auto") || String(pref) === q);
       });
       document.getElementById("prefLabel").textContent = prefText();
     }
 
     function renderPlaylist() {
-      var ul = document.getElementById("plist");
+      const ul = document.getElementById("plist");
       ul.innerHTML = "";
-      PLAYLIST.forEach(function(item, i) {
-        var li = document.createElement("li");
+      PLAYLIST.forEach((item, i) => {
+        const li = document.createElement("li");
         if (i === index) li.className = "active";
-        li.innerHTML =
-          '<span class="idx">' + (i + 1) + "</span>" +
-          '<div class="meta"><div class="title">' + escapeHtml(item.title || item.id) +
-          '</div><div class="id">' + item.id + "</div></div>";
-        li.onclick = function() { playIndex(i); };
+        li.innerHTML = `
+          <span class="idx">${i+1}</span>
+          <div class="meta">
+            <div class="title">${escapeHtml(item.title || item.id)}</div>
+            <div class="id">${item.id}</div>
+          </div>`;
+        li.onclick = () => playIndex(i, true);
         ul.appendChild(li);
       });
     }
 
     function setLoading(on, text) {
-      loading = on;
       if (on) {
         loadingOv.textContent = text || "Yükleniyor…";
         loadingOv.classList.add("show");
@@ -339,17 +317,17 @@
 
     function parseHeight(f) {
       if (f.height) return parseInt(f.height, 10) || 0;
-      var lab = f.qualityLabel || f.resolution || f.quality || "";
-      var m = String(lab).match(/(\d{3,4})/);
+      const lab = f.qualityLabel || f.resolution || f.quality || "";
+      const m = String(lab).match(/(\d{3,4})/);
       return m ? parseInt(m[1], 10) : 0;
     }
 
     function scoreVideo(f) {
-      var t = (f.type || "").toLowerCase();
-      var s = 0;
-      if (t.indexOf("avc1") !== -1) s += 30;
-      if (t.indexOf("mp4") !== -1) s += 10;
-      if (t.indexOf("vp9") !== -1) s += 5;
+      const t = (f.type || "").toLowerCase();
+      let s = 0;
+      if (t.includes("avc1")) s += 30;
+      if (t.includes("mp4"))  s += 10;
+      if (t.includes("vp9"))  s += 5;
       if (f.muxed) s += 40;
       return s;
     }
@@ -357,7 +335,8 @@
     function normalize(data) {
       videoFormats = [];
       audioFormats = [];
-      (data.formatStreams || []).forEach(function(f) {
+
+      (data.formatStreams || []).forEach(f => {
         if (!f.url) return;
         videoFormats.push({
           url: f.url,
@@ -367,12 +346,17 @@
           muxed: true
         });
       });
-      (data.adaptiveFormats || []).forEach(function(f) {
+
+      (data.adaptiveFormats || []).forEach(f => {
         if (!f.url) return;
-        var t = (f.type || "").toLowerCase();
-        if (t.indexOf("audio") !== -1) {
-          audioFormats.push({ url: f.url, type: f.type || "", bitrate: parseInt(f.bitrate, 10) || 0 });
-        } else if (t.indexOf("video") !== -1) {
+        const t = (f.type || "").toLowerCase();
+        if (t.includes("audio")) {
+          audioFormats.push({
+            url: f.url,
+            type: f.type || "",
+            bitrate: parseInt(f.bitrate, 10) || 0
+          });
+        } else if (t.includes("video")) {
           videoFormats.push({
             url: f.url,
             qualityLabel: f.qualityLabel || f.resolution || "",
@@ -382,38 +366,42 @@
           });
         }
       });
-      videoFormats.sort(function(a, b) {
+
+      // Yükseklik artan + aynı yükseklikte skor yüksek olan önce
+      videoFormats.sort((a, b) => {
         if (a.height !== b.height) return a.height - b.height;
         return scoreVideo(b) - scoreVideo(a);
       });
-      audioFormats.sort(function(a, b) { return b.bitrate - a.bitrate; });
+      audioFormats.sort((a, b) => b.bitrate - a.bitrate);
     }
 
     function pickForPref() {
       if (!videoFormats.length) return null;
+
       if (pref === "auto") {
-        return videoFormats.slice().sort(function(a, b) {
+        // En yüksek kaliteyi al
+        return [...videoFormats].sort((a, b) => {
           if (a.height !== b.height) return b.height - a.height;
           return scoreVideo(b) - scoreVideo(a);
         })[0];
       }
-      var atOrBelow = videoFormats.filter(function(f) {
-        return f.height > 0 && f.height <= pref;
-      });
-      if (atOrBelow.length) {
-        return atOrBelow.sort(function(a, b) {
+
+      // Tercihin altındaki en yüksek
+      const below = videoFormats.filter(f => f.height > 0 && f.height <= pref);
+      if (below.length) {
+        return below.sort((a, b) => {
           if (a.height !== b.height) return b.height - a.height;
           return scoreVideo(b) - scoreVideo(a);
         })[0];
       }
-      return videoFormats.slice().sort(function(a, b) {
-        if (a.height !== b.height) return a.height - b.height;
-        return scoreVideo(b) - scoreVideo(a);
-      })[0];
+
+      // Hiç yoksa en düşük
+      return videoFormats[0];
     }
 
     function pickAudio() {
       if (!audioFormats.length) return null;
+      // İkinci en yüksek bitrate genelde daha stabil olur
       return audioFormats[Math.min(1, audioFormats.length - 1)] || audioFormats[0];
     }
 
@@ -422,63 +410,61 @@
         audioEl.pause();
         audioEl.removeAttribute("src");
         audioEl.load();
-      } catch (e) {}
+      } catch(e){}
     }
 
     function wireSync() {
-      videoEl.onplay = function() {
+      videoEl.onplay = () => {
         if (audioEl.src && audioEl.paused) {
           audioEl.currentTime = videoEl.currentTime;
-          audioEl.play().catch(function() {});
+          audioEl.play().catch(()=>{});
         }
       };
-      videoEl.onpause = function() {
+      videoEl.onpause = () => {
         if (!audioEl.paused) audioEl.pause();
       };
-      videoEl.onseeking = function() {
+      videoEl.onseeking = () => {
         if (audioEl.src) audioEl.currentTime = videoEl.currentTime;
       };
+
       if (wireSync._iv) clearInterval(wireSync._iv);
-      wireSync._iv = setInterval(function() {
+      wireSync._iv = setInterval(() => {
         if (!audioEl.src || videoEl.paused || audioEl.paused) return;
         if (Math.abs(videoEl.currentTime - audioEl.currentTime) > 0.35) {
           audioEl.currentTime = videoEl.currentTime;
         }
-      }, 1000);
-    }
-
-    function buildFetchUrl(base, videoId) {
-      var apiUrl = base.replace(/\/$/, "") + "/api/v1/videos/" + videoId;
-      if (document.getElementById("proxyToggle").checked) {
-        return CORS_PROXY + encodeURIComponent(apiUrl);
-      }
-      return apiUrl;
+      }, 800);
     }
 
     async function fetchVideoJson(videoId) {
-      var lastErr = null;
-      var useProxy = document.getElementById("proxyToggle").checked;
-
-      for (var i = 0; i < INSTANCES.length; i++) {
-        var base = INSTANCES[i];
-        var url = buildFetchUrl(base, videoId);
-        var ctrl = new AbortController();
-        var timer = setTimeout(function() { ctrl.abort(); }, 14000);
+      let lastErr = null;
+      for (const base of INSTANCES) {
+        const url = base.replace(/\/$/,"") + "/api/v1/videos/" + videoId;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 14000);
         try {
-          log("info", (useProxy ? "[Proxy] " : "") + "API " + base);
-          var res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+          log("info", "İstek → " + url);
+          const res = await fetch(url, {
+            signal: ctrl.signal,
+            headers: { "Accept": "application/json" }
+          });
           clearTimeout(timer);
           if (!res.ok) throw new Error("HTTP " + res.status);
-          var data = await res.json();
+          const data = await res.json();
           if (data.error) throw new Error(data.error);
-          return { base: base, data: data };
+          log("ok", "Instance OK: " + base, {
+            title: data.title,
+            videoCount: (data.adaptiveFormats || []).filter(f => (f.type||"").includes("video")).length + (data.formatStreams||[]).length,
+            audioCount: (data.adaptiveFormats || []).filter(f => (f.type||"").includes("audio")).length
+          });
+          return { base, data };
         } catch (e) {
           clearTimeout(timer);
           lastErr = e;
           log("warn", "Instance fail " + base + " · " + (e.message || e));
         }
       }
-      throw lastErr || new Error("no instance");
+      throw lastErr || new Error("Hiçbir instance cevap vermedi");
     }
 
     async function fetchSponsorBlock(videoId) {
@@ -488,27 +474,26 @@
         log("sb", "SponsorBlock kapalı");
         return;
       }
-      var cats = encodeURIComponent(JSON.stringify(SB_CATEGORIES));
-      var url = SB_API + "?videoID=" + encodeURIComponent(videoId) + "&categories=" + cats;
+      const cats = encodeURIComponent(JSON.stringify(SB_CATEGORIES));
+      const url = `${SB_API}?videoID=${encodeURIComponent(videoId)}&categories=${cats}`;
       try {
-        var res = await fetch(url);
+        const res = await fetch(url);
         if (res.status === 404) {
           log("sb", "Segment yok");
           document.getElementById("sbLabel").textContent = "0";
           return;
         }
         if (!res.ok) throw new Error("HTTP " + res.status);
-        var data = await res.json();
-        segments = (data || []).map(function(s) {
-          return {
-            start: s.segment[0],
-            end: s.segment[1],
-            category: s.category
-          };
-        }).filter(function(s) { return s.end > s.start; });
-        log("sb", "Segmentler: " + segments.length, segments.map(function(s) {
-          return s.category + " " + s.start.toFixed(1) + "-" + s.end.toFixed(1);
-        }));
+        const data = await res.json();
+        segments = (data || []).map(s => ({
+          start: s.segment[0],
+          end: s.segment[1],
+          category: s.category
+        })).filter(s => s.end > s.start);
+
+        log("sb", "Segmentler: " + segments.length, segments.map(s =>
+          s.category + " " + s.start.toFixed(1) + "-" + s.end.toFixed(1)
+        ));
         document.getElementById("sbLabel").textContent = String(segments.length);
       } catch (e) {
         log("warn", "SB hata: " + (e.message || e));
@@ -518,12 +503,11 @@
 
     function startSbWatcher() {
       if (sbTimer) clearInterval(sbTimer);
-      sbTimer = setInterval(function() {
+      sbTimer = setInterval(() => {
         if (!document.getElementById("sbToggle").checked) return;
         if (!segments.length || videoEl.paused) return;
-        var t = videoEl.currentTime;
-        for (var i = 0; i < segments.length; i++) {
-          var s = segments[i];
+        const t = videoEl.currentTime;
+        for (const s of segments) {
           if (t >= s.start && t < s.end - 0.15) {
             log("sb", "Atlandı: " + s.category + " → " + s.end.toFixed(1) + "s");
             videoEl.currentTime = s.end;
@@ -531,167 +515,154 @@
             break;
           }
         }
-      }, 400);
+      }, 350);
     }
 
     function applyStream(token) {
-      var fmt = pickForPref();
+      const fmt = pickForPref();
       if (!fmt) {
-        log("err", "Format yok");
+        log("err", "Uygun format bulunamadı");
         setLoading(false);
         return;
       }
       if (token !== loadToken) return;
 
-      var maxH = videoFormats.reduce(function(m, f) { return Math.max(m, f.height || 0); }, 0);
-      log("ok", "Stream seçildi", {
-        tercih: prefText(),
+      log("ok", "Seçilen VIDEO", {
         height: fmt.height,
-        label: fmt.qualityLabel,
+        qualityLabel: fmt.qualityLabel,
         muxed: fmt.muxed,
-        max: maxH
+        type: fmt.type,
+        urlPreview: fmt.url.slice(0, 90) + "…"
       });
 
       stopAudio();
+
       if (!fmt.muxed) {
-        var aud = pickAudio();
+        const aud = pickAudio();
         if (aud) {
           audioEl.src = aud.url;
           audioEl.load();
+          log("ok", "Ayrı SES track", {
+            bitrate: aud.bitrate,
+            type: aud.type,
+            urlPreview: aud.url.slice(0, 70) + "…"
+          });
         } else {
-          log("warn", "Ses track yok");
+          log("warn", "Ses track bulunamadı");
         }
       }
 
-      var onError = function() {
-        videoEl.removeEventListener("error", onError);
-        if (token !== loadToken) return;
-        var err = videoEl.error;
-        log("err", "video error", err ? { code: err.code, message: err.message } : {});
-        if (loadRetries < MAX_RETRIES) {
-          loadRetries++;
-          log("warn", "Yeniden deneme " + loadRetries + "/" + MAX_RETRIES + " (loop yok, sınırlı)");
-          setTimeout(function() {
-            if (token !== loadToken) return;
-            applyStream(token);
-          }, 800);
-        } else {
-          setLoading(false);
-          log("err", "Yükleme başarısız — otomatik loop durduruldu");
-        }
-      };
-
-      videoEl.addEventListener("error", onError);
       videoEl.src = fmt.url;
       videoEl.load();
       wireSync();
 
-      videoEl.addEventListener("loadedmetadata", function onMeta() {
+      const onMeta = () => {
         videoEl.removeEventListener("loadedmetadata", onMeta);
-        videoEl.removeEventListener("error", onError);
         if (token !== loadToken) return;
-        loadRetries = 0;
+
         setLoading(false);
-        document.getElementById("playLabel").textContent =
-          videoEl.videoHeight + "p";
-        log("ok", "Oynuyor", {
-          id: PLAYLIST[index].id,
+        document.getElementById("playLabel").textContent = videoEl.videoHeight + "p";
+        log("ok", "video metadata (GERÇEK çözünürlük)", {
           videoWidth: videoEl.videoWidth,
           videoHeight: videoEl.videoHeight,
-          tercih: prefText()
+          duration: videoEl.duration
         });
-        videoEl.play().then(function() {
+
+        videoEl.play().then(() => {
           if (audioEl.src) {
             audioEl.currentTime = videoEl.currentTime;
             return audioEl.play();
           }
-        }).catch(function(e) {
-          log("warn", "play engeli: " + (e && e.message));
-        });
+        }).catch(e => log("warn", "play engeli: " + (e && e.message)));
+
         startSbWatcher();
+      };
+
+      videoEl.addEventListener("loadedmetadata", onMeta);
+
+      videoEl.addEventListener("error", function onErr() {
+        videoEl.removeEventListener("error", onErr);
+        if (token !== loadToken) return;
+        log("err", "video error", videoEl.error ? { code: videoEl.error.code } : {});
+        setLoading(false);
       });
     }
 
-    async function playIndex(i, force) {
+    async function playIndex(i, force = false) {
       if (i < 0 || i >= PLAYLIST.length) return;
-      if (!force && i === index && videoEl.src && !videoEl.error) {
-        // aynı şarkı, sadece kalite değişimi olabilir
-      }
       index = i;
       renderPlaylist();
       loadToken++;
-      var token = loadToken;
-      loadRetries = 0;
+      const token = loadToken;
       segments = [];
       if (sbTimer) clearInterval(sbTimer);
 
-      var item = PLAYLIST[index];
+      const item = PLAYLIST[index];
       setLoading(true, "Yükleniyor: " + (item.title || item.id));
-      log("info", "—— Şarkı " + (index + 1) + "/" + PLAYLIST.length + " · " + item.id + " · tercih=" + prefText() + " ——");
+      log("info", `—— Şarkı ${index+1}/${PLAYLIST.length} · ${item.id} · tercih=${prefText()} ——`);
 
       try {
-        var result = await fetchVideoJson(item.id);
+        const result = await fetchVideoJson(item.id);
         if (token !== loadToken) return;
+
         if (result.data.title) {
           item.title = result.data.title;
           renderPlaylist();
         }
+
         normalize(result.data);
-        log("info", "Formatlar", {
-          video: videoFormats.length,
-          audio: audioFormats.length,
-          heights: videoFormats.map(function(f) { return f.height; })
-            .filter(function(h, j, a) { return a.indexOf(h) === j; }).join(",")
-        });
+
+        const heights = [...new Set(videoFormats.map(f => f.height).filter(Boolean))].sort((a,b)=>a-b);
+        log("info", "Mevcut yükseklikler: " + heights.join(", "));
+
         await fetchSponsorBlock(item.id);
         if (token !== loadToken) return;
+
         applyStream(token);
       } catch (e) {
         if (token !== loadToken) return;
         setLoading(false);
         log("err", "Yükleme hatası: " + (e.message || e));
-        log("warn", "Not: Çoğu resmi instance API'yi kapattı. Proxy açıkken dene veya kendi Invidious kur.");
       }
     }
 
-    // —— UI ——
-    document.getElementById("qGrid").addEventListener("click", function(e) {
-      var b = e.target.closest(".q-btn");
+    // ——— UI EVENT ———
+    document.getElementById("qGrid").addEventListener("click", e => {
+      const b = e.target.closest(".q-btn");
       if (!b) return;
-      var q = b.getAttribute("data-q");
+      const q = b.getAttribute("data-q");
       pref = q === "auto" ? "auto" : parseInt(q, 10);
-      try { localStorage.setItem(PREF_KEY, String(pref)); } catch (ex) {}
+      try { localStorage.setItem(PREF_KEY, String(pref)); } catch(e){}
       syncQualityUI();
-      log("info", "Kalite tercihi sabit: " + prefText() + " (sonraki ve mevcut şarkıya uygulanır)");
+      log("info", "Kalite tercihi değişti → " + prefText());
+
+      // Aynı şarkıda kaliteyi hemen uygula
       if (videoFormats.length) {
         loadToken++;
-        loadRetries = 0;
-        var token = loadToken;
+        const token = loadToken;
         setLoading(true, "Kalite değişiyor…");
         applyStream(token);
       }
     });
 
-    document.getElementById("btnPrev").onclick = function() {
+    document.getElementById("btnPrev").onclick = () => {
       playIndex((index - 1 + PLAYLIST.length) % PLAYLIST.length, true);
     };
-    document.getElementById("btnNext").onclick = function() {
+    document.getElementById("btnNext").onclick = () => {
       playIndex((index + 1) % PLAYLIST.length, true);
     };
-    document.getElementById("btnPlay").onclick = function() {
-      playIndex(index, true);
-    };
+    document.getElementById("btnPlay").onclick = () => playIndex(index, true);
 
-    videoEl.addEventListener("ended", function() {
+    videoEl.addEventListener("ended", () => {
       if (!document.getElementById("autoNext").checked) return;
       log("info", "Bitti → sonraki");
       playIndex((index + 1) % PLAYLIST.length, true);
     });
 
+    // Başlangıç
     syncQualityUI();
     renderPlaylist();
     log("info", "Hazır · " + PLAYLIST.length + " şarkı · tercih=" + prefText());
-    log("info", "CORS Proxy varsayılan açık (resmi instance'lar API'yi kapattığı için)");
   </script>
 </body>
 </html>
