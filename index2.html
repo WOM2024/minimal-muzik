@@ -347,6 +347,15 @@
       top: 0; left: 0; right: 0;
       z-index: 25;
       transition: opacity .35s ease, transform .35s ease, visibility .35s;
+      /* Boş alan tıklamaları iframe'e (YT çarkı) geçsin */
+      pointer-events: none;
+    }
+    .player-top .back-btn,
+    .player-top .player-title,
+    .player-top .player-nav,
+    .player-top .player-nav button,
+    .player-top .bright-panel-idx {
+      pointer-events: auto;
     }
     .player-top.chrome-hidden {
       opacity: 0;
@@ -354,15 +363,15 @@
       pointer-events: none;
       transform: translateY(-8px);
     }
-    /* Üst bar gizliyken tıklama yakala — ALT şeridi BOŞ bırak
-       (YouTube kalite çarkı / kontrol çubuğu tıklanabilsin) */
+    /* Üst bar gizliyken: ortayı yakala, ÜST ve ALT şeridi boş bırak
+       (YT kalite çarkı üstte veya altta olabilir) */
     .player-chrome-tap {
       display: none;
       position: absolute;
-      top: 0;
+      top: 56px;
       left: 0;
       right: 0;
-      bottom: 88px; /* YT control bar + ayarlar çarkı için alan */
+      bottom: 72px;
       z-index: 24;
       background: transparent;
       cursor: pointer;
@@ -370,10 +379,10 @@
     .player-chrome-tap.active {
       display: block;
     }
-    /* Mobil yatay: biraz daha az boşluk */
     @media (orientation: landscape) and (max-height: 480px) {
       .player-chrome-tap {
-        bottom: 56px;
+        top: 44px;
+        bottom: 48px;
       }
     }
     #playerView {
@@ -1192,9 +1201,11 @@
         <div class="sp-section">
           <div class="sp-row-label">Video kalitesi</div>
           <div class="sp-row-sub" style="margin-top:6px;line-height:1.45;">
-            Kalite, videonun altındaki YouTube kontrol çubuğundaki
-            <strong style="color:#ddd;">çark (Ayarlar)</strong> ikonundan seçilir.
-            Videoya bir kez dokun → alttaki çark → Kalite.
+            Kalite, video üzerindeki YouTube
+            <strong style="color:#ddd;">çark (Ayarlar)</strong> ikonundan seçilir
+            (genelde kontrol çubuğunda; bazen üstte).
+            Videoya dokun → çark görünsün → Kalite.
+            Üst bar boş alanları artık tıklamayı engellemez.
           </div>
         </div>
       </div>
