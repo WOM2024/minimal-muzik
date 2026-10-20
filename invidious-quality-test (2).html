@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YT Kalite Buton Test</title>
+  <title>YT setPlaybackQuality Gerçek Test</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,19 +14,22 @@
       padding: 16px 14px 40px;
       line-height: 1.45;
     }
-    .wrap { max-width: 800px; margin: 0 auto; }
+    .wrap { max-width: 960px; margin: 0 auto; }
 
-    h1 { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    h1 { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
     .sub { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
 
+    /* Büyük player → yüksek kalite şansını artırır */
     .player-wrap {
       background: #000;
       border-radius: 12px;
       overflow: hidden;
+      width: 100%;
       aspect-ratio: 16/9;
       border: 1px solid #222;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       position: relative;
+      min-height: 420px; /* küçük ekranda bile yeterince büyük tut */
     }
     #playerHost {
       width: 100%;
@@ -37,16 +40,15 @@
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,0.75);
       align-items: center;
       justify-content: center;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       font-weight: 600;
       z-index: 5;
     }
     .loading.show { display: flex; }
 
-    /* Kalite butonları */
     .quality-selector {
       display: flex;
       flex-wrap: wrap;
@@ -60,7 +62,7 @@
       border: 1px solid #444;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
     }
     .q-btn:hover { background: #333; color: #fff; }
@@ -68,6 +70,10 @@
       background: #ff2d55;
       border-color: #ff2d55;
       color: #000;
+    }
+    .q-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
     }
 
     .bar {
@@ -129,14 +135,30 @@
     }
     .plist li.active .idx { background: #ff2d55; color: #000; }
     .plist .title { font-weight: 600; }
-    .plist .id { font-size: 0.7rem; color: #666; margin-left: auto; font-family: ui-monospace, monospace; }
+    .plist .id {
+      font-size: 0.7rem;
+      color: #666;
+      margin-left: auto;
+      font-family: ui-monospace, monospace;
+    }
+
+    .note {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      border-left: 3px solid #fbbf24;
+      font-size: 0.75rem;
+      color: #ccc;
+    }
+    .note strong { color: #fbbf24; }
 
     #log {
       background: #0f0f0f;
       border: 1px solid #222;
       border-radius: 12px;
       padding: 10px;
-      max-height: 260px;
+      max-height: 280px;
       overflow: auto;
       font-family: ui-monospace, monospace;
       font-size: 11px;
@@ -149,44 +171,43 @@
     .log-err { color: #f87171; }
     .log-info { color: #93c5fd; }
     .log-warn { color: #fbbf24; }
-
-    .note {
-      margin-top: 10px;
-      padding: 8px 10px;
-      background: rgba(255,255,255,0.04);
-      border-radius: 8px;
-      border-left: 3px solid #ff2d55;
-      font-size: 0.72rem;
-      color: #aaa;
-    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>YT IFrame Kalite Buton Test</h1>
-    <p class="sub">small / medium / large / hd720 formatı · setPlaybackQuality</p>
+    <h1>YT setPlaybackQuality Gerçek Test</h1>
+    <p class="sub">
+      tiny / small / medium / large / hd720 / hd1080 / highres ·
+      Büyük player + available levels kontrolü
+    </p>
+
+    <div class="note">
+      <strong>Önemli:</strong> YouTube çoğu modern ortamda <code>setPlaybackQuality</code> değerini yok sayabilir.
+      Bu sayfa hem denemeyi yapar hem de gerçek sonucu loglar. Yüksek kalite için player yeterince büyük tutuldu.
+    </div>
 
     <div class="player-wrap">
       <div id="playerHost"></div>
       <div class="loading" id="loading">Yükleniyor…</div>
     </div>
 
-    <!-- Kalite butonları -->
     <div class="quality-selector" id="qualitySelector">
-      <button type="button" class="q-btn" data-q="default">Oto</button>
-      <button type="button" class="q-btn" data-q="small">240p</button>
-      <button type="button" class="q-btn" data-q="medium">360p</button>
-      <button type="button" class="q-btn" data-q="large">480p</button>
-      <button type="button" class="q-btn" data-q="hd720">720p</button>
-      <button type="button" class="q-btn" data-q="hd1080">1080p</button>
-      <button type="button" class="q-btn" data-q="highres">1440p+</button>
+      <button type="button" class="q-btn" data-q="default">default (Oto)</button>
+      <button type="button" class="q-btn" data-q="tiny">tiny (144p)</button>
+      <button type="button" class="q-btn" data-q="small">small (240p)</button>
+      <button type="button" class="q-btn" data-q="medium">medium (360p)</button>
+      <button type="button" class="q-btn" data-q="large">large (480p)</button>
+      <button type="button" class="q-btn" data-q="hd720">hd720</button>
+      <button type="button" class="q-btn" data-q="hd1080">hd1080</button>
+      <button type="button" class="q-btn" data-q="highres">highres (4K+)</button>
     </div>
 
     <div class="bar">
       <button type="button" class="btn sec" id="btnPrev">◀ Önceki</button>
       <button type="button" class="btn sec" id="btnNext">Sonraki ▶</button>
       <button type="button" class="btn" id="btnPlay">Oynat</button>
-      <button type="button" class="btn sec" id="btnForce">Kaliteyi Uygula</button>
+      <button type="button" class="btn sec" id="btnApply">Kaliteyi Uygula</button>
+      <button type="button" class="btn sec" id="btnLevels">Seviyeleri Göster</button>
       <div class="info">
         Tercih: <strong id="prefLabel">—</strong>
         · Şu an: <strong id="curLabel">—</strong>
@@ -195,11 +216,6 @@
     </div>
 
     <ul class="plist" id="plist"></ul>
-
-    <div class="note">
-      <strong>Not:</strong> YouTube <code>setPlaybackQuality</code> komutunu her zaman hemen uygulamaz.
-      Değişiklik bazen bir sonraki buffering’de veya kısa seek sonrası görünür.
-    </div>
 
     <div id="log"></div>
   </div>
@@ -214,17 +230,22 @@
       { id: "HaJSYCFsgOY", title: "Test 5" }
     ];
 
-    const PREF_KEY = "yt_q_pref_simple";
+    // Resmi desteklenen değerler
+    const VALID_QUALITIES = [
+      "default", "tiny", "small", "medium", "large", "hd720", "hd1080", "highres"
+    ];
+
+    const PREF_KEY = "yt_q_real_test";
     let pref = "default";
     let index = 0;
     let player = null;
     let ytReady = false;
     let loadToken = 0;
+    let lastAvailable = [];
 
-    // Kayıtlı tercihi yükle
     try {
       const s = localStorage.getItem(PREF_KEY);
-      if (s) pref = s;
+      if (s && VALID_QUALITIES.includes(s)) pref = s;
     } catch (e) {}
 
     const loadingEl = document.getElementById("loading");
@@ -242,30 +263,25 @@
       if (obj !== undefined) {
         try { text += " " + JSON.stringify(obj); } catch (e) {}
       }
-      line.innerHTML = `<span class="t">${ts()}</span>${text.replace(/</g,"&lt;")}`;
+      line.innerHTML = `<span class="t">${ts()}</span>${text.replace(/</g, "&lt;")}`;
       logEl.appendChild(line);
       logEl.scrollTop = logEl.scrollHeight;
-      console.log("[Q]", text, obj || "");
-    }
-
-    function prefText(q) {
-      const map = {
-        default: "Oto",
-        small: "240p",
-        medium: "360p",
-        large: "480p",
-        hd720: "720p",
-        hd1080: "1080p",
-        highres: "1440p+"
-      };
-      return map[q] || q;
+      console.log("[Q-TEST]", text, obj || "");
     }
 
     function syncActiveButtons() {
       qualityButtons.forEach(btn => {
-        btn.classList.toggle("active", btn.getAttribute("data-q") === pref);
+        const q = btn.getAttribute("data-q");
+        btn.classList.toggle("active", q === pref);
+
+        // Mevcut videoda desteklenmeyenleri soluk göster
+        if (lastAvailable.length && q !== "default") {
+          btn.disabled = !lastAvailable.includes(q);
+        } else {
+          btn.disabled = false;
+        }
       });
-      document.getElementById("prefLabel").textContent = prefText(pref);
+      document.getElementById("prefLabel").textContent = pref;
     }
 
     function renderPlaylist() {
@@ -292,47 +308,73 @@
       }
     }
 
-    // ——— Kalite uygula ———
-    function applyQuality(reason) {
+    // ——— Asıl kalite fonksiyonu (senin önerdiğin sade hali + ekstra kontrol) ———
+    function applyQuality(source) {
       if (!player || typeof player.setPlaybackQuality !== "function") {
         log("warn", "Player henüz hazır değil");
         return;
       }
 
-      const quality = pref;
-      log("info", "Kalite ayarlanıyor: " + quality + " (" + reason + ")");
+      log("info", `Kalite ayarlanıyor: ${pref} (Kaynak: ${source})`);
 
+      // 1) Klasik yöntem
       try {
-        player.setPlaybackQuality(quality);
+        player.setPlaybackQuality(pref);
       } catch (e) {
         log("err", "setPlaybackQuality hata: " + (e && e.message));
       }
 
-      // Range ile sabitlemeye çalış (bazı ortamlarda daha etkili)
+      // 2) Range ile sabitlemeye çalışma
       try {
         if (typeof player.setPlaybackQualityRange === "function") {
-          if (quality === "default") {
-            player.setPlaybackQualityRange("small", "highres");
+          if (pref === "default") {
+            player.setPlaybackQualityRange("tiny", "highres");
           } else {
-            player.setPlaybackQualityRange(quality, quality);
+            player.setPlaybackQualityRange(pref, pref);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        log("warn", "setPlaybackQualityRange hata: " + (e && e.message));
+      }
 
-      // Gerçek durumu oku
-      setTimeout(reportQuality, 700);
-      setTimeout(reportQuality, 1800);
+      // Sonucu birkaç kez oku
+      setTimeout(() => reportQuality("0.8s sonra"), 800);
+      setTimeout(() => reportQuality("2s sonra"), 2000);
     }
 
-    function reportQuality() {
+    function reportQuality(label) {
       if (!player) return;
       try {
         const current = player.getPlaybackQuality ? player.getPlaybackQuality() : "?";
         const levels = player.getAvailableQualityLevels ? player.getAvailableQualityLevels() : [];
+        lastAvailable = levels || [];
         document.getElementById("curLabel").textContent = current || "—";
-        log("ok", "Rapor", { current, available: levels });
+        syncActiveButtons(); // desteklenmeyen butonları soluklaştır
+
+        log("ok", "Rapor (" + (label || "") + ")", {
+          current,
+          available: levels,
+          tercih: pref,
+          eşleşti: current === pref
+        });
       } catch (e) {
-        log("warn", "Kalite okunamadı");
+        log("warn", "Kalite okunamadı: " + (e && e.message));
+      }
+    }
+
+    function showLevels() {
+      if (!player) {
+        log("warn", "Player yok");
+        return;
+      }
+      try {
+        const levels = player.getAvailableQualityLevels ? player.getAvailableQualityLevels() : [];
+        const current = player.getPlaybackQuality ? player.getPlaybackQuality() : "?";
+        lastAvailable = levels || [];
+        syncActiveButtons();
+        log("info", "Mevcut kalite seviyeleri", { current, available: levels });
+      } catch (e) {
+        log("err", "getAvailableQualityLevels hata");
       }
     }
 
@@ -365,29 +407,43 @@
             log("ok", "Player ready · " + videoId);
             setLoading(false);
             try { e.target.playVideo(); } catch (err) {}
-            applyQuality("onReady");
+            // Biraz bekleyip levels + kalite uygula
+            setTimeout(() => {
+              showLevels();
+              applyQuality("onReady");
+            }, 400);
           },
           onStateChange: function (e) {
             if (token !== loadToken) return;
-            const map = { "-1":"UNSTARTED","0":"ENDED","1":"PLAYING","2":"PAUSED","3":"BUFFERING","5":"CUED" };
+            const map = {
+              "-1": "UNSTARTED", "0": "ENDED", "1": "PLAYING",
+              "2": "PAUSED", "3": "BUFFERING", "5": "CUED"
+            };
             const name = map[String(e.data)] || e.data;
             document.getElementById("stateLabel").textContent = name;
             log("info", "State → " + name);
 
             if (e.data === YT.PlayerState.PLAYING) {
               setLoading(false);
-              applyQuality("PLAYING");
+              // Oynama başladığında tekrar dene + levels güncelle
+              setTimeout(() => {
+                showLevels();
+                applyQuality("PLAYING");
+              }, 300);
+            }
+            if (e.data === YT.PlayerState.BUFFERING) {
+              setTimeout(() => reportQuality("BUFFERING"), 500);
             }
             if (e.data === YT.PlayerState.ENDED) {
               playIndex((index + 1) % PLAYLIST.length);
             }
           },
           onError: function (e) {
-            log("err", "Player error: " + e.data);
+            log("err", "Player error code: " + e.data);
             setLoading(false);
           },
           onPlaybackQualityChange: function (e) {
-            log("ok", "Kalite değişti → " + e.data);
+            log("ok", "onPlaybackQualityChange → " + e.data);
             document.getElementById("curLabel").textContent = e.data || "—";
           }
         }
@@ -400,14 +456,16 @@
         return;
       }
       setLoading(true, "Video yükleniyor…");
+      lastAvailable = [];
       try {
         player.loadVideoById({ videoId: videoId, startSeconds: 0 });
         log("info", "loadVideoById → " + videoId);
         setTimeout(() => {
           if (token !== loadToken) return;
           setLoading(false);
+          showLevels();
           applyQuality("loadVideoById");
-        }, 500);
+        }, 600);
       } catch (e) {
         log("warn", "loadVideoById başarısız, recreate");
         createPlayer(videoId, token);
@@ -422,7 +480,7 @@
       const token = loadToken;
       const item = PLAYLIST[index];
 
-      log("info", `—— ${index + 1}/${PLAYLIST.length} · ${item.id} · tercih=${prefText(pref)} ——`);
+      log("info", `—— ${index + 1}/${PLAYLIST.length} · ${item.id} · tercih=${pref} ——`);
       document.getElementById("stateLabel").textContent = "…";
       document.getElementById("curLabel").textContent = "—";
 
@@ -439,33 +497,29 @@
       loadVideo(item.id, token);
     }
 
-    // ——— Buton olayları ———
+    // ——— Butonlar ———
     qualityButtons.forEach(button => {
       button.addEventListener("click", () => {
+        if (button.disabled) {
+          log("warn", "Bu kalite mevcut videoda yok");
+          return;
+        }
         const quality = button.getAttribute("data-q");
         pref = quality;
         try { localStorage.setItem(PREF_KEY, pref); } catch (e) {}
-
-        // Aktiflik görselini güncelle
-        qualityButtons.forEach(btn => btn.classList.remove("active"));
-        button.classList.add("active");
-        document.getElementById("prefLabel").textContent = prefText(pref);
-
+        syncActiveButtons();
         log("info", "Buton tıklandı → " + quality);
-
-        // YouTube IFrame API fonksiyonu
-        if (player && typeof player.setPlaybackQuality === "function") {
-          applyQuality("buton");
-        } else {
-          log("warn", "Player yok, kalite sonraki yüklemede uygulanacak");
-        }
+        applyQuality("buton tıklama");
       });
     });
 
-    document.getElementById("btnPrev").onclick = () => playIndex((index - 1 + PLAYLIST.length) % PLAYLIST.length);
-    document.getElementById("btnNext").onclick = () => playIndex((index + 1) % PLAYLIST.length);
+    document.getElementById("btnPrev").onclick = () =>
+      playIndex((index - 1 + PLAYLIST.length) % PLAYLIST.length);
+    document.getElementById("btnNext").onclick = () =>
+      playIndex((index + 1) % PLAYLIST.length);
     document.getElementById("btnPlay").onclick = () => playIndex(index);
-    document.getElementById("btnForce").onclick = () => applyQuality("manuel");
+    document.getElementById("btnApply").onclick = () => applyQuality("manuel uygula");
+    document.getElementById("btnLevels").onclick = () => showLevels();
 
     // YT API
     window.onYouTubeIframeAPIReady = function () {
@@ -480,7 +534,8 @@
     // Başlangıç
     syncActiveButtons();
     renderPlaylist();
-    log("info", "Hazır · tercih=" + prefText(pref));
+    log("info", "Hazır · tercih=" + pref);
+    log("info", "Player boyutu kasıtlı büyük tutuldu (yüksek kalite şansı için)");
   </script>
 </body>
 </html>
