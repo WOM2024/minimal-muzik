@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalite + Playlist + SponsorBlock test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #0a0a0a;
+      color: #eee;
+      min-height: 100vh;
+      padding: 16px 14px 40px;
+      line-height: 1.45;
+    }
+    .wrap { max-width: 780px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .sub { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
+
+    .card {
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 2px; }
+    .card-desc { font-size: 0.75rem; color: #888; margin-bottom: 10px; }
+    .q-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      gap: 7px;
+    }
+    .q-btn {
+      appearance: none;
+      border: 1px solid #333;
+      background: #1c1c1c;
+      color: #ccc;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 10px 6px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+    .q-btn:hover { background: #262626; color: #fff; }
+    .q-btn.active {
+      background: #ff2d55;
+      border-color: #ff2d55;
+      color: #000;
+    }
+    .note {
+      margin-top: 12px;
+      padding: 9px 11px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 9px;
+      border-left: 3px solid #ff2d55;
+      font-size: 0.72rem;
+      color: #aaa;
+    }
+    .note strong { color: #ddd; }
+
+    .player-wrap {
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      border: 1px solid #222;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    video { width: 100%; height: 100%; display: block; background: #000; }
+    .loading-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      z-index: 2;
+    }
+    .loading-overlay.show { display: flex; }
+
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: 9px;
+      padding: 9px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn.sec { background: #2a2a2a; color: #ddd; }
+    .btn.sec:hover { background: #333; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .live { font-size: 0.75rem; color: #888; flex: 1; min-width: 140px; }
+    .live strong { color: #4ade80; }
+
+    .plist {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .plist li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      font-size: 0.8rem;
+    }
+    .plist li:hover { background: #1c1c1c; }
+    .plist li.active {
+      background: rgba(255,45,85,0.12);
+      border-color: rgba(255,45,85,0.35);
+    }
+    .plist .idx {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #999;
+      flex-shrink: 0;
+    }
+    .plist li.active .idx { background: #ff2d55; color: #000; }
+    .plist .meta { flex: 1; min-width: 0; }
+    .plist .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plist .id { font-size: 0.7rem; color: #666; font-family: ui-monospace, monospace; }
+
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: #bbb;
+    }
+    .toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+    #log {
+      margin-top: 12px;
+      background: #0f0f0f;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 10px;
+      max-height: 240px;
+      overflow: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-line { margin-bottom: 2px; padding-bottom: 2px; border-bottom: 1px solid #1a1a1a; }
+    .log-line .t { color: #555; margin-right: 6px; }
+    .log-ok { color: #86efac; }
+    .log-err { color: #f87171; }
+    .log-info { color: #93c5fd; }
+    .log-warn { color: #fbbf24; }
+    .log-sb { color: #c4b5fd; }
+    code { background: #222; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Kalite + Playlist + SponsorBlock</h1>
+    <p class="sub">Kalite tercihi şarkı geçişinde sabit kalır · yükleme loop’u engelli · SB segment atlama</p>
+
+    <div class="card">
+      <div class="card-title">Kalite</div>
+      <div class="card-desc">Bundan sonraki tüm videolar bu tercihle açılır.</div>
+      <div class="q-grid" id="qGrid">
+        <button type="button" class="q-btn" data-q="auto">Oto</button>
+        <button type="button" class="q-btn" data-q="360">360p</button>
+        <button type="button" class="q-btn" data-q="480">480p</button>
+        <button type="button" class="q-btn" data-q="720">720p</button>
+        <button type="button" class="q-btn" data-q="1080">1080p</button>
+        <button type="button" class="q-btn" data-q="1440">1440p</button>
+        <button type="button" class="q-btn" data-q="2160">2160p</button>
+      </div>
+      <div class="note">
+        <strong>Not:</strong> Videolar seçili kalitede açılır. İstenen çözünürlük yoksa mevcut en yüksek (tercihe kadar) kullanılır.
+      </div>
+      <div class="toggles">
+        <label><input type="checkbox" id="sbToggle" checked /> SponsorBlock atla</label>
+        <label><input type="checkbox" id="autoNext" checked /> Bitince sonraki</label>
+      </div>
+    </div>
+
+    <div class="player-wrap">
+      <video id="vid" controls playsinline></video>
+      <div class="loading-overlay" id="loadingOv">Yükleniyor…</div>
+    </div>
+    <audio id="aud" playsinline style="display:none"></audio>
+
+    <div class="bar">
+      <button type="button" class="btn sec" id="btnPrev">◀ Önceki</button>
+      <button type="button" class="btn sec" id="btnNext">Sonraki ▶</button>
+      <button type="button" class="btn" id="btnPlay">Oynat / yenile</button>
+      <div class="live">
+        Tercih: <strong id="prefLabel">—</strong>
+        · Oynayan: <strong id="playLabel">—</strong>
+        · SB: <strong id="sbLabel">—</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Playlist</div>
+      <ul class="plist" id="plist"></ul>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    var PLAYLIST = [
+      { id: "A7ShtPRP2Mc", title: "…" },
+      { id: "q2IMrkhSjSA", title: "…" },
+      { id: "69L-nKRY3ac", title: "…" },
+      { id: "HaJSYCFsgOY", title: "…" },
+      { id: "cahWIOCm5YM", title: "…" },
+      { id: "kXKhNI4DLHM", title: "…" }
+    ];
+
+    var INSTANCES = [
+      "https://invidious.f5.si",
+      "https://yt.chocolatemoo53.com",
+      "https://invidious.nerdvpn.de",
+      "https://invidious.tiekoetter.com",
+      "https://inv.nadeko.net",
+      "https://yewtu.be"
+    ];
+
+    var SB_API = "https://sponsor.ajay.app/api/skipSegments";
+    var SB_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic"];
+
+    var PREF_KEY = "iv_quality_pref_height";
+    var videoEl = document.getElementById("vid");
+    var audioEl = document.getElementById("aud");
+    var logEl = document.getElementById("log");
+    var loadingOv = document.getElementById("loadingOv");
+
+    var pref = "auto";
+    var index = 0;
+    var videoFormats = [];
+    var audioFormats = [];
+    var segments = []; // {start, end, category}
+    var loadToken = 0;
+    var loadRetries = 0;
+    var MAX_RETRIES = 2;
+    var loading = false;
+    var sbTimer = null;
+
+    try {
+      var saved = localStorage.getItem(PREF_KEY);
+      if (saved === "auto") pref = "auto";
+      else if (saved && /^\d+$/.test(saved)) pref = parseInt(saved, 10);
+    } catch (e) {}
+
+    function ts() {
+      var d = new Date();
+      return d.toLocaleTimeString("tr-TR") + "." + String(d.getMilliseconds()).padStart(3, "0");
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function log(kind, msg, obj) {
+      var line = document.createElement("div");
+      line.className = "log-line log-" + (kind || "info");
+      var text = typeof msg === "string" ? msg : JSON.stringify(msg);
+      if (obj !== undefined) {
+        try { text += " " + JSON.stringify(obj); } catch (e) {}
+      }
+      line.innerHTML = '<span class="t">' + ts() + "</span>" + escapeHtml(text);
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log("[TEST]", text, obj !== undefined ? obj : "");
+    }
+
+    function prefText() { return pref === "auto" ? "Oto" : pref + "p"; }
+
+    function syncQualityUI() {
+      document.querySelectorAll(".q-btn").forEach(function(b) {
+        var q = b.getAttribute("data-q");
+        b.classList.toggle("active", (q === "auto" && pref === "auto") || String(pref) === q);
+      });
+      document.getElementById("prefLabel").textContent = prefText();
+    }
+
+    function renderPlaylist() {
+      var ul = document.getElementById("plist");
+      ul.innerHTML = "";
+      PLAYLIST.forEach(function(item, i) {
+        var li = document.createElement("li");
+        if (i === index) li.className = "active";
+        li.innerHTML =
+          '<span class="idx">' + (i + 1) + "</span>" +
+          '<div class="meta"><div class="title">' + escapeHtml(item.title || item.id) +
+          '</div><div class="id">' + item.id + "</div></div>";
+        li.onclick = function() { playIndex(i); };
+        ul.appendChild(li);
+      });
+    }
+
+    function setLoading(on, text) {
+      loading = on;
+      if (on) {
+        loadingOv.textContent = text || "Yükleniyor…";
+        loadingOv.classList.add("show");
+      } else {
+        loadingOv.classList.remove("show");
+      }
+    }
+
+    function parseHeight(f) {
+      if (f.height) return parseInt(f.height, 10) || 0;
+      var lab = f.qualityLabel || f.resolution || f.quality || "";
+      var m = String(lab).match(/(\d{3,4})/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+
+    function scoreVideo(f) {
+      var t = (f.type || "").toLowerCase();
+      var s = 0;
+      if (t.indexOf("avc1") !== -1) s += 30;
+      if (t.indexOf("mp4") !== -1) s += 10;
+      if (t.indexOf("vp9") !== -1) s += 5;
+      if (f.muxed) s += 40;
+      return s;
+    }
+
+    function normalize(data) {
+      videoFormats = [];
+      audioFormats = [];
+      (data.formatStreams || []).forEach(function(f) {
+        if (!f.url) return;
+        videoFormats.push({
+          url: f.url,
+          qualityLabel: f.qualityLabel || f.quality || "",
+          height: parseHeight(f),
+          type: f.type || "",
+          muxed: true
+        });
+      });
+      (data.adaptiveFormats || []).forEach(function(f) {
+        if (!f.url) return;
+        var t = (f.type || "").toLowerCase();
+        if (t.indexOf("audio") !== -1) {
+          audioFormats.push({ url: f.url, type: f.type || "", bitrate: parseInt(f.bitrate, 10) || 0 });
+        } else if (t.indexOf("video") !== -1) {
+          videoFormats.push({
+            url: f.url,
+            qualityLabel: f.qualityLabel || f.resolution || "",
+            height: parseHeight(f),
+            type: f.type || "",
+            muxed: false
+          });
+        }
+      });
+      videoFormats.sort(function(a, b) {
+        if (a.height !== b.height) return a.height - b.height;
+        return scoreVideo(b) - scoreVideo(a);
+      });
+      audioFormats.sort(function(a, b) { return b.bitrate - a.bitrate; });
+    }
+
+    function pickForPref() {
+      if (!videoFormats.length) return null;
+      if (pref === "auto") {
+        return videoFormats.slice().sort(function(a, b) {
+          if (a.height !== b.height) return b.height - a.height;
+          return scoreVideo(b) - scoreVideo(a);
+        })[0];
+      }
+      var atOrBelow = videoFormats.filter(function(f) {
+        return f.height > 0 && f.height <= pref;
+      });
+      if (atOrBelow.length) {
+        return atOrBelow.sort(function(a, b) {
+          if (a.height !== b.height) return b.height - a.height;
+          return scoreVideo(b) - scoreVideo(a);
+        })[0];
+      }
+      return videoFormats.slice().sort(function(a, b) {
+        if (a.height !== b.height) return a.height - b.height;
+        return scoreVideo(b) - scoreVideo(a);
+      })[0];
+    }
+
+    function pickAudio() {
+      if (!audioFormats.length) return null;
+      return audioFormats[Math.min(1, audioFormats.length - 1)] || audioFormats[0];
+    }
+
+    function stopAudio() {
+      try {
+        audioEl.pause();
+        audioEl.removeAttribute("src");
+        audioEl.load();
+      } catch (e) {}
+    }
+
+    function wireSync() {
+      videoEl.onplay = function() {
+        if (audioEl.src && audioEl.paused) {
+          audioEl.currentTime = videoEl.currentTime;
+          audioEl.play().catch(function() {});
+        }
+      };
+      videoEl.onpause = function() {
+        if (!audioEl.paused) audioEl.pause();
+      };
+      videoEl.onseeking = function() {
+        if (audioEl.src) audioEl.currentTime = videoEl.currentTime;
+      };
+      if (wireSync._iv) clearInterval(wireSync._iv);
+      wireSync._iv = setInterval(function() {
+        if (!audioEl.src || videoEl.paused || audioEl.paused) return;
+        if (Math.abs(videoEl.currentTime - audioEl.currentTime) > 0.35) {
+          audioEl.currentTime = videoEl.currentTime;
+        }
+      }, 1000);
+    }
+
+    async function fetchVideoJson(videoId) {
+      var lastErr = null;
+      for (var i = 0; i < INSTANCES.length; i++) {
+        var base = INSTANCES[i];
+        var url = base.replace(/\/$/, "") + "/api/v1/videos/" + videoId;
+        var ctrl = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 12000);
+        try {
+          log("info", "API " + base);
+          var res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+          clearTimeout(timer);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          var data = await res.json();
+          return { base: base, data: data };
+        } catch (e) {
+          clearTimeout(timer);
+          lastErr = e;
+          log("warn", "Instance fail " + base + " · " + (e.message || e));
+        }
+      }
+      throw lastErr || new Error("no instance");
+    }
+
+    async function fetchSponsorBlock(videoId) {
+      segments = [];
+      document.getElementById("sbLabel").textContent = "—";
+      if (!document.getElementById("sbToggle").checked) {
+        log("sb", "SponsorBlock kapalı");
+        return;
+      }
+      var cats = encodeURIComponent(JSON.stringify(SB_CATEGORIES));
+      var url = SB_API + "?videoID=" + encodeURIComponent(videoId) + "&categories=" + cats;
+      try {
+        var res = await fetch(url);
+        if (res.status === 404) {
+          log("sb", "Segment yok");
+          document.getElementById("sbLabel").textContent = "0";
+          return;
+        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var data = await res.json();
+        segments = (data || []).map(function(s) {
+          return {
+            start: s.segment[0],
+            end: s.segment[1],
+            category: s.category
+          };
+        }).filter(function(s) { return s.end > s.start; });
+        log("sb", "Segmentler: " + segments.length, segments.map(function(s) {
+          return s.category + " " + s.start.toFixed(1) + "-" + s.end.toFixed(1);
+        }));
+        document.getElementById("sbLabel").textContent = String(segments.length);
+      } catch (e) {
+        log("warn", "SB hata: " + (e.message || e));
+        document.getElementById("sbLabel").textContent = "err";
+      }
+    }
+
+    function startSbWatcher() {
+      if (sbTimer) clearInterval(sbTimer);
+      sbTimer = setInterval(function() {
+        if (!document.getElementById("sbToggle").checked) return;
+        if (!segments.length || videoEl.paused) return;
+        var t = videoEl.currentTime;
+        for (var i = 0; i < segments.length; i++) {
+          var s = segments[i];
+          if (t >= s.start && t < s.end - 0.15) {
+            log("sb", "Atlandı: " + s.category + " → " + s.end.toFixed(1) + "s");
+            videoEl.currentTime = s.end;
+            if (audioEl.src) audioEl.currentTime = s.end;
+            break;
+          }
+        }
+      }, 400);
+    }
+
+    function applyStream(token) {
+      var fmt = pickForPref();
+      if (!fmt) {
+        log("err", "Format yok");
+        setLoading(false);
+        return;
+      }
+      if (token !== loadToken) return;
+
+      var maxH = videoFormats.reduce(function(m, f) { return Math.max(m, f.height || 0); }, 0);
+      log("ok", "Stream seçildi", {
+        tercih: prefText(),
+        height: fmt.height,
+        label: fmt.qualityLabel,
+        muxed: fmt.muxed,
+        max: maxH
+      });
+
+      stopAudio();
+      if (!fmt.muxed) {
+        var aud = pickAudio();
+        if (aud) {
+          audioEl.src = aud.url;
+          audioEl.load();
+        } else {
+          log("warn", "Ses track yok");
+        }
+      }
+
+      var onError = function() {
+        videoEl.removeEventListener("error", onError);
+        if (token !== loadToken) return;
+        var err = videoEl.error;
+        log("err", "video error", err ? { code: err.code, message: err.message } : {});
+        if (loadRetries < MAX_RETRIES) {
+          loadRetries++;
+          log("warn", "Yeniden deneme " + loadRetries + "/" + MAX_RETRIES + " (loop yok, sınırlı)");
+          setTimeout(function() {
+            if (token !== loadToken) return;
+            applyStream(token);
+          }, 800);
+        } else {
+          setLoading(false);
+          log("err", "Yükleme başarısız — otomatik loop durduruldu");
+        }
+      };
+
+      videoEl.addEventListener("error", onError);
+      videoEl.src = fmt.url;
+      videoEl.load();
+      wireSync();
+
+      videoEl.addEventListener("loadedmetadata", function onMeta() {
+        videoEl.removeEventListener("loadedmetadata", onMeta);
+        videoEl.removeEventListener("error", onError);
+        if (token !== loadToken) return;
+        loadRetries = 0;
+        setLoading(false);
+        document.getElementById("playLabel").textContent =
+          videoEl.videoHeight + "p";
+        log("ok", "Oynuyor", {
+          id: PLAYLIST[index].id,
+          videoWidth: videoEl.videoWidth,
+          videoHeight: videoEl.videoHeight,
+          tercih: prefText()
+        });
+        videoEl.play().then(function() {
+          if (audioEl.src) {
+            audioEl.currentTime = videoEl.currentTime;
+            return audioEl.play();
+          }
+        }).catch(function(e) {
+          log("warn", "play engeli: " + (e && e.message));
+        });
+        startSbWatcher();
+      });
+    }
+
+    async function playIndex(i, force) {
+      if (i < 0 || i >= PLAYLIST.length) return;
+      if (!force && i === index && videoEl.src && !videoEl.error) {
+        // aynı şarkı, sadece kalite değişimi olabilir
+      }
+      index = i;
+      renderPlaylist();
+      loadToken++;
+      var token = loadToken;
+      loadRetries = 0;
+      segments = [];
+      if (sbTimer) clearInterval(sbTimer);
+
+      var item = PLAYLIST[index];
+      setLoading(true, "Yükleniyor: " + (item.title || item.id));
+      log("info", "—— Şarkı " + (index + 1) + "/" + PLAYLIST.length + " · " + item.id + " · tercih=" + prefText() + " ——");
+
+      try {
+        var result = await fetchVideoJson(item.id);
+        if (token !== loadToken) return;
+        if (result.data.title) {
+          item.title = result.data.title;
+          renderPlaylist();
+        }
+        normalize(result.data);
+        log("info", "Formatlar", {
+          video: videoFormats.length,
+          audio: audioFormats.length,
+          heights: videoFormats.map(function(f) { return f.height; })
+            .filter(function(h, j, a) { return a.indexOf(h) === j; }).join(",")
+        });
+        await fetchSponsorBlock(item.id);
+        if (token !== loadToken) return;
+        applyStream(token);
+      } catch (e) {
+        if (token !== loadToken) return;
+        setLoading(false);
+        log("err", "Yükleme hatası: " + (e.message || e));
+      }
+    }
+
+    // —— UI ——
+    document.getElementById("qGrid").addEventListener("click", function(e) {
+      var b = e.target.closest(".q-btn");
+      if (!b) return;
+      var q = b.getAttribute("data-q");
+      pref = q === "auto" ? "auto" : parseInt(q, 10);
+      try { localStorage.setItem(PREF_KEY, String(pref)); } catch (ex) {}
+      syncQualityUI();
+      log("info", "Kalite tercihi sabit: " + prefText() + " (sonraki ve mevcut şarkıya uygulanır)");
+      if (videoFormats.length) {
+        // aynı şarkıda kalite değiştir — yeniden yükleme token
+        loadToken++;
+        loadRetries = 0;
+        var token = loadToken;
+        setLoading(true, "Kalite değişiyor…");
+        applyStream(token);
+      }
+    });
+
+    document.getElementById("btnPrev").onclick = function() {
+      playIndex((index - 1 + PLAYLIST.length) % PLAYLIST.length, true);
+    };
+    document.getElementById("btnNext").onclick = function() {
+      playIndex((index + 1) % PLAYLIST.length, true);
+    };
+    document.getElementById("btnPlay").onclick = function() {
+      playIndex(index, true);
+    };
+
+    videoEl.addEventListener("ended", function() {
+      if (!document.getElementById("autoNext").checked) return;
+      log("info", "Bitti → sonraki");
+      playIndex((index + 1) % PLAYLIST.length, true);
+    });
+
+    syncQualityUI();
+    renderPlaylist();
+    log("info", "Hazır · " + PLAYLIST.length + " şarkı · tercih=" + prefText());
+    // ilk şarkıyı otomatik yükleme — kullanıcı Oynat’a bassın veya tıklasın
+  </script>
+</body>
+</html>
