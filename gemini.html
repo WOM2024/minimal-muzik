@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Özel Kalite Simülasyonu</title>
+  <title>YouTube Özel Kalite Oynatıcısı</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -44,7 +44,6 @@
     .quality-btns {
       display: flex;
       gap: 6px;
-      position: relative;
     }
     .q-btn {
       background: #3a3a3a;
@@ -95,14 +94,12 @@
       border-radius: 8px;
       background: #000;
     }
-    /* ID tabanlı iframe yerine doğrudan YouTube embed iframe yapısı kullanıyoruz */
-    .video-container iframe {
+    .video-container div#yt-player-target {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      border: 0;
     }
 
     .custom-controls {
@@ -134,57 +131,94 @@
         ⚙️ Kalite: <span id="current-quality-text" style="color: #3f85ea;">Otomatik</span>
       </span>
       <div class="quality-btns">
-        <button class="q-btn" onclick="changeQualitySimulation('hd1080', '1080p', this)">1080p</button>
-        <button class="q-btn" onclick="changeQualitySimulation('hd720', '720p', this)">720p</button>
-        <button class="q-btn" onclick="changeQualitySimulation('large', '480p', this)">480p</button>
-        <button class="q-btn" onclick="changeQualitySimulation('medium', '360p', this)">360p</button>
-        <button class="q-btn active" onclick="changeQualitySimulation('auto', 'Otomatik', this)">Otomatik</button>
+        <button class="q-btn" onclick="changeQuality('hd1080', '1080p', this)">1080p</button>
+        <button class="q-btn" onclick="changeQuality('hd720', '720p', this)">720p</button>
+        <button class="q-btn" onclick="changeQuality('large', '480p', this)">480p</button>
+        <button class="q-btn" onclick="changeQuality('medium', '360p', this)">360p</button>
+        <button class="q-btn active" onclick="changeQuality('auto', 'Otomatik', this)">Otomatik</button>
       </div>
     </div>
 
-    <!-- Video Alanı (Worker Domain'inizle tam uyumlu origin parametresi içerir) -->
+    <!-- Video Alanı -->
     <div class="video-container">
-      <iframe 
-        id="yt-player"
-        src="https://www.youtube.com/embed/_NoTqg152B0?enablejsapi=1&origin=https://superyt.wom2024.workers.dev&controls=0&modestbranding=1&rel=0&iv_load_policy=3"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen>
-      </iframe>
+      <div id="yt-player-target"></div>
       <div id="toast-notification">Kalite değiştirildi</div>
     </div>
 
-    <!-- Oynat / Durdur Kontrolü -->
+    <!-- Alt Kontrol -->
     <div class="custom-controls">
       <button class="control-btn" onclick="togglePlay()">Oynat / Durdur</button>
     </div>
 
   </div>
 
-  <!-- YouTube IFrame API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
+  <!-- YouTube IFrame API Script'ini Dinamik Yükleme -->
   <script>
     var player;
+    var isPlayerReady = false;
 
+    // 1. YouTube API Scriptini Güvenli Şekilde Sayfaya Ekle
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    // 2. API Yüklendiğinde YouTube Otomatik Olarak Bu Fonksiyonu Çağırır
     function onYouTubeIframeAPIReady() {
-      player = new YT.Player('yt-player', {
+      player = new YT.Player('yt-player-target', {
+        videoId: '_NoTqg152B0',
+        playerVars: {
+          'autoplay': 0,
+          'controls': 0, // YouTube'un dahili kontrollerini gizle
+          'modestbranding': 1,
+          'rel': 0,
+          'origin': 'https://superyt.wom2024.workers.dev'
+        },
         events: {
-          'onReady': function() {
-            console.log("Oynatıcı başarıyla bağlandı ve hazır.");
-          }
+          'onReady': onPlayerReady
         }
       });
     }
 
-    function changeQualitySimulation(qualityKey, labelText, btnElement) {
-      if (player && typeof player.setPlaybackQuality === 'function') {
-        player.setPlaybackQuality(qualityKey);
-        
-        var buttons = document.querySelectorAll('.q-btn');
-        buttons.forEach(function(b) { b.classList.remove('active'); });
-        if (btnElement) btnElement.classList.add('active');
+    // 3. Oynatıcı Tam Anlamıyla Kullanıma Hazır Olduğunda Tetiklenir
+    function onPlayerReady(event) {
+      isPlayerReady = true;
+      console.log("✅ Oynatıcı başarıyla yüklendi ve tüm metotlar hazır!");
+    }
 
-        document.getElementById('current-quality-text').innerText = labelText;
-        showToast("Kalite " + labelText + " olarak ayarlandı");
+    // Kalite Değiştirme Fonksiyonu
+    function changeQuality(qualityKey, labelText, btnElement) {
+      if (!isPlayerReady || !player || typeof player.setPlaybackQuality !== 'function') {
+        showToast("Oynatıcı henüz tam yüklenmedi, lütfen bekleyin...");
+        console.warn("⚠️ Oynatıcı henüz hazır değil.");
+        return;
+      }
+
+      // YouTube API'sine kalite komutu yolla
+      player.setPlaybackQuality(qualityKey);
+      console.log("Komut yollandı:", qualityKey);
+
+      // Buton aktiflik durumu
+      var buttons = document.querySelectorAll('.q-btn');
+      buttons.forEach(function(b) { b.classList.remove('active'); });
+      if (btnElement) btnElement.classList.add('active');
+
+      document.getElementById('current-quality-text').innerText = labelText;
+      showToast("Kalite " + labelText + " olarak ayarlandı");
+    }
+
+    // Oynat / Durdur Fonksiyonu
+    function togglePlay() {
+      if (!isPlayerReady || !player) {
+        showToast("Oynatıcı hazırlanıyor...");
+        return;
+      }
+
+      var state = player.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) {
+        player.pauseVideo();
+      } else {
+        player.playVideo();
       }
     }
 
@@ -196,17 +230,6 @@
       setTimeout(function() {
         toast.classList.remove('show');
       }, 2000);
-    }
-
-    function togglePlay() {
-      if (player && typeof player.getPlayerState === 'function') {
-        var state = player.getPlayerState();
-        if (state === YT.PlayerState.PLAYING) {
-          player.pauseVideo();
-        } else {
-          player.playVideo();
-        }
-      }
     }
   </script>
 
