@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Özel Kalite Oynatıcısı</title>
+  <title>YouTube Kesin Kalite Kontrolü</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -152,24 +152,23 @@
 
   </div>
 
-  <!-- YouTube IFrame API Script'ini Dinamik Yükleme -->
+  <!-- YouTube IFrame API -->
   <script>
     var player;
     var isPlayerReady = false;
+    var activeVideoId = '_NoTqg152B0'; // Video ID'niz
 
-    // 1. YouTube API Scriptini Güvenli Şekilde Sayfaya Ekle
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-    // 2. API Yüklendiğinde YouTube Otomatik Olarak Bu Fonksiyonu Çağırır
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('yt-player-target', {
-        videoId: '_NoTqg152B0',
+        videoId: activeVideoId,
         playerVars: {
           'autoplay': 0,
-          'controls': 0, // YouTube'un dahili kontrollerini gizle
+          'controls': 0,
           'modestbranding': 1,
           'rel': 0,
           'origin': 'https://superyt.wom2024.workers.dev'
@@ -180,25 +179,30 @@
       });
     }
 
-    // 3. Oynatıcı Tam Anlamıyla Kullanıma Hazır Olduğunda Tetiklenir
     function onPlayerReady(event) {
       isPlayerReady = true;
-      console.log("✅ Oynatıcı başarıyla yüklendi ve tüm metotlar hazır!");
+      console.log("✅ Oynatıcı hazır.");
     }
 
-    // Kalite Değiştirme Fonksiyonu
+    // Kesin Çözüm Fonksiyonu
     function changeQuality(qualityKey, labelText, btnElement) {
-      if (!isPlayerReady || !player || typeof player.setPlaybackQuality !== 'function') {
-        showToast("Oynatıcı henüz tam yüklenmedi, lütfen bekleyin...");
-        console.warn("⚠️ Oynatıcı henüz hazır değil.");
+      if (!isPlayerReady || !player) {
+        showToast("Oynatıcı henüz hazır değil.");
         return;
       }
 
-      // YouTube API'sine kalite komutu yolla
+      // 1. Önce normal API komutunu gönder
       player.setPlaybackQuality(qualityKey);
-      console.log("Komut yollandı:", qualityKey);
 
-      // Buton aktiflik durumu
+      // 2. Anlık saniyeyi yakalayıp seçilen kaliteyle yeniden yükle
+      var currentTime = player.getCurrentTime();
+      player.loadVideoById({
+        videoId: activeVideoId,
+        startSeconds: currentTime,
+        suggestedQuality: qualityKey
+      });
+
+      // Arayüz buton stilleri
       var buttons = document.querySelectorAll('.q-btn');
       buttons.forEach(function(b) { b.classList.remove('active'); });
       if (btnElement) btnElement.classList.add('active');
@@ -207,13 +211,8 @@
       showToast("Kalite " + labelText + " olarak ayarlandı");
     }
 
-    // Oynat / Durdur Fonksiyonu
     function togglePlay() {
-      if (!isPlayerReady || !player) {
-        showToast("Oynatıcı hazırlanıyor...");
-        return;
-      }
-
+      if (!isPlayerReady || !player) return;
       var state = player.getPlayerState();
       if (state === YT.PlayerState.PLAYING) {
         player.pauseVideo();
