@@ -4546,36 +4546,70 @@
         syncActiveStates();
       }
 
+      /** "1080p" / "hd1080" / "Otomatik" → YT format kodu */
+      function labelToQualityFormat(label) {
+        var s = String(label || "").toLowerCase().trim();
+        if (!s || s === "auto" || s === "default" || s.indexOf("otomatik") >= 0) return "default";
+        if (s.indexOf("2160") >= 0 || s.indexOf("4k") >= 0 || s === "highres") return "highres";
+        if (s.indexOf("1440") >= 0 || s === "hd1440") return "hd1440";
+        if (s.indexOf("1080") >= 0 || s === "hd1080") return "hd1080";
+        if (s.indexOf("720") >= 0 || s === "hd720") return "hd720";
+        if (s.indexOf("480") >= 0 || s === "large") return "large";
+        if (s.indexOf("360") >= 0 || s === "medium") return "medium";
+        if (s.indexOf("240") >= 0 || s === "small") return "small";
+        if (s.indexOf("144") >= 0 || s === "tiny") return "tiny";
+        // Zaten format koduysa
+        if (QUALITY_LABELS[s] || QUALITY_ORDER.indexOf(s) >= 0) return s;
+        return s;
+      }
+
+      /**
+       * Kalite değiştir — IFrame API üzerinden.
+       * NOT: movie_player / .ytListItemViewModelHost iframe İÇİNDE;
+       * parent sayfadan querySelector ile erişilemez (cross-origin).
+       * Bu yüzden ytPlayerInstance (IFrame API) kullanıyoruz.
+       */
       function setQuality(q) {
-        var target = q === "auto" ? "default" : q;
-        currentQuality = q === "default" ? "auto" : q;
+        var target = labelToQualityFormat(q);
+        currentQuality = target === "default" ? "auto" : target;
 
         var applied = false;
+        var player = ytPlayerInstance;
+
         try {
-          if (ytPlayerInstance) {
-            // setPlaybackQualityRange genelde setPlaybackQuality'den daha güvenilir
-            if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
+          if (player) {
+            // 1) setPlaybackQualityRange(min, max) — tek kalite kilidi için aynı değer iki kez
+            if (typeof player.setPlaybackQualityRange === "function") {
               if (target === "default") {
-                // Otomatik: tüm aralığı aç
                 var levels = getAvailableQualities();
                 var hi = levels[0] || "highres";
-                var lo = levels[levels.length - 1] || "tiny";
-                ytPlayerInstance.setPlaybackQualityRange(lo, hi);
+                var lo = levels.length ? levels[levels.length - 1] : "tiny";
+                player.setPlaybackQualityRange(lo, hi);
               } else {
-                ytPlayerInstance.setPlaybackQualityRange(target, target);
+                player.setPlaybackQualityRange(target, target);
               }
               applied = true;
             }
-            if (typeof ytPlayerInstance.setPlaybackQuality === "function") {
-              ytPlayerInstance.setPlaybackQuality(target);
+            // 2) setPlaybackQuality (deprecated ama hâlâ bazı ortamlarda işe yarar)
+            if (typeof player.setPlaybackQuality === "function") {
+              player.setPlaybackQuality(target);
               applied = true;
             }
+            // 3) Küçük seek: bazı cihazlarda stream'i yenilemek kaliteyi uygular
+            try {
+              if (typeof player.getCurrentTime === "function" && typeof player.seekTo === "function") {
+                var t0 = player.getCurrentTime() || 0;
+                if (t0 > 0.5) {
+                  player.seekTo(t0, true);
+                }
+              }
+            } catch (eSeek) {}
           }
         } catch (e) {
           console.warn("[MM] setQuality", e);
         }
 
-        // postMessage yedek
+        // 4) postMessage yedek (IFrame API komut kanalı)
         try {
           var f = getYoutubeIframeEl && getYoutubeIframeEl();
           if (f && f.contentWindow) {
@@ -4583,7 +4617,16 @@
               JSON.stringify({ event: "command", func: "setPlaybackQuality", args: [target] }),
               "*"
             );
-            if (target !== "default") {
+            if (target === "default") {
+              f.contentWindow.postMessage(
+                JSON.stringify({
+                  event: "command",
+                  func: "setPlaybackQualityRange",
+                  args: ["tiny", "highres"]
+                }),
+                "*"
+              );
+            } else {
               f.contentWindow.postMessage(
                 JSON.stringify({
                   event: "command",
@@ -4599,26 +4642,37 @@
         if (qualityVal) qualityVal.textContent = qualityLabel(currentQuality);
         syncActiveStates();
 
-        var t = document.getElementById("roomToast");
-        if (t) {
-          t.textContent =
+        var toast = document.getElementById("roomToast");
+        if (toast) {
+          toast.textContent =
             currentQuality === "auto"
               ? "Kalite: Otomatik"
-              : "Kalite: " + qualityLabel(currentQuality) + (applied ? "" : " (uygulanamadı)");
-          t.classList.add("show");
-          setTimeout(function() { t.classList.remove("show"); }, 1600);
+              : "Kalite: " + qualityLabel(currentQuality) + (applied ? "" : " (API yok)");
+          toast.classList.add("show");
+          setTimeout(function() { toast.classList.remove("show"); }, 1600);
         }
 
-        // Biraz sonra gerçek kaliteyi doğrula
+        // Doğrulama: gerçekten değişti mi?
         setTimeout(function() {
           try {
             var real = getCurrentPlaybackQuality();
+            console.log("[MM] quality after set:", target, "→ actual:", real);
             if (real && real !== "unknown" && currentQuality !== "auto") {
               if (qualityVal) qualityVal.textContent = qualityLabel(real);
+              // İstenen ile farklıysa bir kez daha dene
+              if (real !== target && player && typeof player.setPlaybackQualityRange === "function") {
+                player.setPlaybackQualityRange(target, target);
+                if (typeof player.setPlaybackQuality === "function") player.setPlaybackQuality(target);
+              }
             }
           } catch (e3) {}
-        }, 1200);
+        }, 900);
       }
+
+      // Dışarıdan da çağrılabilir (önerilen akışla uyumlu)
+      window.changeVideoQuality = function(label) {
+        setQuality(labelToQualityFormat(label));
+      };
 
       function setCaptions(on) {
         captionsOn = !!on;
