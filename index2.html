@@ -1476,8 +1476,8 @@
             Kalite
           </div>
           <div id="ytSheetQualityList">
-            <yt-list-item-view-model class="ytListItemViewModelHost" role="presentation" data-quality="auto">
-              <div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelNoTrailingText">
+            <yt-list-item-view-model class="ytListItemViewModelHost" role="presentation">
+              <div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable ytListItemViewModelNoTrailingText">
                 <div class="ytListItemViewModelMainContainer">
                   <div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">
                     <img class="ytCoreImageHost ytListItemViewModelAccessory ytListItemViewModelImage ytCoreImageContentModeScaleToFill" alt="">
@@ -4515,8 +4515,8 @@
         function qualityItemHtml(q, label, isActive) {
           var activeCls = isActive ? " active" : "";
           return (
-            '<yt-list-item-view-model class="ytListItemViewModelHost' + activeCls + '" role="presentation" data-quality="' + q + '">' +
-              '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelNoTrailingText">' +
+            '<yt-list-item-view-model class="ytListItemViewModelHost' + activeCls + '" role="presentation">' +
+              '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable ytListItemViewModelNoTrailingText">' +
                 '<div class="ytListItemViewModelMainContainer">' +
                   '<div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">' +
                     '<img class="ytCoreImageHost ytListItemViewModelAccessory ytListItemViewModelImage ytCoreImageContentModeScaleToFill" alt="">' +
@@ -4595,10 +4595,13 @@
         if (captionVal) captionVal.textContent = captionsOn ? "Açık" : "Kapalı";
 
         document.querySelectorAll("#ytSheetQualityList .ytListItemViewModelHost").forEach(function(el) {
-          var q = el.getAttribute("data-quality");
+          var titleEl = el.querySelector(".ytListItemViewModelTitle");
+          var lab = titleEl ? (titleEl.textContent || "").trim() : "";
+          var q = labelToQualityFormat(lab);
           var active =
             q === currentQuality ||
-            (q === "auto" && (currentQuality === "auto" || currentQuality === "default"));
+            ((q === "auto" || q === "default") && (currentQuality === "auto" || currentQuality === "default")) ||
+            (lab === "Otomatik" && (currentQuality === "auto" || currentQuality === "default"));
           el.classList.toggle("active", !!active);
         });
         document.querySelectorAll("#ytSheetSpeedSub .yt-sheet-sub-item").forEach(function(el) {
@@ -4805,9 +4808,11 @@
           }
           return;
         }
-        var qItem = e.target.closest("[data-quality]");
+        var qItem = e.target.closest("#ytSheetQualityList .ytListItemViewModelHost");
         if (qItem) {
-          setQuality(qItem.getAttribute("data-quality"));
+          var titleEl = qItem.querySelector(".ytListItemViewModelTitle");
+          var lab = titleEl ? (titleEl.textContent || "").trim() : "";
+          if (lab) setQuality(lab);
           return;
         }
         var sItem = e.target.closest("[data-speed]");
