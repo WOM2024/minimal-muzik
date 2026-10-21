@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Simüle Edilmiş Kalite Menüsü</title>
+  <title>YouTube Özel Kalite Simülasyonu</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,7 +24,6 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
     
-    /* Üst Kalite Çubuğu ve Simüle Çark Menüsü */
     .custom-quality-bar {
       display: flex;
       justify-content: space-between;
@@ -67,7 +66,6 @@
       border-color: #3f85ea;
     }
 
-    /* Bildirim Toast (Çarktan değiştirilmiş hissi için) */
     #toast-notification {
       position: absolute;
       bottom: 20px;
@@ -89,15 +87,15 @@
       opacity: 1;
     }
 
-    /* Video Çerçevesi */
     .video-container {
       position: relative;
-      padding-bottom: 56.25%; /* 16:9 Oranı */
+      padding-bottom: 56.25%;
       height: 0;
       overflow: hidden;
       border-radius: 8px;
       background: #000;
     }
+    /* ID tabanlı iframe yerine doğrudan YouTube embed iframe yapısı kullanıyoruz */
     .video-container iframe {
       position: absolute;
       top: 0;
@@ -105,10 +103,8 @@
       width: 100%;
       height: 100%;
       border: 0;
-      pointer-events: none; /* YouTube'un kendi çarkını tıklanamaz yapar */
     }
 
-    /* Alt Temel Kontroller */
     .custom-controls {
       display: flex;
       gap: 10px;
@@ -132,28 +128,32 @@
 
   <div class="player-wrapper">
     
-    <!-- Üst Kalite Seçim Butonları (Orijinal Çark Görünümü) -->
+    <!-- Kalite Menüsü -->
     <div class="custom-quality-bar">
       <span class="quality-label">
         ⚙️ Kalite: <span id="current-quality-text" style="color: #3f85ea;">Otomatik</span>
       </span>
       <div class="quality-btns">
         <button class="q-btn" onclick="changeQualitySimulation('hd1080', '1080p', this)">1080p</button>
-        <button class="q-btn" onclick="changeQualitySimulation('hd720', '720p', this)">1080p HD</button> <!-- YouTube tarzı etiketleme -->
+        <button class="q-btn" onclick="changeQualitySimulation('hd720', '720p', this)">720p</button>
         <button class="q-btn" onclick="changeQualitySimulation('large', '480p', this)">480p</button>
         <button class="q-btn" onclick="changeQualitySimulation('medium', '360p', this)">360p</button>
         <button class="q-btn active" onclick="changeQualitySimulation('auto', 'Otomatik', this)">Otomatik</button>
       </div>
     </div>
 
-    <!-- Video Alanı -->
+    <!-- Video Alanı (Worker Domain'inizle tam uyumlu origin parametresi içerir) -->
     <div class="video-container">
-      <div id="yt-player"></div>
-      <!-- Kullanıcıya gösterilecek geçiş bildirimi -->
-      <div id="toast-notification">Kalite değiştirildi: 1080p</div>
+      <iframe 
+        id="yt-player"
+        src="https://www.youtube.com/embed/_NoTqg152B0?enablejsapi=1&origin=https://superyt.wom2024.workers.dev&controls=0&modestbranding=1&rel=0&iv_load_policy=3"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+      <div id="toast-notification">Kalite değiştirildi</div>
     </div>
 
-    <!-- Alt Temel Kontroller -->
+    <!-- Oynat / Durdur Kontrolü -->
     <div class="custom-controls">
       <button class="control-btn" onclick="togglePlay()">Oynat / Durdur</button>
     </div>
@@ -164,42 +164,26 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     var player;
-    var videoId = '_NoTqg152B0'; // Kendi video ID'niz
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('yt-player', {
-        videoId: videoId,
-        playerVars: {
-          'autoplay': 0,
-          'controls': 0,         // YouTube'un kendi çarkını gizler
-          'disablekb': 1,
-          'modestbranding': 1,
-          'rel': 0,
-          'iv_load_policy': 3
-        },
         events: {
           'onReady': function() {
-            console.log("Oynatıcı hazır.");
+            console.log("Oynatıcı başarıyla bağlandı ve hazır.");
           }
         }
       });
     }
 
-    // Gelişmiş Kalite Simülasyon Fonksiyonu
     function changeQualitySimulation(qualityKey, labelText, btnElement) {
       if (player && typeof player.setPlaybackQuality === 'function') {
-        // Arkada YouTube API'ye komut gönderilir (tarayıcı izin verdiği ölçüde dener)
         player.setPlaybackQuality(qualityKey);
         
-        // Arayüzdeki aktif buton stilini güncelle
         var buttons = document.querySelectorAll('.q-btn');
         buttons.forEach(function(b) { b.classList.remove('active'); });
         if (btnElement) btnElement.classList.add('active');
 
-        // Üst paneldeki yazıyı güncelle
         document.getElementById('current-quality-text').innerText = labelText;
-
-        // YouTube'un orijinal arayüzündeki gibi geçiş bildirimi (Toast) göster
         showToast("Kalite " + labelText + " olarak ayarlandı");
       }
     }
@@ -214,9 +198,8 @@
       }, 2000);
     }
 
-    // Oynat / Durdur
     function togglePlay() {
-      if (player) {
+      if (player && typeof player.getPlayerState === 'function') {
         var state = player.getPlayerState();
         if (state === YT.PlayerState.PLAYING) {
           player.pauseVideo();
