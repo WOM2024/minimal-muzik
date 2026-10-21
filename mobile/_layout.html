@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><title>layout ölçüm</title>
+<style>
+  body { margin:0; background:#111; color:#eee; font:13px/1.4 system-ui,sans-serif; padding:10px; }
+  .grid { display:flex; flex-wrap:wrap; gap:10px; }
+  .case { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:6px; }
+  iframe { border:0; display:block; background:#000; transform-origin: top left; }
+  table { border-collapse:collapse; font-size:11px; margin-top:10px; }
+  th,td { border:1px solid #444; padding:3px 6px; text-align:left; white-space:nowrap; }
+  th { background:#2a2a2a; }
+  .bad { color:#ff6b6b; font-weight:700; }
+</style></head>
+<body>
+<h3 style="margin:0 0 8px">Head unit yerleşim ölçümü (yalnızca CSS — JS ve ağ yok)</h3>
+<div class="grid" id="grid"></div>
+<div id="out">hazırlanıyor…</div>
+
+<script>
+const CASES = [
+  { name: "800×480 head unit",   w: 800,  h: 480,  scale: 0.9 },
+  { name: "1024×600",            w: 1024, h: 600,  scale: 0.7 },
+  { name: "1280×720",            w: 1280, h: 720,  scale: 0.55 },
+  { name: "720×1280 dikey",      w: 720,  h: 1280, scale: 0.4 },
+  { name: "390×844 telefon",     w: 390,  h: 844,  scale: 0.85 },
+  { name: "640×480 küçük yatay", w: 640,  h: 480,  scale: 0.9 }
+];
+
+const grid = document.getElementById("grid");
+const frames = [];
+
+/* app.js'i çıkar: yerleşim tamamen CSS ile belirleniyor, çalıştırılmasına
+   gerek yok (5 iframe × ağ = dakikalarca bekleme). */
+function stripScripts(html) {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<link[^>]*manifest[^>]*>/gi, "")
+    // CSS her ölçümde TAZE gelsin — HTTP önbelleği eski kırılımı verip
+    // ölçümleri yanıltmasın
+    .replace(/href="app\.css"/, 'href="app.css?cb=' + Date.now() + '"');
+}
+
+function measure(f, c) {
+  const d = f.contentDocument;
+  if (!d || !d.getElementById("app")) return { err: "erişilemedi" };
+  const $ = s => d.querySelector(s);
+  const $$ = s => Array.from(d.querySelectorAll(s));
+  const r = n => n ? n.getBoundingClientRect() : null;
+  const app = $("#app"), stage = $(".stage"), panel = $(".panel"), video = $(".videowrap");
+
+  const small = [];
+  $$(".tbtn, .tab, .qbtn, .r-act, .chip, .pill, .tips-acts button, .bigbtn, .tile").forEach(n => {
+    const b = n.getBoundingClientRect();
+    if (b.width === 0 || b.height === 0) return;
+    if (b.height < 34) small.push((n.id || n.className) + "=" + Math.round(b.height));
+  });
+
+  const tr = $(".transport");
+  const title = $("#npTitle");
+  const tcs = title ? getComputedStyle(title) : null;
+  const cs = getComputedStyle(app);
+
+  return {
+    vw: f.contentWindow.innerWidth,
+    vh: f.contentWindow.innerHeight,
+    cols: cs.gridTemplateColumns,
+    stacked: cs.gridTemplateColumns.split(" ").length === 1,
+    videoW: Math.round(r(video).width),
+    videoH: Math.round(r(video).height),
+    stageW: Math.round(r(stage).width),
+    panelW: Math.round(r(panel).width),
+    docOver: d.documentElement.scrollWidth > d.documentElement.clientWidth + 1,
+    trOver: tr ? (tr.scrollWidth > tr.clientWidth + 1) : false,
+    titleOver: title && tcs && tcs.textOverflow !== "ellipsis" &&
+      (title.scrollWidth > title.clientWidth + 1),
+    small: small.slice(0, 6),
+    tabW: $$(".tab").map(n => Math.round(n.getBoundingClientRect().width)),
+    playBtn: (() => { const q = r($(".tbtn.play")); return q ? Math.round(q.width) + "×" + Math.round(q.height) : "-"; })(),
+    stageOverflow: r(stage) ? (stage.scrollHeight > stage.clientHeight + 1) : false
+  };
+}
+
+function render() {
+  let html = "<table><tr><th>özellik</th>" +
+    CASES.map(c => "<th>" + c.name + "</th>").join("") + "</tr>";
+  const results = frames.map(({ c, f }) => { try { return measure(f, c); } catch (e) { return { err: String(e) }; } });
+
+  const fields = [
+    ["viewport", x => x.vw + "×" + x.vh],
+    ["yerleşim", x => x.stacked ? "ALT ALTA (dikey)" : "2 sütun (yatay)"],
+    ["sütunlar", x => x.cols],
+    ["video alanı", x => x.videoW ? x.videoW + "×" + x.videoH : "-"],
+    ["video ekran payı", x => x.videoH ? Math.round(x.videoH / x.vh * 100) + "%" : "-"],
+    ["sahne yükseklik taşması", x => x.stageOverflow ? "VAR (kontroller kırpılıyor)" : "yok"],
+    ["yatay taşma", x => x.docOver ? "VAR" : "yok"],
+    ["taşıma taşması", x => x.trOver ? "VAR" : "yok"],
+    ["başlık taşması", x => x.titleOver ? "VAR" : "yok"],
+    ["oynat butonu", x => x.playBtn],
+    ["sekme genişlikleri", x => x.tabW ? x.tabW.join(",") : "-"],
+    ["küçük hedefler", x => x.small && x.small.length ? x.small.join(" | ") : "yok"]
+  ];
+
+  for (const [label, fn] of fields) {
+    html += "<tr><td>" + label + "</td>" + results.map(x => {
+      const v = x.err ? "ERR: " + x.err : fn(x);
+      const bad = (typeof v === "string") &&
+        (v.indexOf("VAR") === 0 || v.indexOf("ERR") === 0 ||
+         (label === "küçük hedefler" && v !== "yok"));
+      return "<td class='" + (bad ? "bad" : "") + "'>" + v + "</td>";
+    }).join("") + "</tr>";
+  }
+  html += "</table>";
+
+  // dikey ekranlarda video payı düşük kalmamalı, yatayda kontroller sıkışmamalı
+  document.getElementById("out").innerHTML = html;
+}
+
+fetch("./index.html?cb=" + Date.now()).then(r => r.text()).then(html => {
+  const clean = stripScripts(html);
+  for (const c of CASES) {
+    const box = document.createElement("div");
+    box.className = "case";
+    box.innerHTML = '<div style="font-size:11px;margin-bottom:4px">' + c.name + "</div>";
+    const f = document.createElement("iframe");
+    f.style.width = c.w + "px";
+    f.style.height = c.h + "px";
+    f.style.transform = "scale(" + c.scale + ")";
+    box.style.width = (c.w * c.scale + 16) + "px";
+    box.style.height = (c.h * c.scale + 32) + "px";
+    box.appendChild(f);
+    grid.appendChild(box);
+    frames.push({ c, f });
+    f.srcdoc = clean;
+  }
+  let tries = 60;
+  (function poll() {
+    const ready = frames.every(({ f }) => {
+      try { return !!(f.contentDocument && f.contentDocument.getElementById("app")); } catch (e) { return false; }
+    });
+    if (ready) { render(); return; }
+    if (--tries <= 0) { render(); return; }
+    document.getElementById("out").textContent = "hazırlanıyor…";
+    setTimeout(poll, 150);
+  })();
+}).catch(e => { document.getElementById("out").textContent = "FETCH HATA: " + e; });
+</script>
+</body></html>
