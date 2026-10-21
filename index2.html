@@ -4563,8 +4563,8 @@
 
       function labelToQualityFormat(label) {
         var s = String(label || "").toLowerCase().trim();
-        if (!s || s === "auto" || s === "default" || s.indexOf("otomatik") >= 0) return "default";
-        if (s.indexOf("2160") >= 0 || s.indexOf("4k") >= 0 || s === "highres") return "highres";
+        if (!s || s === "auto" || s === "default" || s.indexOf("otomatik") >= 0) return "auto";
+        if (s.indexOf("2160") >= 0 || s.indexOf("4k") >= 0 || s === "highres" || s === "hd2160") return "hd2160";
         if (s.indexOf("1440") >= 0 || s === "hd1440") return "hd1440";
         if (s.indexOf("1080") >= 0 || s === "hd1080") return "hd1080";
         if (s.indexOf("720") >= 0 || s === "hd720") return "hd720";
@@ -4576,58 +4576,128 @@
         return s;
       }
 
-      function setQuality(q) {
-        var target = labelToQualityFormat(q);
-        currentQuality = target === "default" ? "auto" : target;
-        var applied = false;
-        var player = ytPlayerInstance;
+      // ytQuality — setPlaybackQualityRange ile kalite kilidi (IFrame API / movie_player)
+      function getMoviePlayer() {
+        // 1) IFrame API instance (parent'tan erişilebilir resmi yol)
+        if (ytPlayerInstance) return ytPlayerInstance;
+        // 2) Aynı origin denemesi (genelde cross-origin → null)
         try {
-          if (player) {
-            if (typeof player.setPlaybackQualityRange === "function") {
-              if (target === "default") {
-                var levels = getAvailableQualities();
-                var hi = levels[0] || "highres";
-                var lo = levels.length ? levels[levels.length - 1] : "tiny";
-                player.setPlaybackQualityRange(lo, hi);
-              } else {
-                player.setPlaybackQualityRange(target, target);
-              }
-              applied = true;
-            }
-            if (typeof player.setPlaybackQuality === "function") {
-              player.setPlaybackQuality(target);
-              applied = true;
-            }
-            try {
-              if (typeof player.getCurrentTime === "function" && typeof player.seekTo === "function") {
-                var t0 = player.getCurrentTime() || 0;
-                if (t0 > 0.5) player.seekTo(t0, true);
-              }
-            } catch (eSeek) {}
+          var f = getYoutubeIframeEl && getYoutubeIframeEl();
+          if (f && f.contentDocument) {
+            var mp = f.contentDocument.querySelector("#movie_player");
+            if (mp) return mp;
+          }
+        } catch (e) {}
+        try {
+          var mp2 = document.querySelector("#movie_player");
+          if (mp2) return mp2;
+        } catch (e2) {}
+        return null;
+      }
+
+      var ytQuality = {
+        set4K: function() { return applyQualityRange("hd2160", "hd2160"); },
+        set2K: function() { return applyQualityRange("hd1440", "hd1440"); },
+        set1080: function() { return applyQualityRange("hd1080", "hd1080"); },
+        set720: function() { return applyQualityRange("hd720", "hd720"); },
+        set480: function() { return applyQualityRange("large", "large"); },
+        set360: function() { return applyQualityRange("medium", "medium"); },
+        set240: function() { return applyQualityRange("small", "small"); },
+        set144: function() { return applyQualityRange("tiny", "tiny"); },
+        setAuto: function() { return applyQualityRange("auto", "auto"); }
+      };
+      window.ytQuality = ytQuality;
+
+      function applyQualityRange(minQ, maxQ) {
+        var applied = false;
+        var player = getMoviePlayer();
+        console.log("[MM] applyQualityRange", minQ, maxQ, "player=", !!player);
+        try {
+          if (player && typeof player.setPlaybackQualityRange === "function") {
+            player.setPlaybackQualityRange(minQ, maxQ);
+            applied = true;
+            console.log("[MM] setPlaybackQualityRange OK", minQ, maxQ);
           }
         } catch (e) {
-          console.warn("[MM] setQuality", e);
+          console.warn("[MM] setPlaybackQualityRange err", e);
         }
+        try {
+          if (player && typeof player.setPlaybackQuality === "function") {
+            var q = maxQ === "auto" ? "default" : maxQ;
+            player.setPlaybackQuality(q);
+            applied = true;
+            console.log("[MM] setPlaybackQuality OK", q);
+          }
+        } catch (e2) {
+          console.warn("[MM] setPlaybackQuality err", e2);
+        }
+        // postMessage yedek (IFrame API komut kanalı)
         try {
           var f = getYoutubeIframeEl && getYoutubeIframeEl();
           if (f && f.contentWindow) {
             f.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "setPlaybackQuality", args: [target] }),
+              JSON.stringify({ event: "command", func: "setPlaybackQualityRange", args: [minQ, maxQ] }),
               "*"
             );
-            if (target === "default") {
-              f.contentWindow.postMessage(
-                JSON.stringify({ event: "command", func: "setPlaybackQualityRange", args: ["tiny", "highres"] }),
-                "*"
-              );
-            } else {
-              f.contentWindow.postMessage(
-                JSON.stringify({ event: "command", func: "setPlaybackQualityRange", args: [target, target] }),
-                "*"
-              );
-            }
+            var pq = maxQ === "auto" ? "default" : maxQ;
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "setPlaybackQuality", args: [pq] }),
+              "*"
+            );
+            applied = true;
           }
-        } catch (e2) {}
+        } catch (e3) {}
+        // Stream yenileme: küçük seek
+        try {
+          if (player && typeof player.getCurrentTime === "function" && typeof player.seekTo === "function") {
+            var t0 = player.getCurrentTime() || 0;
+            if (t0 > 0.5) player.seekTo(t0, true);
+          }
+        } catch (eSeek) {}
+        return applied;
+      }
+
+      function setQuality(q) {
+        var target = labelToQualityFormat(q);
+        currentQuality = target === "auto" || target === "default" ? "auto" : target;
+        var applied = false;
+
+        // ytQuality map ile birebir
+        if (target === "auto" || target === "default") {
+          applied = ytQuality.setAuto();
+        } else if (target === "hd2160" || target === "highres") {
+          applied = ytQuality.set4K();
+        } else if (target === "hd1440") {
+          applied = ytQuality.set2K();
+        } else if (target === "hd1080") {
+          applied = ytQuality.set1080();
+        } else if (target === "hd720") {
+          applied = ytQuality.set720();
+        } else if (target === "large") {
+          applied = ytQuality.set480();
+        } else if (target === "medium") {
+          applied = ytQuality.set360();
+        } else if (target === "small") {
+          applied = ytQuality.set240();
+        } else if (target === "tiny") {
+          applied = ytQuality.set144();
+        } else {
+          applied = applyQualityRange(target, target);
+        }
+
+        // Doğrulama log
+        setTimeout(function() {
+          try {
+            var player = getMoviePlayer();
+            var real = player && typeof player.getPlaybackQuality === "function"
+              ? player.getPlaybackQuality()
+              : "?";
+            var levels = player && typeof player.getAvailableQualityLevels === "function"
+              ? player.getAvailableQualityLevels()
+              : [];
+            console.log("[MM] quality after set: target=", target, "actual=", real, "levels=", levels);
+          } catch (e) {}
+        }, 900);
 
         setTrailingValue("Kalite", currentQuality === "auto" ? "Otomatik" : qualityLabel(currentQuality));
         syncActiveStates();
@@ -4644,7 +4714,7 @@
       }
 
       window.changeVideoQuality = function(label) {
-        setQuality(labelToQualityFormat(label));
+        setQuality(label);
       };
 
       function setCaptions(on) {
