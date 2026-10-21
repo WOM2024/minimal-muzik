@@ -127,9 +127,50 @@
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
     var player;
-    var videoId = '_NoTqg152B0';
+    // Genel test için kısıtlamasız açık bir video ID'si (örneğin Big Buck Bunny tarzı veya standart serbest video)
+    var videoId = 'ysz5S6PUM-U'; 
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         videoId: videoId,
         playerVars: {
+          'autoplay': 0,
+          'rel': 0,
+          'modestbranding': 1,
+          'playsinline': 1
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onPlaybackQualityChange': onQualityChange
+        }
+      });
+    }
+
+    function onPlayerReady(event) {
+      document.getElementById('status').innerText = 'Oynatıcı hazır.';
+    }
+
+    function onQualityChange(event) {
+      document.getElementById('status').innerText = 'Mevcut Oynatma Kalitesi: ' + event.data;
+    }
+
+    function setQuality(qualityLevel, btnElement) {
+      if (player && typeof player.setPlaybackQuality === 'function') {
+        player.setPlaybackQuality(qualityLevel);
+        
+        var buttons = document.querySelectorAll('.btn-quality');
+        buttons.forEach(function(btn) {
+          btn.classList.remove('active');
+        });
+        if (btnElement) {
+          btnElement.classList.add('active');
+        }
+
+        document.getElementById('status').innerText = 'İstenen Kalite: ' + qualityLevel;
+      } else {
+        alert('Oynatıcı henüz hazır değil.');
+      }
+    }
+  </script>
+</body>
+</html>
