@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Local Test</title>
+  <title>YouTube Özel Kalite Butonları Testi</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -19,9 +19,46 @@
       background: #1e1e1e;
       padding: 20px;
       border-radius: 10px;
-      max-width: 700px;
+      max-width: 750px;
       width: 100%;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    /* Kalite Butonları Alanı */
+    .quality-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .quality-bar span {
+      font-size: 14px;
+      color: #aaa;
+      font-weight: bold;
+    }
+    .buttons-group {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-q {
+      background-color: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+    .btn-q:hover {
+      background-color: #ff0000;
+      border-color: #ff0000;
+    }
+    .btn-q.active {
+      background-color: #ff0000;
+      border-color: #ff0000;
+      font-weight: bold;
     }
     .video-container {
       position: relative;
@@ -38,38 +75,72 @@
       height: 100%;
       border: 0;
     }
+    .status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+      text-align: right;
+    }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h3>YouTube Local Sunucu Testi</h3>
+    <!-- Üst Kalite Butonları -->
+    <div class="quality-bar">
+      <span>Özel Kalite Seçimi:</span>
+      <div class="buttons-group">
+        <button class="btn-q" onclick="changeQuality('hd1080', this)">1080p</button>
+        <button class="btn-q" onclick="changeQuality('hd720', this)">720p</button>
+        <button class="btn-q" onclick="changeQuality('large', this)">480p</button>
+        <button class="btn-q" onclick="changeQuality('medium', this)">360p</button>
+        <button class="btn-q active" onclick="changeQuality('auto', this)">Otomatik</button>
+      </div>
+    </div>
+
+    <!-- Video Alanı -->
     <div class="video-container">
-      <!-- 
-        ÖNEMLİ: origin parametresi tarayıcıda girdiğiniz adresle (http://localhost:8000) 
-        birebir aynı olmalıdır!
-      -->
       <iframe 
-        id="existing-iframe-example"
+        id="ytplayer"
         src="https://www.youtube.com/embed/_NoTqg152B0?enablejsapi=1&origin=http://localhost:8000"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
         allowfullscreen>
-    </iframe>
+      </iframe>
     </div>
+    
+    <div id="status-text" class="status">Oynatıcı bekleniyor...</div>
   </div>
 
-  <!-- YouTube IFrame API Script'i -->
+  <!-- YouTube IFrame API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     var player;
     function onYouTubeIframeAPIReady() {
-      player = new YT.Player('existing-iframe-example', {
+      player = new YT.Player('ytplayer', {
         events: {
           'onReady': function(event) {
-            console.log("Oynatıcı başarıyla yüklendi ve hazır!");
+            document.getElementById('status-text').innerText = "Oynatıcı hazır.";
+          },
+          'onPlaybackQualityChange': function(event) {
+            document.getElementById('status-text').innerText = "Aktif Kalite: " + event.data;
           }
         }
       });
+    }
+
+    function changeQuality(qualityKey, btnElement) {
+      if (player && typeof player.setPlaybackQuality === 'function') {
+        player.setPlaybackQuality(qualityKey);
+        
+        // Butonların renk/aktiflik durumunu değiştir
+        var buttons = document.querySelectorAll('.btn-q');
+        buttons.forEach(function(b) { b.classList.remove('active'); });
+        if(btnElement) btnElement.classList.add('active');
+
+        document.getElementById('status-text').innerText = "Seçilen komut: " + qualityKey;
+      } else {
+        alert("Oynatıcı henüz tam yüklenmedi.");
+      }
     }
   </script>
 
