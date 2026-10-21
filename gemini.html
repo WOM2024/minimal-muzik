@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Özel Kalite Butonları Testi</title>
+  <title>YouTube Özel Kalite Kontrollü Oynatıcı</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #121212;
+      background-color: #0f0f0f;
       color: #fff;
       display: flex;
       justify-content: center;
@@ -15,57 +15,61 @@
       min-height: 100vh;
       margin: 0;
     }
-    .card {
-      background: #1e1e1e;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 750px;
+    .player-wrapper {
       width: 100%;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      max-width: 800px;
+      background: #1f1f1f;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
-    /* Kalite Butonları Alanı */
-    .quality-bar {
+    /* Sizin İstediğiniz Üst Kalite Butonları */
+    .custom-quality-bar {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 15px;
-      flex-wrap: wrap;
-      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      background: #2a2a2a;
+      padding: 10px 15px;
+      border-radius: 8px;
     }
-    .quality-bar span {
+    .quality-label {
       font-size: 14px;
-      color: #aaa;
       font-weight: bold;
+      color: #aaa;
     }
-    .buttons-group {
+    .quality-btns {
       display: flex;
       gap: 6px;
     }
-    .btn-q {
-      background-color: #2a2a2a;
+    .q-btn {
+      background: #3a3a3a;
       color: #fff;
-      border: 1px solid #444;
+      border: 1px solid #555;
       padding: 6px 12px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: bold;
       transition: 0.2s;
     }
-    .btn-q:hover {
-      background-color: #ff0000;
+    .q-btn:hover {
+      background: #ff0000;
       border-color: #ff0000;
     }
-    .btn-q.active {
-      background-color: #ff0000;
+    .q-btn.active {
+      background: #ff0000;
       border-color: #ff0000;
-      font-weight: bold;
     }
+
+    /* Video Çerçevesi */
     .video-container {
       position: relative;
       padding-bottom: 56.25%; /* 16:9 Oranı */
       height: 0;
       overflow: hidden;
-      border-radius: 6px;
+      border-radius: 8px;
+      background: #000;
     }
     .video-container iframe {
       position: absolute;
@@ -74,72 +78,107 @@
       width: 100%;
       height: 100%;
       border: 0;
+      pointer-events: none; /* YouTube'un kendi kontrollerine tıklanmasını engeller */
     }
-    .status {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #888;
-      text-align: right;
+
+    /* Alt Özel Kontrol Paneli (Oynat/Durdur) */
+    .custom-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .control-btn {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .control-btn:hover {
+      background: #444;
     }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <!-- Üst Kalite Butonları -->
-    <div class="quality-bar">
-      <span>Özel Kalite Seçimi:</span>
-      <div class="buttons-group">
-        <button class="btn-q" onclick="changeQuality('hd1080', this)">1080p</button>
-        <button class="btn-q" onclick="changeQuality('hd720', this)">720p</button>
-        <button class="btn-q" onclick="changeQuality('large', this)">480p</button>
-        <button class="btn-q" onclick="changeQuality('medium', this)">360p</button>
-        <button class="btn-q active" onclick="changeQuality('auto', this)">Otomatik</button>
+  <div class="player-wrapper">
+    
+    <!-- Üst Kalite Seçim Butonları -->
+    <div class="custom-quality-bar">
+      <span class="quality-label">Görüntü Kalitesi:</span>
+      <div class="quality-btns">
+        <button class="q-btn" onclick="setVideoQuality('hd1080', this)">1080p</button>
+        <button class="q-btn" onclick="setVideoQuality('hd720', this)">720p</button>
+        <button class="q-btn" onclick="setVideoQuality('large', this)">480p</button>
+        <button class="q-btn" onclick="setVideoQuality('medium', this)">360p</button>
+        <button class="q-btn active" onclick="setVideoQuality('auto', this)">Otomatik</button>
       </div>
     </div>
 
     <!-- Video Alanı -->
     <div class="video-container">
-      <iframe 
-        id="ytplayer"
-        src="https://www.youtube.com/embed/_NoTqg152B0?enablejsapi=1&origin=http://localhost:8000"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-        allowfullscreen>
-      </iframe>
+      <div id="yt-player"></div>
     </div>
-    
-    <div id="status-text" class="status">Oynatıcı bekleniyor...</div>
+
+    <!-- Alt Temel Kontroller -->
+    <div class="custom-controls">
+      <button class="control-btn" onclick="togglePlay()">Oynat / Durdur</button>
+    </div>
+
   </div>
 
   <!-- YouTube IFrame API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     var player;
+    var videoId = '_NoTqg152B0'; // Kendi video ID'nizi buraya yazabilirsiniz
+
     function onYouTubeIframeAPIReady() {
-      player = new YT.Player('ytplayer', {
+      player = new YT.Player('yt-player', {
+        videoId: videoId,
+        playerVars: {
+          'autoplay': 0,
+          'controls': 0,         // YouTube'un kendi çarkını ve tüm çubuğunu gizler
+          'disablekb': 1,        // Klavye kısayollarını kapatır
+          'modestbranding': 1,
+          'rel': 0,
+          'iv_load_policy': 3
+        },
         events: {
-          'onReady': function(event) {
-            document.getElementById('status-text').innerText = "Oynatıcı hazır.";
-          },
-          'onPlaybackQualityChange': function(event) {
-            document.getElementById('status-text').innerText = "Aktif Kalite: " + event.data;
-          }
+          'onReady': onPlayerReady
         }
       });
     }
 
-    function changeQuality(qualityKey, btnElement) {
-      if (player && typeof player.setPlaybackQuality === 'function') {
-        player.setPlaybackQuality(qualityKey);
-        
-        // Butonların renk/aktiflik durumunu değiştir
-        var buttons = document.querySelectorAll('.btn-q');
-        buttons.forEach(function(b) { b.classList.remove('active'); });
-        if(btnElement) btnElement.classList.add('active');
+    function onPlayerReady(event) {
+      console.log("Özel oynatıcı hazır.");
+    }
 
-        document.getElementById('status-text').innerText = "Seçilen komut: " + qualityKey;
-      } else {
-        alert("Oynatıcı henüz tam yüklenmedi.");
+    // Kalite Değiştirme Fonksiyonu
+    function setVideoQuality(qualityLevel, btnElement) {
+      if (player && typeof player.setPlaybackQuality === 'function') {
+        player.setPlaybackQuality(qualityLevel);
+        
+        // Butonların aktiflik durumunu güncelle
+        var buttons = document.querySelectorAll('.q-btn');
+        buttons.forEach(function(b) { b.classList.remove('active'); });
+        if (btnElement) btnElement.classList.add('active');
+        
+        console.log("Kalite komutu gönderildi: " + qualityLevel);
+      }
+    }
+
+    // Oynat / Durdur Butonu
+    function togglePlay() {
+      if (player) {
+        var state = player.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+          player.pauseVideo();
+        } else {
+          player.playVideo();
+        }
       }
     }
   </script>
