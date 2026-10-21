@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Özel Kalite Seçimli Video Oynatıcı</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .video-card {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .controls-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .controls-title {
+      font-weight: bold;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .quality-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-quality {
+      background-color: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .btn-quality:hover {
+      background-color: #ff0000;
+      border-color: #ff0000;
+    }
+
+    .btn-quality.active {
+      background-color: #ff0000;
+      border-color: #ff0000;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
+    }
+
+    .video-wrapper {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+      height: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      background-color: #000;
+    }
+
+    .video-wrapper iframe, 
+    .video-wrapper div#player {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .status-text {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #888;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="video-card">
+    <!-- Üst Kalite Kontrol Barı -->
+    <div class="controls-header">
+      <span class="controls-title">Kalite Seçimi:</span>
+      <div class="quality-buttons">
+        <button class="btn-quality" onclick="setQuality('hd1080', this)">1080p</button>
+        <button class="btn-quality" onclick="setQuality('hd720', this)">720p</button>
+        <button class="btn-quality" onclick="setQuality('large', this)">480p</button>
+        <button class="btn-quality" onclick="setQuality('medium', this)">360p</button>
+        <button class="btn-quality active" onclick="setQuality('auto', this)">Otomatik</button>
+      </div>
+    </div>
+
+    <!-- Video Alanı -->
+    <div class="video-wrapper">
+      <div id="player"></div>
+    </div>
+
+    <div id="status" class="status-text">Oynatıcı yükleniyor...</div>
+  </div>
+
+  <!-- YouTube Iframe API -->
+  <script>
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var player;
+    var videoId = '_NoTqg152B0';
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: {
