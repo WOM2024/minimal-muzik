@@ -1180,6 +1180,31 @@
     .yt-sheet-back svg {
       width: 22px; height: 22px; fill: currentColor;
     }
+
+    /* Alt kenar kaydırma ipucu çizgisi — chrome ile birlikte görünür/kaybolur */
+    .player-swipe-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.42);
+      z-index: 26;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity .35s ease, transform .35s ease, visibility .35s;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+    }
+    .player-swipe-hint.chrome-hidden {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-50%) translateY(8px);
+    }
+    @media (orientation: landscape) and (max-height: 480px) {
+      .player-swipe-hint { bottom: 8px; width: 36px; height: 3px; }
+    }
   </style>
 </head>
 
@@ -1340,6 +1365,7 @@
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
+      <div class="player-swipe-hint" id="playerSwipeHint" aria-hidden="true"></div>
       <div class="player-loading" id="playerLoading">
         Sonraki şarkı yükleniyor...
       </div>
@@ -1388,24 +1414,17 @@
             <span class="yt-sheet-value" id="ytSheetCaptionVal">Kapalı</span>
             <svg class="yt-sheet-chevron" viewBox="0 0 24 24"><path d="M8.793 5.293a1 1 0 000 1.414L14.086 12l-5.293 5.293a1 1 0 101.414 1.414L16.914 12l-6.707-6.707a1 1 0 00-1.414 0Z"/></svg>
           </div>
-          <div class="yt-sheet-item" data-sheet-action="more">
-            <svg class="yt-sheet-icon" viewBox="0 0 24 24"><path d="M6 10a2 2 0 100 4 2 2 0 000-4Zm6 0a2 2 0 100 4 2 2 0 000-4Zm6 0a2 2 0 100 4 2 2 0 000-4Z"/></svg>
-            <span class="yt-sheet-label">Diğer seçenekler</span>
-          </div>
         </div>
 
-        <!-- Kalite alt menü -->
+        <!-- Kalite alt menü — içerik videodan dinamik doldurulur -->
         <div class="yt-sheet-sub" id="ytSheetQualitySub">
           <div class="yt-sheet-back" data-sheet-back>
             <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             Kalite
           </div>
-          <div class="yt-sheet-sub-item" data-quality="auto">Otomatik <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-          <div class="yt-sheet-sub-item" data-quality="hd1080">1080p <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-          <div class="yt-sheet-sub-item" data-quality="hd720">720p <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-          <div class="yt-sheet-sub-item" data-quality="large">480p <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-          <div class="yt-sheet-sub-item" data-quality="medium">360p <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-          <div class="yt-sheet-sub-item" data-quality="small">240p <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+          <div id="ytSheetQualityList">
+            <div class="yt-sheet-sub-item" data-quality="auto">Otomatik <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+          </div>
         </div>
 
         <!-- Hız alt menü -->
@@ -4207,6 +4226,7 @@
       syncSecondsUI();
 
       var tapLayer = document.getElementById("playerChromeTap");
+      var swipeHint = document.getElementById("playerSwipeHint");
 
       function setTapLayer(on) {
         if (!tapLayer) return;
@@ -4214,16 +4234,27 @@
         else tapLayer.classList.remove("active");
       }
 
+      function setSwipeHintVisible(visible) {
+        if (!swipeHint) return;
+        if (visible) swipeHint.classList.remove("chrome-hidden");
+        else swipeHint.classList.add("chrome-hidden");
+      }
+
       function showChrome() {
         if (!top) return;
         top.classList.remove("chrome-hidden");
+        setSwipeHintVisible(true);
         setTapLayer(false);
         clearTimeout(hideTimer);
         if (!chromeHideOn) return;
         hideTimer = setTimeout(function() {
           if (panel && panel.classList.contains("show")) return;
           if (!view || !view.classList.contains("active")) return;
+          // Sheet açıksa chrome'u gizleme
+          var sh = document.getElementById("ytSheet");
+          if (sh && sh.classList.contains("open")) return;
           top.classList.add("chrome-hidden");
+          setSwipeHintVisible(false);
           setTapLayer(true);
         }, hideSec * 1000);
       }
@@ -4254,6 +4285,7 @@
           else {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setSwipeHintVisible(false);
             setTapLayer(false);
           }
         });
@@ -4268,6 +4300,7 @@
           if (!chromeHideOn) {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setSwipeHintVisible(true);
           } else {
             showChrome();
           }
@@ -4337,12 +4370,18 @@
 
       var QUALITY_LABELS = {
         auto: "Otomatik",
+        default: "Otomatik",
+        highres: "2160p",
+        hd2160: "2160p",
+        hd1440: "1440p",
         hd1080: "1080p",
         hd720: "720p",
         large: "480p",
         medium: "360p",
-        small: "240p"
+        small: "240p",
+        tiny: "144p"
       };
+      var QUALITY_ORDER = ["highres", "hd2160", "hd1440", "hd1080", "hd720", "large", "medium", "small", "tiny"];
       var SPEED_LABELS = {
         "0.25": "0.25x",
         "0.5": "0.5x",
@@ -4354,6 +4393,11 @@
         "2": "2x"
       };
 
+      function qualityLabel(q) {
+        if (!q || q === "auto" || q === "default") return "Otomatik";
+        return QUALITY_LABELS[q] || q;
+      }
+
       function showMain() {
         if (mainMenu) mainMenu.style.display = "";
         if (qualitySub) qualitySub.classList.remove("show");
@@ -4361,11 +4405,87 @@
         if (captionSub) captionSub.classList.remove("show");
       }
 
+      function getAvailableQualities() {
+        var levels = [];
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getAvailableQualityLevels === "function") {
+            levels = ytPlayerInstance.getAvailableQualityLevels() || [];
+          }
+        } catch (e) {}
+        if (!Array.isArray(levels)) levels = [];
+        // "auto" / "default" listeden çıkar, biz ekleyeceğiz
+        levels = levels.filter(function(q) {
+          return q && q !== "auto" && q !== "default";
+        });
+        // Yüksekten düşüğe sırala
+        levels.sort(function(a, b) {
+          var ia = QUALITY_ORDER.indexOf(a);
+          var ib = QUALITY_ORDER.indexOf(b);
+          if (ia < 0) ia = 999;
+          if (ib < 0) ib = 999;
+          return ia - ib;
+        });
+        return levels;
+      }
+
+      function getCurrentPlaybackQuality() {
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlaybackQuality === "function") {
+            var q = ytPlayerInstance.getPlaybackQuality();
+            if (q && q !== "unknown") return q;
+          }
+        } catch (e) {}
+        return currentQuality || "auto";
+      }
+
+      function rebuildQualityList() {
+        var listEl = document.getElementById("ytSheetQualityList");
+        if (!listEl) return;
+        var levels = getAvailableQualities();
+        var cur = getCurrentPlaybackQuality();
+        // Kullanıcı "auto" seçtiyse auto aktif kalsın
+        if (currentQuality === "auto" || currentQuality === "default") cur = "auto";
+
+        var html =
+          '<div class="yt-sheet-sub-item' + (cur === "auto" || cur === "default" ? " active" : "") +
+          '" data-quality="auto">Otomatik <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>';
+
+        if (!levels.length) {
+          // API henüz vermediyse yaygın seçenekleri göster
+          levels = ["hd1080", "hd720", "large", "medium", "small"];
+        }
+        levels.forEach(function(q) {
+          var lab = qualityLabel(q);
+          var active = cur === q ? " active" : "";
+          html +=
+            '<div class="yt-sheet-sub-item' + active + '" data-quality="' + q + '">' +
+            lab +
+            ' <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>';
+        });
+        listEl.innerHTML = html;
+
+        // Ana menüde güncel kalite etiketi
+        if (qualityVal) {
+          if (currentQuality === "auto" || currentQuality === "default") {
+            qualityVal.textContent = "Otomatik";
+          } else {
+            qualityVal.textContent = qualityLabel(cur);
+          }
+        }
+      }
+
       function openSheet() {
         if (!view.classList.contains("active")) return;
         open = true;
         showMain();
-        // Güncel değerleri işaretle
+        // Canlı kalite listesini güncelle
+        try {
+          var live = getCurrentPlaybackQuality();
+          if (currentQuality !== "auto" && live && live !== "unknown") {
+            currentQuality = live;
+          }
+        } catch (e) {}
+        rebuildQualityList();
         syncActiveStates();
         sheet.classList.add("open");
         sheet.setAttribute("aria-hidden", "false");
@@ -4381,12 +4501,21 @@
       }
 
       function syncActiveStates() {
-        if (qualityVal) qualityVal.textContent = QUALITY_LABELS[currentQuality] || "Otomatik";
+        if (qualityVal) {
+          qualityVal.textContent =
+            currentQuality === "auto" || currentQuality === "default"
+              ? "Otomatik"
+              : qualityLabel(currentQuality);
+        }
         if (speedVal) speedVal.textContent = SPEED_LABELS[String(currentSpeed)] || "Normal";
         if (captionVal) captionVal.textContent = captionsOn ? "Açık" : "Kapalı";
 
-        document.querySelectorAll("#ytSheetQualitySub .yt-sheet-sub-item").forEach(function(el) {
-          el.classList.toggle("active", el.getAttribute("data-quality") === currentQuality);
+        document.querySelectorAll("#ytSheetQualityList .yt-sheet-sub-item").forEach(function(el) {
+          var q = el.getAttribute("data-quality");
+          var active =
+            q === currentQuality ||
+            (q === "auto" && (currentQuality === "auto" || currentQuality === "default"));
+          el.classList.toggle("active", !!active);
         });
         document.querySelectorAll("#ytSheetSpeedSub .yt-sheet-sub-item").forEach(function(el) {
           el.classList.toggle("active", parseFloat(el.getAttribute("data-speed")) === currentSpeed);
@@ -4404,7 +4533,6 @@
             ytPlayerInstance.setPlaybackRate(rate);
           }
         } catch (e) {}
-        // postMessage yedek
         try {
           var f = getYoutubeIframeEl && getYoutubeIframeEl();
           if (f && f.contentWindow) {
@@ -4419,36 +4547,77 @@
       }
 
       function setQuality(q) {
-        currentQuality = q;
+        var target = q === "auto" ? "default" : q;
+        currentQuality = q === "default" ? "auto" : q;
+
+        var applied = false;
         try {
-          if (ytPlayerInstance && typeof ytPlayerInstance.setPlaybackQuality === "function") {
-            ytPlayerInstance.setPlaybackQuality(q === "auto" ? "default" : q);
+          if (ytPlayerInstance) {
+            // setPlaybackQualityRange genelde setPlaybackQuality'den daha güvenilir
+            if (typeof ytPlayerInstance.setPlaybackQualityRange === "function") {
+              if (target === "default") {
+                // Otomatik: tüm aralığı aç
+                var levels = getAvailableQualities();
+                var hi = levels[0] || "highres";
+                var lo = levels[levels.length - 1] || "tiny";
+                ytPlayerInstance.setPlaybackQualityRange(lo, hi);
+              } else {
+                ytPlayerInstance.setPlaybackQualityRange(target, target);
+              }
+              applied = true;
+            }
+            if (typeof ytPlayerInstance.setPlaybackQuality === "function") {
+              ytPlayerInstance.setPlaybackQuality(target);
+              applied = true;
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("[MM] setQuality", e);
+        }
+
+        // postMessage yedek
         try {
           var f = getYoutubeIframeEl && getYoutubeIframeEl();
           if (f && f.contentWindow) {
             f.contentWindow.postMessage(
-              JSON.stringify({
-                event: "command",
-                func: "setPlaybackQuality",
-                args: [q === "auto" ? "default" : q]
-              }),
+              JSON.stringify({ event: "command", func: "setPlaybackQuality", args: [target] }),
               "*"
             );
+            if (target !== "default") {
+              f.contentWindow.postMessage(
+                JSON.stringify({
+                  event: "command",
+                  func: "setPlaybackQualityRange",
+                  args: [target, target]
+                }),
+                "*"
+              );
+            }
           }
         } catch (e2) {}
-        if (qualityVal) qualityVal.textContent = QUALITY_LABELS[q] || q;
+
+        if (qualityVal) qualityVal.textContent = qualityLabel(currentQuality);
         syncActiveStates();
-        // Not: YT embed kalite seçimini her zaman uygulamaz; kullanıcıya bilgi
+
         var t = document.getElementById("roomToast");
         if (t) {
-          t.textContent = q === "auto"
-            ? "Kalite: Otomatik"
-            : "Kalite isteği: " + (QUALITY_LABELS[q] || q) + " (YT destekliyorsa)";
+          t.textContent =
+            currentQuality === "auto"
+              ? "Kalite: Otomatik"
+              : "Kalite: " + qualityLabel(currentQuality) + (applied ? "" : " (uygulanamadı)");
           t.classList.add("show");
-          setTimeout(function() { t.classList.remove("show"); }, 1800);
+          setTimeout(function() { t.classList.remove("show"); }, 1600);
         }
+
+        // Biraz sonra gerçek kaliteyi doğrula
+        setTimeout(function() {
+          try {
+            var real = getCurrentPlaybackQuality();
+            if (real && real !== "unknown" && currentQuality !== "auto") {
+              if (qualityVal) qualityVal.textContent = qualityLabel(real);
+            }
+          } catch (e3) {}
+        }, 1200);
       }
 
       function setCaptions(on) {
@@ -4486,6 +4655,7 @@
         if (actionItem) {
           var act = actionItem.getAttribute("data-sheet-action");
           if (act === "quality") {
+            rebuildQualityList();
             if (mainMenu) mainMenu.style.display = "none";
             if (qualitySub) qualitySub.classList.add("show");
           } else if (act === "speed") {
@@ -4494,15 +4664,6 @@
           } else if (act === "captions") {
             if (mainMenu) mainMenu.style.display = "none";
             if (captionSub) captionSub.classList.add("show");
-          } else if (act === "more") {
-            closeSheet();
-            // Mevcut ayarlar panelini aç
-            var settingsBtn = document.getElementById("settingsBtn");
-            var brightPanel = document.getElementById("brightPanelIdx");
-            if (brightPanel && !brightPanel.classList.contains("show")) {
-              if (settingsBtn) settingsBtn.click();
-              else brightPanel.classList.add("show");
-            }
           }
           return;
         }
