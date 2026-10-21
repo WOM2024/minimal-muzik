@@ -1165,6 +1165,59 @@
       opacity: 0;
     }
     .yt-sheet-sub-item.active .check { opacity: 1; }
+    /* Kalite satırları — YT list-item-view-model birebir yapı */
+    #ytSheetQualityList yt-list-item-view-model.ytListItemViewModelHost {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      cursor: pointer;
+      color: #ddd;
+      font-size: 14px;
+    }
+    #ytSheetQualityList .ytListItemViewModelLayoutWrapper {
+      display: flex;
+      width: 100%;
+    }
+    #ytSheetQualityList .ytListItemViewModelMainContainer {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 12px 18px 12px 18px;
+      box-sizing: border-box;
+    }
+    #ytSheetQualityList .ytListItemViewModelImageContainer {
+      display: none;
+    }
+    #ytSheetQualityList .ytButtonOrAnchorHost {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      padding: 0;
+      cursor: pointer;
+      width: 100%;
+    }
+    #ytSheetQualityList yt-list-item-view-model.ytListItemViewModelHost:active .ytListItemViewModelMainContainer {
+      background: rgba(255,255,255,0.06);
+    }
+    #ytSheetQualityList yt-list-item-view-model.ytListItemViewModelHost.active {
+      color: #ff2d55;
+      font-weight: 600;
+    }
+    #ytSheetQualityList .ytListItemViewModelTitleWrapper {
+      flex: 1;
+      min-width: 0;
+    }
+    #ytSheetQualityList .ytListItemViewModelTitle,
+    #ytSheetQualityList .ytAttributedStringHost {
+      flex: 1;
+      min-width: 0;
+    }
     .yt-sheet-back {
       display: flex;
       align-items: center;
@@ -1423,7 +1476,20 @@
             Kalite
           </div>
           <div id="ytSheetQualityList">
-            <div class="yt-sheet-sub-item" data-quality="auto">Otomatik <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+            <yt-list-item-view-model class="ytListItemViewModelHost" role="presentation" data-quality="auto">
+              <div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelNoTrailingText">
+                <div class="ytListItemViewModelMainContainer">
+                  <div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">
+                    <img class="ytCoreImageHost ytListItemViewModelAccessory ytListItemViewModelImage ytCoreImageContentModeScaleToFill" alt="">
+                  </div>
+                  <button class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor ytListItemViewModelTextWrapper" role="menuitem" style="">
+                    <div class="ytListItemViewModelTitleWrapper">
+                      <span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Otomatik</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </yt-list-item-view-model>
           </div>
         </div>
 
@@ -4446,9 +4512,31 @@
         // Kullanıcı "auto" seçtiyse auto aktif kalsın
         if (currentQuality === "auto" || currentQuality === "default") cur = "auto";
 
-        var html =
-          '<div class="yt-sheet-sub-item' + (cur === "auto" || cur === "default" ? " active" : "") +
-          '" data-quality="auto">Otomatik <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>';
+        function qualityItemHtml(q, label, isActive) {
+          var activeCls = isActive ? " active" : "";
+          return (
+            '<yt-list-item-view-model class="ytListItemViewModelHost' + activeCls + '" role="presentation" data-quality="' + q + '">' +
+              '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelNoTrailingText">' +
+                '<div class="ytListItemViewModelMainContainer">' +
+                  '<div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">' +
+                    '<img class="ytCoreImageHost ytListItemViewModelAccessory ytListItemViewModelImage ytCoreImageContentModeScaleToFill" alt="">' +
+                  '</div>' +
+                  '<button class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor ytListItemViewModelTextWrapper" role="menuitem" style="">' +
+                    '<div class="ytListItemViewModelTitleWrapper">' +
+                      '<span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">' + label + '</span>' +
+                    '</div>' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</yt-list-item-view-model>'
+          );
+        }
+
+        var html = qualityItemHtml(
+          "auto",
+          "Otomatik",
+          cur === "auto" || cur === "default"
+        );
 
         if (!levels.length) {
           // API henüz vermediyse yaygın seçenekleri göster
@@ -4456,11 +4544,7 @@
         }
         levels.forEach(function(q) {
           var lab = qualityLabel(q);
-          var active = cur === q ? " active" : "";
-          html +=
-            '<div class="yt-sheet-sub-item' + active + '" data-quality="' + q + '">' +
-            lab +
-            ' <svg class="check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>';
+          html += qualityItemHtml(q, lab, cur === q);
         });
         listEl.innerHTML = html;
 
@@ -4510,7 +4594,7 @@
         if (speedVal) speedVal.textContent = SPEED_LABELS[String(currentSpeed)] || "Normal";
         if (captionVal) captionVal.textContent = captionsOn ? "Açık" : "Kapalı";
 
-        document.querySelectorAll("#ytSheetQualityList .yt-sheet-sub-item").forEach(function(el) {
+        document.querySelectorAll("#ytSheetQualityList .ytListItemViewModelHost").forEach(function(el) {
           var q = el.getAttribute("data-quality");
           var active =
             q === currentQuality ||
