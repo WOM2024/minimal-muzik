@@ -804,6 +804,100 @@
       font-weight: 800;
       color: #ff2d55;
     }
+    /* Ayarlar paneli: bilgi notu */
+    .sp-note {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #999;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-left: 2px solid #ff2d55;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 0 0 12px;
+    }
+    .sp-note b { color: #ddd; }
+    .sp-linkbtn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: #eee;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .sp-linkbtn:active { background: #ff2d55; color: #000; }
+
+    /* Yatay kaydırma önizlemesi */
+    .swipe-preview {
+      display: none;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 25;
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.78);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .swipe-preview.show { display: block; }
+    .swipe-preview.left  { left: 16px; }
+    .swipe-preview.right { right: 16px; text-align: right; }
+
+    /* Tanıtım (tips) ekranı */
+    #tipsModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: rgba(0,0,0,0.88);
+      padding: 24px 18px;
+      align-items: center;
+      justify-content: center;
+    }
+    #tipsModal.show { display: flex; }
+    .tips-card {
+      width: 100%;
+      max-width: 380px;
+      background: #151517;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 26px 22px 18px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .tips-icon { font-size: 46px; line-height: 1; margin-bottom: 14px; }
+    .tips-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+    .tips-text { font-size: 13px; line-height: 1.6; color: #bbb; margin-bottom: 18px; }
+    .tips-text b { color: #ff2d55; }
+    .tips-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 18px; }
+    .tips-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+    }
+    .tips-dot.on { background: #ff2d55; width: 18px; border-radius: 4px; }
+    .tips-actions { display: flex; gap: 10px; }
+    .tips-actions button {
+      flex: 1;
+      padding: 12px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: #ddd;
+    }
+    .tips-actions button.primary { background: #ff2d55; border-color: #ff2d55; color: #000; }
+    .tips-actions button.skip { flex: 0 0 92px; }
 
     .player-area {
       flex: 1;
@@ -1101,6 +1195,20 @@
     </div>
   </div>
 
+  <!-- Tanıtım (ilk açılışta bir kez) -->
+  <div id="tipsModal" role="dialog" aria-modal="true" aria-label="Nasıl kullanılır">
+    <div class="tips-card">
+      <div class="tips-icon" id="tipsIcon">👋</div>
+      <div class="tips-title" id="tipsTitle">Hoş geldin</div>
+      <div class="tips-text" id="tipsText"></div>
+      <div class="tips-dots" id="tipsDots"></div>
+      <div class="tips-actions">
+        <button type="button" class="skip" id="tipsSkip">Geç</button>
+        <button type="button" class="primary" id="tipsNext">İleri</button>
+      </div>
+    </div>
+  </div>
+
   <div id="playerView">
     <!-- Sesli komut görsel katmanı -->
     <div class="voice-overlay" id="voiceOverlay" aria-hidden="true">
@@ -1151,6 +1259,12 @@
       <div class="bright-panel-idx" id="brightPanelIdx">
         <div class="sp-title">Ayarlar</div>
 
+        <div class="sp-note">
+          <b>Kalite:</b> Çözünürlüğü videonun kendi <b>⚙ dişlisinden</b> seçin
+          (Otomatik / 1080p / 480p…). Bu uygulama kaliteyi karıştırmaz,
+          YouTube kendi kararını verir.
+        </div>
+
         <div class="sp-section">
           <div class="sp-row">
             <div>
@@ -1172,18 +1286,54 @@
         </div>
 
         <div class="sp-section">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Otomatik geçiş</div>
+              <div class="sp-row-sub">Şarkı bitince sıradaki kendiliğinden çalsın</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="autoNextToggle" checked />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">SponsorBlock</div>
+              <div class="sp-row-sub">Sponsor / intro / outro bölümlerini atla</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="sponsorToggle" checked />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Kaydırma ile şarkı</div>
+              <div class="sp-row-sub">Sağa sürükle → önceki, sola sürükle → sonraki</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="swipeToggle" checked />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="sp-section">
           <label class="sp-field-label" for="brightRangeIdx">
             Gece parlaklığı
             <span class="sp-dim-val" id="brightValLabel">0%</span>
           </label>
           <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
         </div>
+
+        <button type="button" class="sp-linkbtn" id="showTipsBtn">Tanıtımı tekrar göster</button>
       </div>
     </div>
 
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
+      <div class="swipe-preview" id="swipePreview" aria-hidden="true"></div>
       <div class="player-loading" id="playerLoading">
         Sonraki şarkı yükleniyor...
       </div>
@@ -2834,6 +2984,17 @@
 
     // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
     var sponsorSkipEnabled = localStorage.getItem("mm_sponsorSkip") !== "false";
+
+    // —— Otomatik geçiş (şarkı bitince sıradaki) ——
+    // Anahtar: minimal_muzik_auto_next ("0" = kapalı)
+    var autoNextOn = localStorage.getItem("minimal_muzik_auto_next") !== "0";
+    // Yalnızca "kendiliğinden" olan geçişler bu fonksiyondan geçer;
+    // manuel buton / uzaktan kumanda doğrudan playNext() çağırır.
+    function autoNext() {
+      if (!autoNextOn) return;
+      playNext();
+    }
+
     var sponsorSegments = [];
     var sponsorCheckInterval = null;
     var lastSkippedSegment = null;
@@ -3006,7 +3167,7 @@
       try {
         if (typeof YT !== "undefined") {
           if (event.data === YT.PlayerState.ENDED) {
-            playNext();
+            autoNext();
             return;
           }
           if (event.data === YT.PlayerState.PLAYING) {
@@ -3014,7 +3175,7 @@
         }
       } catch (e) {}
       if (event && event.data === 0) {
-        playNext();
+        autoNext();
       }
       if (event && event.data === 1) {
       }
@@ -3306,7 +3467,7 @@
                 if (Date.now() < ignoreUntil) return;
                 if (_earlySkipDoneFor === currentPlayingId) return;
                 _earlySkipDoneFor = currentPlayingId || "";
-                playNext();
+                autoNext();
                 return;
               }
               if (event.data === YT.PlayerState.BUFFERING) {
@@ -3437,7 +3598,7 @@
         _earlySkipDoneFor = currentPlayingId || "";
         console.log("[MM] erken geçiş → sıradaki", "dur=", durationSec, "reason=", reason);
         _armedForId = "";
-        playNext();
+        autoNext();
       }, durMs);
       _armedForId = currentPlayingId || "";
 
@@ -3468,7 +3629,7 @@
             _earlySkipDoneFor = currentPlayingId || "";
             clearTrackTimers();
             console.log("[MM] poll erken geçiş", t.toFixed(1), "/", d.toFixed(1));
-            playNext();
+            autoNext();
           }
         } catch (e2) {}
       }, 500);
@@ -3495,7 +3656,7 @@
       // Loop: büyük zamandan başa sıçrama
       if (_lastKnownPos > 15 && positionSec < 3) {
         console.log("[MM] loop/seek-to-start tespit → playNext");
-        playNext();
+        autoNext();
         return;
       }
 
@@ -3999,22 +4160,118 @@
         }, hideSec * 1000);
       }
 
-      function onInteract() {
+      function onInteract(e) {
         if (!view || !view.classList.contains("active")) return;
+        // Kaydırma etkinken dokunma katmanı üzerinden gelen olayları burada
+        // chrome göstererek bozma; o katmanın kendi yöneticisi halleder.
+        if (swipeOn && tapLayer && e && e.target === tapLayer) return;
         showChrome();
+      }
+
+      // —— Yatay kaydırma: sağa sürükle → önceki, sola sürükle → sonraki ——
+      // Kısıt: YouTube iframe'i cross-origin; içinde başlayan dokunma parent'a
+      // hiç ulaşmaz. Bu yüzden kaydırma yalnızca chrome gizliyken aktif olan
+      // .player-chrome-tap katmanında çalışır.
+      var KEY_SWIPE = "minimal_muzik_swipe";
+      var swipeOn = true;
+      try { swipeOn = localStorage.getItem(KEY_SWIPE) !== "0"; } catch (e) {}
+      var swipeEl = document.getElementById("swipePreview");
+      var swipeToggle = document.getElementById("swipeToggle");
+      var SWIPE_THRESHOLD = 40; // px — altındaki hareket "dokunma" sayılır
+      var sx = 0, sy = 0, sTracking = false, sDecided = false, sHorizontal = false;
+      var _lastSwipeAt = 0;
+
+      function playerToast(msg) {
+        var t = document.getElementById("roomToast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(function() { t.classList.remove("show"); }, 1600);
+      }
+
+      function swipeHint(dir, progress) {
+        if (!swipeEl) return;
+        swipeEl.classList.remove("left", "right");
+        if (dir < 0) {
+          swipeEl.classList.add("left");
+          swipeEl.textContent = "◀ Önceki";
+        } else {
+          swipeEl.classList.add("right");
+          swipeEl.textContent = "Sonraki ▶";
+        }
+        swipeEl.style.opacity = String(Math.min(1, 0.35 + progress * 0.65));
+        swipeEl.classList.add("show");
+      }
+      function hideSwipeHint() {
+        if (!swipeEl) return;
+        swipeEl.classList.remove("show");
+        swipeEl.style.opacity = "1";
+      }
+      function cancelSwipe() {
+        sTracking = false;
+        sDecided = false;
+        sHorizontal = false;
+        hideSwipeHint();
       }
 
       if (tapLayer) {
         tapLayer.addEventListener("click", function(e) {
           e.preventDefault();
           e.stopPropagation();
+          if (Date.now() - _lastSwipeAt < 600) return; // kaydırmadan sonra gelen sahte click
           showChrome();
         });
+
+        tapLayer.addEventListener("touchstart", function(e) {
+          if (!swipeOn || !e.touches || e.touches.length !== 1) { sTracking = false; return; }
+          var t = e.touches[0];
+          sx = t.clientX;
+          sy = t.clientY;
+          sTracking = true;
+          sDecided = false;
+          sHorizontal = false;
+          hideSwipeHint();
+        }, { passive: true });
+
+        tapLayer.addEventListener("touchmove", function(e) {
+          if (!swipeOn || !sTracking || !e.touches || e.touches.length !== 1) return;
+          var t = e.touches[0];
+          var dx = t.clientX - sx;
+          var dy = t.clientY - sy;
+          if (!sDecided) {
+            if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+            sDecided = true;
+            // yatay baskın değilse bu bir kaydırma değildir (dikey scroll vb.)
+            sHorizontal = Math.abs(dx) > Math.abs(dy);
+            if (!sHorizontal) { sTracking = false; return; }
+          }
+          if (!sHorizontal) return;
+          if (e.cancelable) e.preventDefault(); // tarayıcının kendi yatay kaydırmasını engelle
+          swipeHint(dx < 0 ? 1 : -1, Math.min(1, Math.abs(dx) / (SWIPE_THRESHOLD * 3)));
+        }, { passive: false });
+
         tapLayer.addEventListener("touchend", function(e) {
           e.preventDefault();
           e.stopPropagation();
+          if (swipeOn && sTracking && sDecided && sHorizontal && e.changedTouches && e.changedTouches.length) {
+            var dx = e.changedTouches[0].clientX - sx;
+            var dy = e.changedTouches[0].clientY - sy;
+            cancelSwipe();
+            if (Math.abs(dx) >= SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+              _lastSwipeAt = Date.now();
+              if (dx < 0) { playNext({ force: true }); playerToast("Sonraki ▶"); }
+              else { playPrev(); playerToast("◀ Önceki"); }
+              return;
+            }
+          }
+          cancelSwipe();
           showChrome();
         }, { passive: false });
+
+        tapLayer.addEventListener("touchcancel", function() {
+          cancelSwipe();
+          showChrome();
+        }, { passive: true });
       }
 
       if (view) {
@@ -4085,6 +4342,144 @@
         panel.classList.remove("show");
         showChrome();
       });
+
+      // SponsorBlock aç/kapa
+      var sponsorToggle = document.getElementById("sponsorToggle");
+      if (sponsorToggle) {
+        sponsorToggle.checked = sponsorSkipEnabled;
+        sponsorToggle.addEventListener("change", function() {
+          sponsorSkipEnabled = !!sponsorToggle.checked;
+          try { localStorage.setItem("mm_sponsorSkip", sponsorSkipEnabled ? "true" : "false"); } catch (e) {}
+          if (sponsorSkipEnabled) {
+            if (currentPlayingId) fetchSponsorSegments(currentPlayingId);
+          } else {
+            sponsorSegments = [];
+            stopSponsorCheck();
+          }
+        });
+      }
+
+      // Otomatik geçiş aç/kapa
+      var autoNextToggle = document.getElementById("autoNextToggle");
+      if (autoNextToggle) {
+        autoNextToggle.checked = autoNextOn;
+        autoNextToggle.addEventListener("change", function() {
+          autoNextOn = !!autoNextToggle.checked;
+          try { localStorage.setItem("minimal_muzik_auto_next", autoNextOn ? "1" : "0"); } catch (e) {}
+        });
+      }
+
+      // Kaydırma ile şarkı değiştirme aç/kapa
+      if (swipeToggle) {
+        swipeToggle.checked = swipeOn;
+        swipeToggle.addEventListener("change", function() {
+          swipeOn = !!swipeToggle.checked;
+          try { localStorage.setItem(KEY_SWIPE, swipeOn ? "1" : "0"); } catch (e) {}
+          if (!swipeOn) cancelSwipe();
+        });
+      }
+    })();
+
+    // —— Tanıtım ekranı (ilk açılışta bir kez; Ayarlar → "Tanıtımı tekrar göster") ——
+    (function initTips() {
+      var KEY_ONBOARD = "minimal_muzik_onboarded";
+      var modal = document.getElementById("tipsModal");
+      if (!modal) return;
+
+      var iconEl = document.getElementById("tipsIcon");
+      var titleEl = document.getElementById("tipsTitle");
+      var textEl = document.getElementById("tipsText");
+      var dotsEl = document.getElementById("tipsDots");
+      var nextBtn = document.getElementById("tipsNext");
+      var skipBtn = document.getElementById("tipsSkip");
+
+      var TIPS = [
+        {
+          icon: "⚙",
+          title: "Kalite ayarı",
+          text: "Çözünürlüğü videonun kendi <b>⚙ dişlisinden</b> seçin. Önce ekrana dokunup kontrolleri gösterin, sonra sağ alttaki dişli → <b>Kalite</b>."
+        },
+        {
+          icon: "👉",
+          title: "Kaydırarak şarkı değiştir",
+          text: "Kontroller gizliyken ekrana basılı tutup <b>sağa</b> sürükleyin → önceki şarkı, <b>sola</b> sürükleyin → sonraki şarkı."
+        },
+        {
+          icon: "📡",
+          title: "Uzaktan kumanda",
+          text: "Aynı ağdaki telefondan kumanda: <b>Oda</b> düğmesine dokunup QR kodu okutun. Oynat, sıralama ve kuyruk telefondan yönetilir."
+        },
+        {
+          icon: "💡",
+          title: "Gece için parlaklık",
+          text: "<b>Ayarlar → Gece parlaklığı</b> ekranı karartır, ses etkilenmez. Üst bar hareketsizken kendiliğinden gizlenir."
+        },
+        {
+          icon: "🎤",
+          title: "Sesli komut",
+          text: "Mikrofon düğmesine dokunup <b>«sonraki»</b>, <b>«önceki»</b>, <b>«duraklat»</b> diyebilirsiniz (Türkçe konuşma tanıma)."
+        }
+      ];
+      var idx = 0;
+
+      function renderDots() {
+        if (!dotsEl) return;
+        dotsEl.innerHTML = "";
+        for (var i = 0; i < TIPS.length; i++) {
+          var d = document.createElement("span");
+          d.className = "tips-dot" + (i === idx ? " on" : "");
+          dotsEl.appendChild(d);
+        }
+      }
+
+      function render() {
+        var t = TIPS[idx] || TIPS[0];
+        if (iconEl) iconEl.textContent = t.icon;
+        if (titleEl) titleEl.textContent = t.title;
+        if (textEl) textEl.innerHTML = t.text;
+        if (nextBtn) nextBtn.textContent = idx === TIPS.length - 1 ? "Başla" : "İleri";
+        renderDots();
+      }
+
+      function closeTips(markSeen) {
+        modal.classList.remove("show");
+        if (markSeen) {
+          try { localStorage.setItem(KEY_ONBOARD, "1"); } catch (e) {}
+        }
+      }
+
+      window.showTips = function() {
+        idx = 0;
+        render();
+        modal.classList.add("show");
+      };
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", function() {
+          if (idx >= TIPS.length - 1) { closeTips(true); return; }
+          idx++;
+          render();
+        });
+      }
+      if (skipBtn) {
+        skipBtn.addEventListener("click", function() { closeTips(true); });
+      }
+
+      var seen = false;
+      try { seen = localStorage.getItem(KEY_ONBOARD) === "1"; } catch (e) {}
+      if (!seen) {
+        setTimeout(function() { if (window.showTips) window.showTips(); }, 900);
+      }
+
+      var tipsBtn = document.getElementById("showTipsBtn");
+      if (tipsBtn) {
+        tipsBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var p = document.getElementById("brightPanelIdx");
+          if (p) p.classList.remove("show");
+          if (window.showTips) window.showTips();
+        });
+      }
     })();
 
     prevBtn.addEventListener("click", function() {
