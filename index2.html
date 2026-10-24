@@ -347,6 +347,15 @@
       top: 0; left: 0; right: 0;
       z-index: 25;
       transition: opacity .35s ease, transform .35s ease, visibility .35s;
+      /* Boş alan tıklamaları iframe'e (YT çarkı) geçsin */
+      pointer-events: none;
+    }
+    .player-top .back-btn,
+    .player-top .player-title,
+    .player-top .player-nav,
+    .player-top .player-nav button,
+    .player-top .bright-panel-idx {
+      pointer-events: auto;
     }
     .player-top.chrome-hidden {
       opacity: 0;
@@ -354,17 +363,27 @@
       pointer-events: none;
       transform: translateY(-8px);
     }
-    /* iframe tıklamayı yutar — gizliyken tam ekran yakalayıcı */
+    /* Üst bar gizliyken: ortayı yakala, ÜST ve ALT şeridi boş bırak
+       (YT kalite çarkı üstte veya altta olabilir) */
     .player-chrome-tap {
       display: none;
       position: absolute;
-      inset: 0;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 72px;
       z-index: 24;
       background: transparent;
       cursor: pointer;
     }
     .player-chrome-tap.active {
       display: block;
+    }
+    @media (orientation: landscape) and (max-height: 480px) {
+      .player-chrome-tap {
+        top: 44px;
+        bottom: 48px;
+      }
     }
     #playerView {
       /* player-area tam ekran kullanabilsin */
@@ -804,114 +823,17 @@
       font-weight: 800;
       color: #ff2d55;
     }
-    /* Ayarlar paneli: bilgi notu */
-    .sp-note {
-      font-size: 11px;
-      line-height: 1.5;
-      color: #999;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-left: 2px solid #ff2d55;
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin: 0 0 12px;
-    }
-    .sp-note b { color: #ddd; }
-    .sp-linkbtn {
-      width: 100%;
-      margin-top: 12px;
-      padding: 10px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 8px;
-      color: #eee;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .sp-linkbtn:active { background: #ff2d55; color: #000; }
-
-    /* Yatay kaydırma önizlemesi */
-    .swipe-preview {
-      display: none;
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 25;
-      padding: 14px 18px;
-      border-radius: 12px;
-      background: rgba(0,0,0,0.78);
-      border: 1px solid rgba(255,255,255,0.16);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-    .swipe-preview.show { display: block; }
-    .swipe-preview.left  { left: 16px; }
-    .swipe-preview.right { right: 16px; text-align: right; }
-
-    /* Tanıtım (tips) ekranı */
-    #tipsModal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 400;
-      background: rgba(0,0,0,0.88);
-      padding: 24px 18px;
-      align-items: center;
-      justify-content: center;
-    }
-    #tipsModal.show { display: flex; }
-    .tips-card {
-      width: 100%;
-      max-width: 380px;
-      background: #151517;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 26px 22px 18px;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-    }
-    .tips-icon { font-size: 46px; line-height: 1; margin-bottom: 14px; }
-    .tips-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 10px; }
-    .tips-text { font-size: 13px; line-height: 1.6; color: #bbb; margin-bottom: 18px; }
-    .tips-text b { color: #ff2d55; }
-    .tips-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 18px; }
-    .tips-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: rgba(255,255,255,0.22);
-    }
-    .tips-dot.on { background: #ff2d55; width: 18px; border-radius: 4px; }
-    .tips-actions { display: flex; gap: 10px; }
-    .tips-actions button {
-      flex: 1;
-      padding: 12px 10px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.06);
-      color: #ddd;
-    }
-    .tips-actions button.primary { background: #ff2d55; border-color: #ff2d55; color: #000; }
-    .tips-actions button.skip { flex: 0 0 92px; }
 
     .player-area {
       flex: 1;
       position: relative;
       background: #000;
       min-height: 0;
-      overflow: hidden; /* cover için kenarları kes */
+      overflow: hidden;
     }
 
-    /* Player, alanın içine SIĞAR (contain) — cover'da kenarlar kırpıldığı için
-       YouTube'un kendi kontrolleri, özellikle sağ alttaki kalite dişlisi (⚙),
-       görünmeyen bölgeye düşüyordu ve basılamıyordu. Contain'de YouTube embed
-       videoyu oranını koruyarak ortalar (siyah bant) ve tüm kontroller — kalite
-       dahil — erişilebilir kalır. */
+    /* Normal mod: video 16:9 formunu korusun. Böylece YouTube'un kendi
+       kontrol çubuğu ve kalite (çark) menüsü kırpılmadan görünür. */
     #ytplayer,
     #ytplayer-host,
     .player-area iframe {
@@ -921,6 +843,34 @@
       height: 100%;
       border: none;
       background: #000;
+    }
+
+    /* Tam ekran modu: video ekranı doldursun (gerekirse kenarlardan kırpılır). */
+    #playerView.video-fs #ytplayer,
+    #playerView.video-fs #ytplayer-host,
+    #playerView.video-fs .player-area iframe {
+      inset: auto !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: max(100%, 177.78vh) !important;
+      height: max(100%, 56.25vw) !important;
+      min-width: 100%;
+      min-height: 100%;
+      transform: translate(-50%, -50%) !important;
+    }
+
+    /* YouTube'un kendi fullscreen düğmesi kullanılırsa da video ekranı kaplasın. */
+    #ytplayer:fullscreen,
+    #ytplayer-host:fullscreen,
+    .player-area iframe:fullscreen {
+      inset: auto !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: max(100vw, 177.78vh) !important;
+      height: max(100vh, 56.25vw) !important;
+      min-width: 100vw;
+      min-height: 100vh;
+      transform: translate(-50%, -50%) !important;
     }
 
     .player-loading {
@@ -1129,6 +1079,211 @@
       width: 100%;
       box-sizing: border-box;
     }
+
+    /* —— YT bottom sheet (sürekli görünür, swipe yok) —— */
+    #bottom-sheet-wrapper {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 70;
+      pointer-events: none;
+    }
+    #playerView.active #bottom-sheet-wrapper {
+      display: block;
+    }
+    #bottom-sheet-wrapper bottom-sheet-container[hidden],
+    #bottom-sheet-wrapper bottom-sheet-container[aria-hidden="true"][inert] {
+      display: none !important;
+    }
+    #bottom-sheet-wrapper bottom-sheet-container:not([hidden]) {
+      display: block;
+      position: relative;
+      pointer-events: auto;
+    }
+    #bottom-sheet-wrapper .ytWebScrimHost {
+      display: none; /* scrim yok — sürekli panel, overlay değil */
+    }
+    #bottom-sheet-wrapper .close-button {
+      display: none;
+    }
+    #bottom-sheet-wrapper .ytSpecBottomSheetLayoutHost {
+      background: #212121;
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.45);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #bottom-sheet-wrapper .ytSpecBottomSheetLayoutDragLine {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.28);
+      margin: 10px auto 6px;
+    }
+    #bottom-sheet-wrapper .ytSpecBottomSheetLayoutContentWrapper {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #bottom-sheet-wrapper yt-list-item-view-model.ytListItemViewModelHost {
+      display: block;
+      width: 100%;
+      color: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelMainContainer {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    #bottom-sheet-wrapper yt-list-item-view-model.ytListItemViewModelHost:active .ytListItemViewModelMainContainer {
+      background: rgba(255,255,255,0.08);
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelImageContainer {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.9);
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelImageContainer svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelTextWrapper {
+      flex: 1;
+      min-width: 0;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelTitle {
+      font-size: 15px;
+      font-weight: 500;
+      color: #fff;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelSelectionText,
+    #bottom-sheet-wrapper .ytListItemViewModelTrailingSelectionText {
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelChevronIcon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      color: rgba(255,255,255,0.45);
+      display: flex;
+      align-items: center;
+    }
+    #bottom-sheet-wrapper .ytListItemViewModelChevronIcon svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    #bottom-sheet-wrapper .ytButtonOrAnchorHost {
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      padding: 0;
+      cursor: pointer;
+      flex: 1;
+      min-width: 0;
+    }
+    /* Alt seçim listeleri */
+    .yt-sheet-sub {
+      display: none;
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 75;
+      background: #212121;
+      border-radius: 12px 12px 0 0;
+      max-height: min(62vh, 420px);
+      overflow-y: auto;
+      padding-bottom: 12px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.45);
+    }
+    .yt-sheet-sub.show { display: block; }
+    .yt-sheet-back {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .yt-sheet-back:active { background: rgba(255,255,255,0.06); }
+    .yt-sheet-back svg { width: 22px; height: 22px; fill: currentColor; }
+    .yt-sheet-sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px 12px 56px;
+      font-size: 14px;
+      color: #ddd;
+      cursor: pointer;
+    }
+    .yt-sheet-sub-item:active { background: rgba(255,255,255,0.06); }
+    .yt-sheet-sub-item.active { color: #ff2d55; font-weight: 600; }
+    #ytSheetQualityList yt-list-item-view-model.ytListItemViewModelHost,
+    #ytSheetQualityList .ytListItemViewModelHost {
+      display: block;
+      width: 100%;
+      color: #ddd;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #ytSheetQualityList .ytListItemViewModelMainContainer {
+      display: flex;
+      align-items: center;
+      padding: 12px 18px 12px 56px;
+    }
+    #ytSheetQualityList yt-list-item-view-model.active,
+    #ytSheetQualityList .ytListItemViewModelHost.active {
+      color: #ff2d55;
+      font-weight: 600;
+    }
+    #ytSheetQualityList .ytListItemViewModelImageContainer { display: none; }
+    #ytSheetQualityList .ytButtonOrAnchorHost {
+      background: transparent; border: none; color: inherit; font: inherit;
+      text-align: left; padding: 0; cursor: pointer; width: 100%;
+    }
+
+    /* Alt kenar kaydırma ipucu çizgisi — chrome ile birlikte görünür/kaybolur */
+    .player-swipe-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.42);
+      z-index: 26;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity .35s ease, transform .35s ease, visibility .35s;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+    }
+    .player-swipe-hint.chrome-hidden {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-50%) translateY(8px);
+    }
+    @media (orientation: landscape) and (max-height: 480px) {
+      .player-swipe-hint { bottom: 8px; width: 36px; height: 3px; }
+    }
   </style>
 </head>
 
@@ -1195,20 +1350,6 @@
     </div>
   </div>
 
-  <!-- Tanıtım (ilk açılışta bir kez) -->
-  <div id="tipsModal" role="dialog" aria-modal="true" aria-label="Nasıl kullanılır">
-    <div class="tips-card">
-      <div class="tips-icon" id="tipsIcon">👋</div>
-      <div class="tips-title" id="tipsTitle">Hoş geldin</div>
-      <div class="tips-text" id="tipsText"></div>
-      <div class="tips-dots" id="tipsDots"></div>
-      <div class="tips-actions">
-        <button type="button" class="skip" id="tipsSkip">Geç</button>
-        <button type="button" class="primary" id="tipsNext">İleri</button>
-      </div>
-    </div>
-  </div>
-
   <div id="playerView">
     <!-- Sesli komut görsel katmanı -->
     <div class="voice-overlay" id="voiceOverlay" aria-hidden="true">
@@ -1255,15 +1396,12 @@
           <span class="nav-text">Sonraki</span>
           <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
         </button>
+        <button type="button" id="fullscreenBtn" class="nav-settings" title="Tam ekran" aria-label="Tam ekran">
+          <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
       </div>
       <div class="bright-panel-idx" id="brightPanelIdx">
         <div class="sp-title">Ayarlar</div>
-
-        <div class="sp-note">
-          <b>Kalite:</b> Çözünürlüğü videonun kendi <b>⚙ dişlisinden</b> seçin
-          (Otomatik / 1080p / 480p…). Bu uygulama kaliteyi karıştırmaz,
-          YouTube kendi kararını verir.
-        </div>
 
         <div class="sp-section">
           <div class="sp-row">
@@ -1286,39 +1424,6 @@
         </div>
 
         <div class="sp-section">
-          <div class="sp-row">
-            <div>
-              <div class="sp-row-label">Otomatik geçiş</div>
-              <div class="sp-row-sub">Şarkı bitince sıradaki kendiliğinden çalsın</div>
-            </div>
-            <label class="sp-toggle">
-              <input type="checkbox" id="autoNextToggle" checked />
-              <span class="sp-toggle-track"></span>
-            </label>
-          </div>
-          <div class="sp-row">
-            <div>
-              <div class="sp-row-label">SponsorBlock</div>
-              <div class="sp-row-sub">Sponsor / intro / outro bölümlerini atla</div>
-            </div>
-            <label class="sp-toggle">
-              <input type="checkbox" id="sponsorToggle" checked />
-              <span class="sp-toggle-track"></span>
-            </label>
-          </div>
-          <div class="sp-row">
-            <div>
-              <div class="sp-row-label">Kaydırma ile şarkı</div>
-              <div class="sp-row-sub">Sağa sürükle → önceki, sola sürükle → sonraki</div>
-            </div>
-            <label class="sp-toggle">
-              <input type="checkbox" id="swipeToggle" checked />
-              <span class="sp-toggle-track"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="sp-section">
           <label class="sp-field-label" for="brightRangeIdx">
             Gece parlaklığı
             <span class="sp-dim-val" id="brightValLabel">0%</span>
@@ -1326,14 +1431,23 @@
           <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
         </div>
 
-        <button type="button" class="sp-linkbtn" id="showTipsBtn">Tanıtımı tekrar göster</button>
+        <div class="sp-section">
+          <div class="sp-row-label">Video kalitesi</div>
+          <div class="sp-row-sub" style="margin-top:6px;line-height:1.45;">
+            Kalite, video üzerindeki YouTube
+            <strong style="color:#ddd;">çark (Ayarlar)</strong> ikonundan seçilir
+            (genelde kontrol çubuğunda; bazen üstte).
+            Videoya dokun → çark görünsün → Kalite.
+            Üst bar boş alanları artık tıklamayı engellemez.
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
-      <div class="swipe-preview" id="swipePreview" aria-hidden="true"></div>
+      <div class="player-swipe-hint" id="playerSwipeHint" aria-hidden="true"></div>
       <div class="player-loading" id="playerLoading">
         Sonraki şarkı yükleniyor...
       </div>
@@ -1356,7 +1470,33 @@
 
 
     </div>
+
+    <!-- YT bottom sheet — birebir yapı, player açıkken sürekli görünür -->
+    <div id="bottom-sheet-wrapper"><bottom-sheet-container role="dialog" aria-modal="true" hidden="true" aria-label="İletişim kutusu" inert="true" aria-hidden="true"></bottom-sheet-container><bottom-sheet-container role="dialog" aria-modal="true" aria-label="İletişim kutusu"><ytw-scrim class="ytWebScrimHost ytWebScrimHostModernOverlay ytWebScrimHostBottomSheet"><button class="ytWebScrimHiddenButton" aria-label="Kapat"></button></ytw-scrim><bottom-sheet-layout><div class="ytSpecBottomSheetLayoutHost ytSpecBottomSheetLayoutContainer ytSpecBottomSheetLayoutModern" style=""><div><div class="ytSpecBottomSheetLayoutHeaderWrapper" id="bottom-sheet-header"><div class="ytSpecBottomSheetLayoutDragLine"></div><div class="ytSpecBottomSheetLayoutHeader"><div class="ytSpecBottomSheetLayoutTitleWrapper"></div></div></div></div><div class="ytSpecBottomSheetLayoutContentWrapper" id="content-wrapper" style="max-height: 192px;"><div class="ytSpecBottomSheetLayoutBottomSheetContent"><div><div role="menu"><yt-list-item-view-model class="ytListItemViewModelHost" role="menuitem" tabindex="0"><div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable"><div class="ytListItemViewModelMainContainer"><div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading"><c3-icon class="ytListItemViewModelAccessory ytListItemViewModelImage" role="img" fill-icon="false" aria-hidden="true" aria-label=""><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M9 3a4 4 0 00-3.874 3H3a1 1 0 000 2h2.126a4.002 4.002 0 007.748 0H21a1 1 0 100-2h-8.126A4 4 0 009 3Zm0 2a2 2 0 110 4 2 2 0 010-4Zm6 8a4 4 0 00-3.874 3H3a1 1 0 000 2h8.126a4.002 4.002 0 007.748 0H21a1 1 0 000-2h-2.126A4 4 0 0015 13Zm0 2a2 2 0 110 4 2 2 0 010-4Z"></path></svg></div></span></c3-icon></div><div class="ytListItemViewModelTextWrapper"><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Kalite</span></div></div><span class="ytAttributedStringHost ytListItemViewModelSelectionText ytListItemViewModelTrailingSelectionText ytAttributedStringWhiteSpacePreWrap" role="text" style="">2160p</span><c3-icon class="ytListItemViewModelChevronIcon" fill-icon="false" aria-hidden="true"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M8.793 5.293a1 1 0 000 1.414L14.086 12l-5.293 5.293a1 1 0 101.414 1.414L16.914 12l-6.707-6.707a1 1 0 00-1.414 0Z"></path></svg></div></span></c3-icon></div></div></yt-list-item-view-model><yt-list-item-view-model class="ytListItemViewModelHost" role="menuitem" tabindex="0"><div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable"><div class="ytListItemViewModelMainContainer"><div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading"><c3-icon class="ytListItemViewModelAccessory ytListItemViewModelImage" role="img" fill-icon="false" aria-hidden="true" aria-label=""><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M13.02 2.002v.002a1 1 0 00.78 1.179 9 9 0 017.068 7.288 9.003 9.003 0 01-7.075 10.349 1 1 0 00.4 1.96A11 11 0 0014.2 1.224a1 1 0 00-1.18.778Zm-3.214-.777a11 11 0 00-3.872 1.6 1 1 0 101.102 1.67 9 9 0 013.168-1.31 1 1 0 00-.398-1.96ZM2.822 5.937a11 11 0 00-1.602 3.87 1 1 0 001.96.4A9 9 0 014.49 7.04a1 1 0 00-1.668-1.103ZM17 12.003l-8-4.8v9.6l8-4.8ZM2 13.017a1 1 0 00-.78 1.18 11 11 0 001.602 3.872 1 1 0 001.668-1.102 9 9 0 01-1.31-3.17 1 1 0 00-1.18-.78Zm3.653 6.775a1 1 0 00.282 1.386 11 11 0 003.872 1.602.999.999 0 10.398-1.96 9.001 9.001 0 01-3.168-1.31 1 1 0 00-1.384.282Z"></path></svg></div></span></c3-icon></div><div class="ytListItemViewModelTextWrapper"><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Hız</span></div></div><span class="ytAttributedStringHost ytListItemViewModelSelectionText ytListItemViewModelTrailingSelectionText ytAttributedStringWhiteSpacePreWrap" role="text" style="">Normal</span><c3-icon class="ytListItemViewModelChevronIcon" fill-icon="false" aria-hidden="true"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M8.793 5.293a1 1 0 000 1.414L14.086 12l-5.293 5.293a1 1 0 101.414 1.414L16.914 12l-6.707-6.707a1 1 0 00-1.414 0Z"></path></svg></div></span></c3-icon></div></div></yt-list-item-view-model><yt-list-item-view-model class="ytListItemViewModelHost" role="menuitem" tabindex="0"><div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable"><div class="ytListItemViewModelMainContainer"><div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading"><c3-icon class="ytListItemViewModelAccessory ytListItemViewModelImage" role="img" fill-icon="false" aria-hidden="true" aria-label=""><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2ZM3 19V5h18v14H3ZM6.972 8.346c-.631.336-1.131.881-1.466 1.526A4.6 4.6 0 005 12c-.004.74.17 1.47.506 2.128.336.645.835 1.191 1.466 1.526a2.86 2.86 0 002.066.257c.697-.178 1.294-.606 1.737-1.176a1 1 0 00-1.578-1.228c-.21.27-.444.413-.654.467a.86.86 0 01-.632-.085c-.222-.119-.453-.342-.631-.684A2.64 2.64 0 017 12a2.6 2.6 0 01.281-1.205c.177-.342.408-.565.63-.684a.86.86 0 01.632-.085c.209.054.444.197.654.467a1 1 0 001.578-1.228c-.443-.57-1.04-.998-1.737-1.176a2.86 2.86 0 00-2.066.257Zm8 0c-.631.336-1.131.881-1.466 1.526A4.6 4.6 0 0013 12c-.004.74.17 1.47.506 2.128.336.645.835 1.191 1.466 1.526a2.86 2.86 0 002.066.257c.697-.178 1.294-.606 1.737-1.176a1 1 0 00-1.578-1.228c-.21.27-.444.413-.654.467a.86.86 0 01-.632-.085c-.222-.119-.453-.342-.631-.684A2.64 2.64 0 0115 12a2.6 2.6 0 01.281-1.205c.177-.342.408-.565.63-.684a.86.86 0 01.632-.085c.209.054.444.197.654.467a1 1 0 001.578-1.228c-.443-.57-1.04-.998-1.737-1.176a2.86 2.86 0 00-2.066.257Z"></path></svg></div></span></c3-icon></div><div class="ytListItemViewModelTextWrapper"><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Altyazı</span></div></div><span class="ytAttributedStringHost ytListItemViewModelSelectionText ytListItemViewModelTrailingSelectionText ytAttributedStringWhiteSpacePreWrap" role="text" style="">Kapalı</span><c3-icon class="ytListItemViewModelChevronIcon" fill-icon="false" aria-hidden="true"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M8.793 5.293a1 1 0 000 1.414L14.086 12l-5.293 5.293a1 1 0 101.414 1.414L16.914 12l-6.707-6.707a1 1 0 00-1.414 0Z"></path></svg></div></span></c3-icon></div></div></yt-list-item-view-model><yt-list-item-view-model class="ytListItemViewModelHost" role="presentation"><div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable ytListItemViewModelNoTrailingText"><div class="ytListItemViewModelMainContainer"><div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading"><c3-icon class="ytListItemViewModelAccessory ytListItemViewModelImage" role="img" fill-icon="false" aria-hidden="true" aria-label=""><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;"><path d="M6 10a2 2 0 100 4 2 2 0 000-4Zm6 0a2 2 0 100 4 2 2 0 000-4Zm6 0a2 2 0 100 4 2 2 0 000-4Z"></path></svg></div></span></c3-icon></div><button class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor ytListItemViewModelTextWrapper" role="menuitem" style=""><div><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Diğer seçenekler</span></div></div></button></div></div></yt-list-item-view-model></div></div></div></div><div></div></div></bottom-sheet-layout><button class="close-button" aria-label="Kapat"></button></bottom-sheet-container></div>
+    <!-- Kalite / Hız / Altyazı alt listeleri (seçim paneli) -->
+    <div id="ytSheetQualitySub" class="yt-sheet-sub">
+      <div class="yt-sheet-back" data-sheet-back><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Kalite</div>
+      <div id="ytSheetQualityList"></div>
+    </div>
+    <div id="ytSheetSpeedSub" class="yt-sheet-sub">
+      <div class="yt-sheet-back" data-sheet-back><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Hız</div>
+      <div class="yt-sheet-sub-item" data-speed="0.25">0.25x</div>
+      <div class="yt-sheet-sub-item" data-speed="0.5">0.5x</div>
+      <div class="yt-sheet-sub-item" data-speed="0.75">0.75x</div>
+      <div class="yt-sheet-sub-item active" data-speed="1">Normal</div>
+      <div class="yt-sheet-sub-item" data-speed="1.25">1.25x</div>
+      <div class="yt-sheet-sub-item" data-speed="1.5">1.5x</div>
+      <div class="yt-sheet-sub-item" data-speed="1.75">1.75x</div>
+      <div class="yt-sheet-sub-item" data-speed="2">2x</div>
+    </div>
+    <div id="ytSheetCaptionSub" class="yt-sheet-sub">
+      <div class="yt-sheet-back" data-sheet-back><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Altyazı</div>
+      <div class="yt-sheet-sub-item active" data-caption="off">Kapalı</div>
+      <div class="yt-sheet-sub-item" data-caption="on">Açık</div>
+    </div>
+
   </div>
+
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
@@ -1364,7 +1504,9 @@
   <script>
     document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
 
-    const SEARCH_INSTANCES = ["https://invidious.f5.si", "https://yt.chocolatemoo53.com", "https://invidious.nerdvpn.de", "https://invidious.tiekoetter.com"];
+    // Yerel YouTube arama servisi (Invidious/üçüncü taraf sunucu kullanmaz).
+    // PHP destekli bir sunucuda çalıştırılmalıdır: api/youtube.php
+    const SEARCH_API = "api/youtube.php";
     const FAV_KEY = "minimal_yt_favorites";
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
@@ -2506,36 +2648,34 @@
     }
 
     async function fetchSearch(query, page, preferViews) {
-      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
-        var inst = SEARCH_INSTANCES[i];
-        try {
-          var url =
-            inst +
-            "/api/v1/search?q=" +
-            encodeURIComponent(query) +
-            "&type=video&page=" +
-            page +
-            "&region=TR";
+      try {
+        var url =
+          SEARCH_API +
+          "?action=search&q=" +
+          encodeURIComponent(query) +
+          "&type=video&page=" +
+          page +
+          "&region=TR";
 
-          // Popüler / çok dinlenen için views sıralama
-          if (preferViews) {
-            url += "&sort=views";
-          }
-
-          var res = await fetch(url, {
-            signal: AbortSignal.timeout(10000)
-          });
-          if (!res.ok) continue;
-          var data = await res.json();
-          if (!Array.isArray(data)) continue;
-          return data.filter(function(item) {
-            return item.type === "video" && item.videoId;
-          });
-        } catch (e) {
-          console.warn("Search failed:", inst, e);
+        // Popüler / çok dinlenen için views sıralama
+        if (preferViews) {
+          url += "&sort=views";
         }
+
+        var res = await fetch(url, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(30000)
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var data = await res.json();
+        if (!Array.isArray(data)) throw new Error("Geçersiz arama yanıtı");
+        return data.filter(function(item) {
+          return item.type === "video" && item.videoId;
+        });
+      } catch (e) {
+        console.warn("Search failed:", e);
+        return null;
       }
-      return null;
     }
 
     async function doSearch(query, reset, preferViews) {
@@ -2984,17 +3124,6 @@
 
     // —— SponsorBlock (reklam / sponsor / intro / outro atlama — Skipcut parametreleri) ——
     var sponsorSkipEnabled = localStorage.getItem("mm_sponsorSkip") !== "false";
-
-    // —— Otomatik geçiş (şarkı bitince sıradaki) ——
-    // Anahtar: minimal_muzik_auto_next ("0" = kapalı)
-    var autoNextOn = localStorage.getItem("minimal_muzik_auto_next") !== "0";
-    // Yalnızca "kendiliğinden" olan geçişler bu fonksiyondan geçer;
-    // manuel buton / uzaktan kumanda doğrudan playNext() çağırır.
-    function autoNext() {
-      if (!autoNextOn) return;
-      playNext();
-    }
-
     var sponsorSegments = [];
     var sponsorCheckInterval = null;
     var lastSkippedSegment = null;
@@ -3167,7 +3296,7 @@
       try {
         if (typeof YT !== "undefined") {
           if (event.data === YT.PlayerState.ENDED) {
-            autoNext();
+            playNext();
             return;
           }
           if (event.data === YT.PlayerState.PLAYING) {
@@ -3175,7 +3304,7 @@
         }
       } catch (e) {}
       if (event && event.data === 0) {
-        autoNext();
+        playNext();
       }
       if (event && event.data === 1) {
       }
@@ -3222,6 +3351,97 @@
       } catch (e) {}
       return false;
     }
+
+    // —— Oyuncu tam ekranı ——
+    // Normal modda video 16:9 formunda kalır; bu düğme ile ekranı kaplar.
+    function getFullscreenElement() {
+      return document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement || null;
+    }
+
+    function updateFullscreenButtonLabel() {
+      var view = document.getElementById("playerView");
+      var btn = document.getElementById("fullscreenBtn");
+      if (!view || !btn) return;
+      var on = view.classList.contains("video-fs");
+      btn.title = on ? "Tam ekrandan çık" : "Tam ekran";
+      btn.setAttribute("aria-label", btn.title);
+    }
+
+    function syncPlayerFullscreenClass() {
+      var view = document.getElementById("playerView");
+      if (!view) return;
+      var fsEl = getFullscreenElement();
+      view.classList.toggle("video-fs", !!fsEl && fsEl === view);
+      updateFullscreenButtonLabel();
+    }
+
+    function togglePlayerFullscreen() {
+      var view = document.getElementById("playerView");
+      if (!view) return;
+      var fsEl = getFullscreenElement();
+
+      if (fsEl) {
+        var exit =
+          document.exitFullscreen ||
+          document.webkitExitFullscreen ||
+          document.mozCancelFullScreen ||
+          document.msExitFullscreen;
+        if (exit) {
+          try {
+            var p = exit.call(document);
+            if (p && typeof p.catch === "function") p.catch(function() {});
+          } catch (e) {}
+        }
+        return;
+      }
+
+      // Tarayıcı tam ekranı desteklemiyorsa sınıf ile aynı büyütmeyi yap.
+      if (view.classList.contains("video-fs")) {
+        view.classList.remove("video-fs");
+        syncPlayerFullscreenClass();
+        return;
+      }
+
+      var req =
+        view.requestFullscreen ||
+        view.webkitRequestFullscreen ||
+        view.webkitRequestFullScreen ||
+        view.mozRequestFullScreen ||
+        view.msRequestFullscreen;
+      if (req) {
+        try {
+          var p2 = req.call(view);
+          if (p2 && typeof p2.catch === "function") {
+            p2.catch(function() {
+              // Tam ekran reddedilirse yine de videoyu büyüt.
+              view.classList.add("video-fs");
+              updateFullscreenButtonLabel();
+            });
+          }
+          // Tarayıcı tam ekranı sessizce reddederse sınıf ile devam et.
+          setTimeout(function() {
+            if (!getFullscreenElement()) {
+              view.classList.add("video-fs");
+              updateFullscreenButtonLabel();
+            }
+          }, 350);
+        } catch (e2) {
+          view.classList.add("video-fs");
+          updateFullscreenButtonLabel();
+        }
+      } else {
+        view.classList.add("video-fs");
+        updateFullscreenButtonLabel();
+      }
+    }
+
+    document.addEventListener("fullscreenchange", syncPlayerFullscreenClass);
+    document.addEventListener("webkitfullscreenchange", syncPlayerFullscreenClass);
+    document.addEventListener("mozfullscreenchange", syncPlayerFullscreenClass);
+    document.addEventListener("MSFullscreenChange", syncPlayerFullscreenClass);
 
     // Otomatik tam ekran kapalı (kullanıcı isteği)
     var _fsRemoteTimer = null;
@@ -3467,7 +3687,7 @@
                 if (Date.now() < ignoreUntil) return;
                 if (_earlySkipDoneFor === currentPlayingId) return;
                 _earlySkipDoneFor = currentPlayingId || "";
-                autoNext();
+                playNext();
                 return;
               }
               if (event.data === YT.PlayerState.BUFFERING) {
@@ -3598,7 +3818,7 @@
         _earlySkipDoneFor = currentPlayingId || "";
         console.log("[MM] erken geçiş → sıradaki", "dur=", durationSec, "reason=", reason);
         _armedForId = "";
-        autoNext();
+        playNext();
       }, durMs);
       _armedForId = currentPlayingId || "";
 
@@ -3629,7 +3849,7 @@
             _earlySkipDoneFor = currentPlayingId || "";
             clearTrackTimers();
             console.log("[MM] poll erken geçiş", t.toFixed(1), "/", d.toFixed(1));
-            autoNext();
+            playNext();
           }
         } catch (e2) {}
       }, 500);
@@ -3656,7 +3876,7 @@
       // Loop: büyük zamandan başa sıçrama
       if (_lastKnownPos > 15 && positionSec < 3) {
         console.log("[MM] loop/seek-to-start tespit → playNext");
-        autoNext();
+        playNext();
         return;
       }
 
@@ -4139,6 +4359,7 @@
       syncSecondsUI();
 
       var tapLayer = document.getElementById("playerChromeTap");
+      var swipeHint = document.getElementById("playerSwipeHint");
 
       function setTapLayer(on) {
         if (!tapLayer) return;
@@ -4146,132 +4367,47 @@
         else tapLayer.classList.remove("active");
       }
 
+      function setSwipeHintVisible(visible) {
+        if (!swipeHint) return;
+        if (visible) swipeHint.classList.remove("chrome-hidden");
+        else swipeHint.classList.add("chrome-hidden");
+      }
+
       function showChrome() {
         if (!top) return;
         top.classList.remove("chrome-hidden");
+        setSwipeHintVisible(true);
         setTapLayer(false);
         clearTimeout(hideTimer);
         if (!chromeHideOn) return;
         hideTimer = setTimeout(function() {
           if (panel && panel.classList.contains("show")) return;
           if (!view || !view.classList.contains("active")) return;
+          // Alt seçim paneli açıksa chrome'u gizleme
+          var sh = document.querySelector(".yt-sheet-sub.show");
+          if (sh) return;
           top.classList.add("chrome-hidden");
+          setSwipeHintVisible(false);
           setTapLayer(true);
         }, hideSec * 1000);
       }
 
-      function onInteract(e) {
+      function onInteract() {
         if (!view || !view.classList.contains("active")) return;
-        // Kaydırma etkinken dokunma katmanı üzerinden gelen olayları burada
-        // chrome göstererek bozma; o katmanın kendi yöneticisi halleder.
-        if (swipeOn && tapLayer && e && e.target === tapLayer) return;
         showChrome();
-      }
-
-      // —— Yatay kaydırma: sağa sürükle → önceki, sola sürükle → sonraki ——
-      // Kısıt: YouTube iframe'i cross-origin; içinde başlayan dokunma parent'a
-      // hiç ulaşmaz. Bu yüzden kaydırma yalnızca chrome gizliyken aktif olan
-      // .player-chrome-tap katmanında çalışır.
-      var KEY_SWIPE = "minimal_muzik_swipe";
-      var swipeOn = true;
-      try { swipeOn = localStorage.getItem(KEY_SWIPE) !== "0"; } catch (e) {}
-      var swipeEl = document.getElementById("swipePreview");
-      var swipeToggle = document.getElementById("swipeToggle");
-      var SWIPE_THRESHOLD = 40; // px — altındaki hareket "dokunma" sayılır
-      var sx = 0, sy = 0, sTracking = false, sDecided = false, sHorizontal = false;
-      var _lastSwipeAt = 0;
-
-      function playerToast(msg) {
-        var t = document.getElementById("roomToast");
-        if (!t) return;
-        t.textContent = msg;
-        t.classList.add("show");
-        setTimeout(function() { t.classList.remove("show"); }, 1600);
-      }
-
-      function swipeHint(dir, progress) {
-        if (!swipeEl) return;
-        swipeEl.classList.remove("left", "right");
-        if (dir < 0) {
-          swipeEl.classList.add("left");
-          swipeEl.textContent = "◀ Önceki";
-        } else {
-          swipeEl.classList.add("right");
-          swipeEl.textContent = "Sonraki ▶";
-        }
-        swipeEl.style.opacity = String(Math.min(1, 0.35 + progress * 0.65));
-        swipeEl.classList.add("show");
-      }
-      function hideSwipeHint() {
-        if (!swipeEl) return;
-        swipeEl.classList.remove("show");
-        swipeEl.style.opacity = "1";
-      }
-      function cancelSwipe() {
-        sTracking = false;
-        sDecided = false;
-        sHorizontal = false;
-        hideSwipeHint();
       }
 
       if (tapLayer) {
         tapLayer.addEventListener("click", function(e) {
           e.preventDefault();
           e.stopPropagation();
-          if (Date.now() - _lastSwipeAt < 600) return; // kaydırmadan sonra gelen sahte click
           showChrome();
         });
-
-        tapLayer.addEventListener("touchstart", function(e) {
-          if (!swipeOn || !e.touches || e.touches.length !== 1) { sTracking = false; return; }
-          var t = e.touches[0];
-          sx = t.clientX;
-          sy = t.clientY;
-          sTracking = true;
-          sDecided = false;
-          sHorizontal = false;
-          hideSwipeHint();
-        }, { passive: true });
-
-        tapLayer.addEventListener("touchmove", function(e) {
-          if (!swipeOn || !sTracking || !e.touches || e.touches.length !== 1) return;
-          var t = e.touches[0];
-          var dx = t.clientX - sx;
-          var dy = t.clientY - sy;
-          if (!sDecided) {
-            if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
-            sDecided = true;
-            // yatay baskın değilse bu bir kaydırma değildir (dikey scroll vb.)
-            sHorizontal = Math.abs(dx) > Math.abs(dy);
-            if (!sHorizontal) { sTracking = false; return; }
-          }
-          if (!sHorizontal) return;
-          if (e.cancelable) e.preventDefault(); // tarayıcının kendi yatay kaydırmasını engelle
-          swipeHint(dx < 0 ? 1 : -1, Math.min(1, Math.abs(dx) / (SWIPE_THRESHOLD * 3)));
-        }, { passive: false });
-
         tapLayer.addEventListener("touchend", function(e) {
           e.preventDefault();
           e.stopPropagation();
-          if (swipeOn && sTracking && sDecided && sHorizontal && e.changedTouches && e.changedTouches.length) {
-            var dx = e.changedTouches[0].clientX - sx;
-            var dy = e.changedTouches[0].clientY - sy;
-            cancelSwipe();
-            if (Math.abs(dx) >= SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
-              _lastSwipeAt = Date.now();
-              if (dx < 0) { playNext({ force: true }); playerToast("Sonraki ▶"); }
-              else { playPrev(); playerToast("◀ Önceki"); }
-              return;
-            }
-          }
-          cancelSwipe();
           showChrome();
         }, { passive: false });
-
-        tapLayer.addEventListener("touchcancel", function() {
-          cancelSwipe();
-          showChrome();
-        }, { passive: true });
       }
 
       if (view) {
@@ -4282,6 +4418,7 @@
           else {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setSwipeHintVisible(false);
             setTapLayer(false);
           }
         });
@@ -4296,6 +4433,7 @@
           if (!chromeHideOn) {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setSwipeHintVisible(true);
           } else {
             showChrome();
           }
@@ -4342,144 +4480,454 @@
         panel.classList.remove("show");
         showChrome();
       });
-
-      // SponsorBlock aç/kapa
-      var sponsorToggle = document.getElementById("sponsorToggle");
-      if (sponsorToggle) {
-        sponsorToggle.checked = sponsorSkipEnabled;
-        sponsorToggle.addEventListener("change", function() {
-          sponsorSkipEnabled = !!sponsorToggle.checked;
-          try { localStorage.setItem("mm_sponsorSkip", sponsorSkipEnabled ? "true" : "false"); } catch (e) {}
-          if (sponsorSkipEnabled) {
-            if (currentPlayingId) fetchSponsorSegments(currentPlayingId);
-          } else {
-            sponsorSegments = [];
-            stopSponsorCheck();
-          }
-        });
-      }
-
-      // Otomatik geçiş aç/kapa
-      var autoNextToggle = document.getElementById("autoNextToggle");
-      if (autoNextToggle) {
-        autoNextToggle.checked = autoNextOn;
-        autoNextToggle.addEventListener("change", function() {
-          autoNextOn = !!autoNextToggle.checked;
-          try { localStorage.setItem("minimal_muzik_auto_next", autoNextOn ? "1" : "0"); } catch (e) {}
-        });
-      }
-
-      // Kaydırma ile şarkı değiştirme aç/kapa
-      if (swipeToggle) {
-        swipeToggle.checked = swipeOn;
-        swipeToggle.addEventListener("change", function() {
-          swipeOn = !!swipeToggle.checked;
-          try { localStorage.setItem(KEY_SWIPE, swipeOn ? "1" : "0"); } catch (e) {}
-          if (!swipeOn) cancelSwipe();
-        });
-      }
     })();
 
-    // —— Tanıtım ekranı (ilk açılışta bir kez; Ayarlar → "Tanıtımı tekrar göster") ——
-    (function initTips() {
-      var KEY_ONBOARD = "minimal_muzik_onboarded";
-      var modal = document.getElementById("tipsModal");
-      if (!modal) return;
+    // —— Özel alt sheet (aşağıdan yukarı kaydır) ——
+    (function initYtBottomSheet() {
+      var wrapper = document.getElementById("bottom-sheet-wrapper");
+      var qualitySub = document.getElementById("ytSheetQualitySub");
+      var speedSub = document.getElementById("ytSheetSpeedSub");
+      var captionSub = document.getElementById("ytSheetCaptionSub");
+      var view = document.getElementById("playerView");
+      if (!wrapper || !view) return;
 
-      var iconEl = document.getElementById("tipsIcon");
-      var titleEl = document.getElementById("tipsTitle");
-      var textEl = document.getElementById("tipsText");
-      var dotsEl = document.getElementById("tipsDots");
-      var nextBtn = document.getElementById("tipsNext");
-      var skipBtn = document.getElementById("tipsSkip");
+      var currentSpeed = 1;
+      var currentQuality = "auto";
+      var captionsOn = false;
 
-      var TIPS = [
-        {
-          icon: "⚙",
-          title: "Kalite ayarı",
-          text: "Çözünürlüğü videonun kendi <b>⚙ dişlisinden</b> seçin. Önce ekrana dokunup kontrolleri gösterin, sonra sağ alttaki dişli → <b>Kalite</b>."
-        },
-        {
-          icon: "👉",
-          title: "Kaydırarak şarkı değiştir",
-          text: "Kontroller gizliyken ekrana basılı tutup <b>sağa</b> sürükleyin → önceki şarkı, <b>sola</b> sürükleyin → sonraki şarkı."
-        },
-        {
-          icon: "📡",
-          title: "Uzaktan kumanda",
-          text: "Aynı ağdaki telefondan kumanda: <b>Oda</b> düğmesine dokunup QR kodu okutun. Oynat, sıralama ve kuyruk telefondan yönetilir."
-        },
-        {
-          icon: "💡",
-          title: "Gece için parlaklık",
-          text: "<b>Ayarlar → Gece parlaklığı</b> ekranı karartır, ses etkilenmez. Üst bar hareketsizken kendiliğinden gizlenir."
-        },
-        {
-          icon: "🎤",
-          title: "Sesli komut",
-          text: "Mikrofon düğmesine dokunup <b>«sonraki»</b>, <b>«önceki»</b>, <b>«duraklat»</b> diyebilirsiniz (Türkçe konuşma tanıma)."
-        }
-      ];
-      var idx = 0;
-
-      function renderDots() {
-        if (!dotsEl) return;
-        dotsEl.innerHTML = "";
-        for (var i = 0; i < TIPS.length; i++) {
-          var d = document.createElement("span");
-          d.className = "tips-dot" + (i === idx ? " on" : "");
-          dotsEl.appendChild(d);
-        }
-      }
-
-      function render() {
-        var t = TIPS[idx] || TIPS[0];
-        if (iconEl) iconEl.textContent = t.icon;
-        if (titleEl) titleEl.textContent = t.title;
-        if (textEl) textEl.innerHTML = t.text;
-        if (nextBtn) nextBtn.textContent = idx === TIPS.length - 1 ? "Başla" : "İleri";
-        renderDots();
-      }
-
-      function closeTips(markSeen) {
-        modal.classList.remove("show");
-        if (markSeen) {
-          try { localStorage.setItem(KEY_ONBOARD, "1"); } catch (e) {}
-        }
-      }
-
-      window.showTips = function() {
-        idx = 0;
-        render();
-        modal.classList.add("show");
+      var QUALITY_LABELS = {
+        auto: "Otomatik",
+        default: "Otomatik",
+        highres: "2160p",
+        hd2160: "2160p",
+        hd1440: "1440p",
+        hd1080: "1080p",
+        hd720: "720p",
+        large: "480p",
+        medium: "360p",
+        small: "240p",
+        tiny: "144p"
+      };
+      var QUALITY_ORDER = ["highres", "hd2160", "hd1440", "hd1080", "hd720", "large", "medium", "small", "tiny"];
+      var SPEED_LABELS = {
+        "0.25": "0.25x",
+        "0.5": "0.5x",
+        "0.75": "0.75x",
+        "1": "Normal",
+        "1.25": "1.25x",
+        "1.5": "1.5x",
+        "1.75": "1.75x",
+        "2": "2x"
       };
 
-      if (nextBtn) {
-        nextBtn.addEventListener("click", function() {
-          if (idx >= TIPS.length - 1) { closeTips(true); return; }
-          idx++;
-          render();
-        });
-      }
-      if (skipBtn) {
-        skipBtn.addEventListener("click", function() { closeTips(true); });
+      function qualityLabel(q) {
+        if (!q || q === "auto" || q === "default") return "Otomatik";
+        return QUALITY_LABELS[q] || q;
       }
 
-      var seen = false;
-      try { seen = localStorage.getItem(KEY_ONBOARD) === "1"; } catch (e) {}
-      if (!seen) {
-        setTimeout(function() { if (window.showTips) window.showTips(); }, 900);
+      function findMenuRow(titleText) {
+        var items = wrapper.querySelectorAll('yt-list-item-view-model.ytListItemViewModelHost[role="menuitem"]');
+        for (var i = 0; i < items.length; i++) {
+          var t = items[i].querySelector(".ytListItemViewModelTitle");
+          if (t && (t.textContent || "").trim() === titleText) return items[i];
+        }
+        return null;
       }
 
-      var tipsBtn = document.getElementById("showTipsBtn");
-      if (tipsBtn) {
-        tipsBtn.addEventListener("click", function(e) {
-          e.stopPropagation();
-          var p = document.getElementById("brightPanelIdx");
-          if (p) p.classList.remove("show");
-          if (window.showTips) window.showTips();
+      function setTrailingValue(titleText, value) {
+        var row = findMenuRow(titleText);
+        if (!row) return;
+        var sel = row.querySelector(".ytListItemViewModelSelectionText");
+        if (sel) sel.textContent = value;
+      }
+
+      function showMain() {
+        if (qualitySub) qualitySub.classList.remove("show");
+        if (speedSub) speedSub.classList.remove("show");
+        if (captionSub) captionSub.classList.remove("show");
+        // Ana menü her zaman wrapper içinde
+        var content = document.getElementById("content-wrapper");
+        if (content) content.style.display = "";
+      }
+
+      function getAvailableQualities() {
+        var levels = [];
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getAvailableQualityLevels === "function") {
+            levels = ytPlayerInstance.getAvailableQualityLevels() || [];
+          }
+        } catch (e) {}
+        if (!Array.isArray(levels)) levels = [];
+        levels = levels.filter(function(q) {
+          return q && q !== "auto" && q !== "default";
+        });
+        levels.sort(function(a, b) {
+          var ia = QUALITY_ORDER.indexOf(a);
+          var ib = QUALITY_ORDER.indexOf(b);
+          if (ia < 0) ia = 999;
+          if (ib < 0) ib = 999;
+          return ia - ib;
+        });
+        return levels;
+      }
+
+      function getCurrentPlaybackQuality() {
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlaybackQuality === "function") {
+            var q = ytPlayerInstance.getPlaybackQuality();
+            if (q && q !== "unknown") return q;
+          }
+        } catch (e) {}
+        return currentQuality || "auto";
+      }
+
+      function qualityItemHtml(q, label, isActive) {
+        var activeCls = isActive ? " active" : "";
+        return (
+          '<yt-list-item-view-model class="ytListItemViewModelHost' + activeCls + '" role="presentation">' +
+            '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelTappable ytListItemViewModelNoTrailingText">' +
+              '<div class="ytListItemViewModelMainContainer">' +
+                '<div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">' +
+                  '<img class="ytCoreImageHost ytListItemViewModelAccessory ytListItemViewModelImage ytCoreImageContentModeScaleToFill" alt="">' +
+                '</div>' +
+                '<button class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor ytListItemViewModelTextWrapper" role="menuitem" style="">' +
+                  '<div class="ytListItemViewModelTitleWrapper">' +
+                    '<span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">' + label + '</span>' +
+                  '</div>' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+          '</yt-list-item-view-model>'
+        );
+      }
+
+      function rebuildQualityList() {
+        var listEl = document.getElementById("ytSheetQualityList");
+        if (!listEl) return;
+        var levels = getAvailableQualities();
+        var cur = getCurrentPlaybackQuality();
+        if (currentQuality === "auto" || currentQuality === "default") cur = "auto";
+        var html = qualityItemHtml("auto", "Otomatik", cur === "auto" || cur === "default");
+        if (!levels.length) {
+          levels = ["hd1080", "hd720", "large", "medium", "small"];
+        }
+        levels.forEach(function(q) {
+          html += qualityItemHtml(q, qualityLabel(q), cur === q);
+        });
+        listEl.innerHTML = html;
+        setTrailingValue("Kalite", currentQuality === "auto" || currentQuality === "default" ? "Otomatik" : qualityLabel(cur));
+      }
+
+      function openSub(which) {
+        showMain();
+        if (which === "quality") {
+          rebuildQualityList();
+          if (qualitySub) qualitySub.classList.add("show");
+        } else if (which === "speed") {
+          if (speedSub) speedSub.classList.add("show");
+        } else if (which === "captions") {
+          if (captionSub) captionSub.classList.add("show");
+        }
+        syncActiveStates();
+      }
+
+      function syncActiveStates() {
+        setTrailingValue(
+          "Kalite",
+          currentQuality === "auto" || currentQuality === "default"
+            ? "Otomatik"
+            : qualityLabel(currentQuality)
+        );
+        setTrailingValue("Hız", SPEED_LABELS[String(currentSpeed)] || "Normal");
+        setTrailingValue("Altyazı", captionsOn ? "Açık" : "Kapalı");
+
+        document.querySelectorAll("#ytSheetQualityList .ytListItemViewModelHost").forEach(function(el) {
+          var titleEl = el.querySelector(".ytListItemViewModelTitle");
+          var lab = titleEl ? (titleEl.textContent || "").trim() : "";
+          var q = labelToQualityFormat(lab);
+          var active =
+            q === currentQuality ||
+            ((q === "auto" || q === "default") && (currentQuality === "auto" || currentQuality === "default")) ||
+            (lab === "Otomatik" && (currentQuality === "auto" || currentQuality === "default"));
+          el.classList.toggle("active", !!active);
+        });
+        document.querySelectorAll("#ytSheetSpeedSub .yt-sheet-sub-item").forEach(function(el) {
+          el.classList.toggle("active", parseFloat(el.getAttribute("data-speed")) === currentSpeed);
+        });
+        document.querySelectorAll("#ytSheetCaptionSub .yt-sheet-sub-item").forEach(function(el) {
+          var on = el.getAttribute("data-caption") === "on";
+          el.classList.toggle("active", on === captionsOn);
         });
       }
+
+      function setPlaybackRate(rate) {
+        currentSpeed = rate;
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.setPlaybackRate === "function") {
+            ytPlayerInstance.setPlaybackRate(rate);
+          }
+        } catch (e) {}
+        try {
+          var f = getYoutubeIframeEl && getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "setPlaybackRate", args: [rate] }),
+              "*"
+            );
+          }
+        } catch (e2) {}
+        setTrailingValue("Hız", SPEED_LABELS[String(rate)] || (rate + "x"));
+        syncActiveStates();
+      }
+
+      function labelToQualityFormat(label) {
+        var s = String(label || "").toLowerCase().trim();
+        if (!s || s === "auto" || s === "default" || s.indexOf("otomatik") >= 0) return "auto";
+        if (s.indexOf("2160") >= 0 || s.indexOf("4k") >= 0 || s === "highres" || s === "hd2160") return "hd2160";
+        if (s.indexOf("1440") >= 0 || s === "hd1440") return "hd1440";
+        if (s.indexOf("1080") >= 0 || s === "hd1080") return "hd1080";
+        if (s.indexOf("720") >= 0 || s === "hd720") return "hd720";
+        if (s.indexOf("480") >= 0 || s === "large") return "large";
+        if (s.indexOf("360") >= 0 || s === "medium") return "medium";
+        if (s.indexOf("240") >= 0 || s === "small") return "small";
+        if (s.indexOf("144") >= 0 || s === "tiny") return "tiny";
+        if (QUALITY_LABELS[s] || QUALITY_ORDER.indexOf(s) >= 0) return s;
+        return s;
+      }
+
+      // ytQuality — setPlaybackQualityRange ile kalite kilidi (IFrame API / movie_player)
+      function getMoviePlayer() {
+        // 1) IFrame API instance (parent'tan erişilebilir resmi yol)
+        if (ytPlayerInstance) return ytPlayerInstance;
+        // 2) Aynı origin denemesi (genelde cross-origin → null)
+        try {
+          var f = getYoutubeIframeEl && getYoutubeIframeEl();
+          if (f && f.contentDocument) {
+            var mp = f.contentDocument.querySelector("#movie_player");
+            if (mp) return mp;
+          }
+        } catch (e) {}
+        try {
+          var mp2 = document.querySelector("#movie_player");
+          if (mp2) return mp2;
+        } catch (e2) {}
+        return null;
+      }
+
+      var ytQuality = {
+        set4K: function() { return applyQualityRange("hd2160", "hd2160"); },
+        set2K: function() { return applyQualityRange("hd1440", "hd1440"); },
+        set1080: function() { return applyQualityRange("hd1080", "hd1080"); },
+        set720: function() { return applyQualityRange("hd720", "hd720"); },
+        set480: function() { return applyQualityRange("large", "large"); },
+        set360: function() { return applyQualityRange("medium", "medium"); },
+        set240: function() { return applyQualityRange("small", "small"); },
+        set144: function() { return applyQualityRange("tiny", "tiny"); },
+        setAuto: function() { return applyQualityRange("auto", "auto"); }
+      };
+      window.ytQuality = ytQuality;
+
+      function applyQualityRange(minQ, maxQ) {
+        var applied = false;
+        var player = getMoviePlayer();
+        console.log("[MM] applyQualityRange", minQ, maxQ, "player=", !!player);
+        try {
+          if (player && typeof player.setPlaybackQualityRange === "function") {
+            player.setPlaybackQualityRange(minQ, maxQ);
+            applied = true;
+            console.log("[MM] setPlaybackQualityRange OK", minQ, maxQ);
+          }
+        } catch (e) {
+          console.warn("[MM] setPlaybackQualityRange err", e);
+        }
+        try {
+          if (player && typeof player.setPlaybackQuality === "function") {
+            var q = maxQ === "auto" ? "default" : maxQ;
+            player.setPlaybackQuality(q);
+            applied = true;
+            console.log("[MM] setPlaybackQuality OK", q);
+          }
+        } catch (e2) {
+          console.warn("[MM] setPlaybackQuality err", e2);
+        }
+        // postMessage yedek (IFrame API komut kanalı)
+        try {
+          var f = getYoutubeIframeEl && getYoutubeIframeEl();
+          if (f && f.contentWindow) {
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "setPlaybackQualityRange", args: [minQ, maxQ] }),
+              "*"
+            );
+            var pq = maxQ === "auto" ? "default" : maxQ;
+            f.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "setPlaybackQuality", args: [pq] }),
+              "*"
+            );
+            applied = true;
+          }
+        } catch (e3) {}
+        // Stream yenileme: küçük seek
+        try {
+          if (player && typeof player.getCurrentTime === "function" && typeof player.seekTo === "function") {
+            var t0 = player.getCurrentTime() || 0;
+            if (t0 > 0.5) player.seekTo(t0, true);
+          }
+        } catch (eSeek) {}
+        return applied;
+      }
+
+      function setQuality(q) {
+        var target = labelToQualityFormat(q);
+        currentQuality = target === "auto" || target === "default" ? "auto" : target;
+        var applied = false;
+
+        // ytQuality map ile birebir
+        if (target === "auto" || target === "default") {
+          applied = ytQuality.setAuto();
+        } else if (target === "hd2160" || target === "highres") {
+          applied = ytQuality.set4K();
+        } else if (target === "hd1440") {
+          applied = ytQuality.set2K();
+        } else if (target === "hd1080") {
+          applied = ytQuality.set1080();
+        } else if (target === "hd720") {
+          applied = ytQuality.set720();
+        } else if (target === "large") {
+          applied = ytQuality.set480();
+        } else if (target === "medium") {
+          applied = ytQuality.set360();
+        } else if (target === "small") {
+          applied = ytQuality.set240();
+        } else if (target === "tiny") {
+          applied = ytQuality.set144();
+        } else {
+          applied = applyQualityRange(target, target);
+        }
+
+        // Doğrulama log
+        setTimeout(function() {
+          try {
+            var player = getMoviePlayer();
+            var real = player && typeof player.getPlaybackQuality === "function"
+              ? player.getPlaybackQuality()
+              : "?";
+            var levels = player && typeof player.getAvailableQualityLevels === "function"
+              ? player.getAvailableQualityLevels()
+              : [];
+            console.log("[MM] quality after set: target=", target, "actual=", real, "levels=", levels);
+          } catch (e) {}
+        }, 900);
+
+        setTrailingValue("Kalite", currentQuality === "auto" ? "Otomatik" : qualityLabel(currentQuality));
+        syncActiveStates();
+
+        var toast = document.getElementById("roomToast");
+        if (toast) {
+          toast.textContent =
+            currentQuality === "auto"
+              ? "Kalite: Otomatik"
+              : "Kalite: " + qualityLabel(currentQuality) + (applied ? "" : " (API yok)");
+          toast.classList.add("show");
+          setTimeout(function() { toast.classList.remove("show"); }, 1600);
+        }
+      }
+
+      window.changeVideoQuality = function(label) {
+        setQuality(label);
+      };
+
+      function setCaptions(on) {
+        captionsOn = !!on;
+        try {
+          if (ytPlayerInstance) {
+            if (on && typeof ytPlayerInstance.loadModule === "function") {
+              ytPlayerInstance.loadModule("captions");
+              if (typeof ytPlayerInstance.setOption === "function") {
+                ytPlayerInstance.setOption("captions", "track", { languageCode: "tr" });
+              }
+            } else if (!on && typeof ytPlayerInstance.unloadModule === "function") {
+              ytPlayerInstance.unloadModule("captions");
+            }
+          }
+        } catch (e) {}
+        setTrailingValue("Altyazı", captionsOn ? "Açık" : "Kapalı");
+        syncActiveStates();
+        var t = document.getElementById("roomToast");
+        if (t) {
+          t.textContent = captionsOn ? "Altyazı: Açık (destekleniyorsa)" : "Altyazı: Kapalı";
+          t.classList.add("show");
+          setTimeout(function() { t.classList.remove("show"); }, 1600);
+        }
+      }
+
+      // Ana menü tıklamaları
+      wrapper.addEventListener("click", function(e) {
+        var host = e.target.closest("yt-list-item-view-model.ytListItemViewModelHost");
+        if (!host || !wrapper.contains(host)) return;
+        var titleEl = host.querySelector(".ytListItemViewModelTitle");
+        var lab = titleEl ? (titleEl.textContent || "").trim() : "";
+        if (lab === "Kalite") { openSub("quality"); return; }
+        if (lab === "Hız") { openSub("speed"); return; }
+        if (lab === "Altyazı") { openSub("captions"); return; }
+        if (lab === "Diğer seçenekler") {
+          var t = document.getElementById("roomToast");
+          if (t) {
+            t.textContent = "Diğer seçenekler";
+            t.classList.add("show");
+            setTimeout(function() { t.classList.remove("show"); }, 1200);
+          }
+        }
+      });
+
+      // Alt listeler
+      function onSubClick(e) {
+        var back = e.target.closest("[data-sheet-back]");
+        if (back) {
+          showMain();
+          return;
+        }
+        var qItem = e.target.closest("#ytSheetQualityList .ytListItemViewModelHost");
+        if (qItem) {
+          var titleEl = qItem.querySelector(".ytListItemViewModelTitle");
+          var lab = titleEl ? (titleEl.textContent || "").trim() : "";
+          if (lab) {
+            setQuality(lab);
+            showMain();
+          }
+          return;
+        }
+        var sItem = e.target.closest("[data-speed]");
+        if (sItem) {
+          setPlaybackRate(parseFloat(sItem.getAttribute("data-speed")));
+          showMain();
+          return;
+        }
+        var cItem = e.target.closest("[data-caption]");
+        if (cItem) {
+          setCaptions(cItem.getAttribute("data-caption") === "on");
+          showMain();
+          return;
+        }
+      }
+      if (qualitySub) qualitySub.addEventListener("click", onSubClick);
+      if (speedSub) speedSub.addEventListener("click", onSubClick);
+      if (captionSub) captionSub.addEventListener("click", onSubClick);
+
+      // Player açılınca değerleri senkronla (panel CSS ile zaten görünür)
+      var mo = new MutationObserver(function() {
+        if (view.classList.contains("active")) {
+          syncActiveStates();
+        } else {
+          showMain();
+        }
+      });
+      mo.observe(view, { attributes: true, attributeFilter: ["class"] });
+
+      // İlk senkron
+      syncActiveStates();
+
+      window.openYtSheet = function() { /* sürekli açık — no-op */ };
+      window.closeYtSheet = function() { showMain(); };
     })();
 
     prevBtn.addEventListener("click", function() {
@@ -4489,6 +4937,16 @@
     nextBtn.addEventListener("click", function() {
       playNext();
     });
+
+    var fullscreenBtn = document.getElementById("fullscreenBtn");
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePlayerFullscreen();
+      });
+    }
+    syncPlayerFullscreenClass();
 
     // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
     window.addEventListener("keydown", function(e) {

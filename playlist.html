@@ -1161,7 +1161,9 @@
     // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
     const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
     const MQTT_PREFIX = "superyt/v1/";
-    const SEARCH_INSTANCES = ["https://invidious.f5.si"];
+    // Yerel YouTube arama servisi (Invidious/üçüncü taraf sunucu kullanmaz).
+    // PHP destekli bir sunucuda çalıştırılmalıdır: api/youtube.php
+    const SEARCH_API = "api/youtube.php";
     const MANUAL_KEY = "minimal_muzik_manual_pl";
     const FAV_KEY = "minimal_muzik_favs";
 
@@ -2389,18 +2391,30 @@
     }
 
     async function fetchApi(path) {
-      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
-        try {
-          var res = await fetch(SEARCH_INSTANCES[i] + path, {
-            signal: AbortSignal.timeout(15000)
-          });
-          if (!res.ok) continue;
-          return await res.json();
-        } catch (e) {
-          console.warn(e);
-        }
+      var url = "";
+
+      if (path.indexOf("/api/v1/playlists/") === 0) {
+        var playlistId = path.slice("/api/v1/playlists/".length);
+        try { playlistId = decodeURIComponent(playlistId); } catch (e) {}
+        url = SEARCH_API + "?action=playlist&id=" + encodeURIComponent(playlistId);
+      } else if (path.indexOf("/api/v1/search") === 0) {
+        var qs = path.indexOf("?") >= 0 ? path.slice(path.indexOf("?") + 1) : "";
+        url = SEARCH_API + "?action=search&" + qs;
+      } else {
+        return null;
       }
-      return null;
+
+      try {
+        var res = await fetch(url, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(45000)
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        console.warn("Search failed:", e);
+        return null;
+      }
     }
 
     async function importFullPlaylist(playlistId, title, btn) {
