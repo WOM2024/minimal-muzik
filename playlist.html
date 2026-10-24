@@ -1101,7 +1101,7 @@
     </div>
 
     <div class="search-bar" id="searchBar">
-      <input id="plSearch" type="search" placeholder="Ne dinlemek istiyorsun?" enterkeyhint="search" />
+      <input id="plSearch" type="search" placeholder="Şarkı adı yaz…" enterkeyhint="search" />
       <button type="button" id="plSearchBtn">Ara</button>
     </div>
 
@@ -1161,63 +1161,13 @@
     // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
     const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
     const MQTT_PREFIX = "superyt/v1/";
-    const SEARCH_INSTANCES = ["https://invidious.f5.si"];
+    // Yerel YouTube arama servisi (Invidious/üçüncü taraf sunucu kullanmaz).
+    // PHP destekli bir sunucuda çalıştırılmalıdır: api/youtube.php
+    const SEARCH_API = "api/youtube.php";
     const MANUAL_KEY = "minimal_muzik_manual_pl";
     const FAV_KEY = "minimal_muzik_favs";
 
     const YT_MUSIC_CHANNEL = "UC-9-kyTW8ZkZNDHQJ6FgpwQ";
-    const YT_CHARTS_AUTHOR = "YouTube Music Global Charts";
-
-    const CATEGORY_PLAYLISTS = {
-      "populer": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn48eLKe4-ToW1youy18Othb", title: "Weekly Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
-      ],
-      "turkce-pop": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "turkce-rock": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye (Rock karışık chart)", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "arabesk": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "rap": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn59hyJwXYE-_65OUiNdtnjO", title: "Daily Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
-      ],
-      "slow": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "yabanci-pop": [
-        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn50iCQRUVmgUjOrCggCQ9nR", title: "Top 100 Music Videos — France", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn5BPviUFX4a3IMnAgyknC68", title: "Top 100 Music Videos — Italy", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "klasik": [
-        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ],
-      "lofi": [
-        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
-      ]
-    };
-
-    const CATEGORY_PLAYLIST_SEARCH = {
-      "turkce-pop": "türkçe pop playlist",
-      "turkce-rock": "türkçe rock playlist",
-      "arabesk": "arabesk playlist",
-      "rap": "türkçe rap playlist",
-      "slow": "slow şarkılar playlist",
-      "yabanci-pop": "pop hits playlist 2025",
-      "klasik": "classical music playlist",
-      "lofi": "lofi hip hop playlist",
-      "populer": "türkiye top 100 playlist"
-    };
 
     let roomCode = "";
     let peer = null;
@@ -1335,9 +1285,6 @@
     let searchPage = 1;
     let searchHasMore = false;
     let searchQuery = "";
-    let readyPage = 1;
-    let readyHasMore = false;
-    let readyQuery = "";
     let listLoadingMore = false;
     let isPlayingRemote = false;
     let remotePos = 0;
@@ -1365,7 +1312,6 @@
     const tabsBar = document.getElementById("tabsBar");
     const plSearch = document.getElementById("plSearch");
     const plSearchBtn = document.getElementById("plSearchBtn");
-    const plCats = document.getElementById("plCats");
     const modeShuffle = document.getElementById("modeShuffle");
     const modeManual = document.getElementById("modeManual");
     const playPauseBtn = document.getElementById("playPauseBtn");
@@ -1864,9 +1810,8 @@
     function updateManualChrome() {
       var isMan = mode === "manual";
       if (tabsBar) tabsBar.classList.toggle("show", isMan);
-      // Arama: Keşfet (listeler) ve Ara sekmelerinde
-      if (searchBar) searchBar.classList.toggle("show", isMan && (activeTab === "search" || activeTab === "ready"));
-      if (plCats) plCats.classList.remove("show");
+      // Arama yalnızca "Ara" sekmesinde görünür.
+      if (searchBar) searchBar.classList.toggle("show", isMan && activeTab === "search");
     }
 
     function setMode(m) {
@@ -2287,7 +2232,7 @@
           return;
         }
         if (!readyPlaylists.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Kategori seç → listeler gelsin.<br>Liste seç → mevcut listenin yerine gelir.</div>';
+          scrollArea.innerHTML = '<div class="empty-q">Kanal listeleri yüklenemedi.<br>Sayfayı yenileyip tekrar dene.</div>';
           return;
         }
         var htmlR = "";
@@ -2388,19 +2333,40 @@
       renderList();
     }
 
-    async function fetchApi(path) {
-      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
-        try {
-          var res = await fetch(SEARCH_INSTANCES[i] + path, {
-            signal: AbortSignal.timeout(15000)
-          });
-          if (!res.ok) continue;
-          return await res.json();
-        } catch (e) {
-          console.warn(e);
-        }
+    async function apiGet(queryString) {
+      try {
+        var res = await fetch(SEARCH_API + "?" + queryString, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(45000)
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return await res.json();
+      } catch (e) {
+        console.warn("API failed:", e);
+        return null;
       }
-      return null;
+    }
+
+    // index2.html ile aynı arama mantığı
+    async function fetchSearch(query, page, preferViews) {
+      var qs =
+        "action=search&q=" + encodeURIComponent(query) +
+        "&type=video&page=" + page + "&region=TR";
+      if (preferViews) qs += "&sort=views";
+      var data = await apiGet(qs);
+      if (!Array.isArray(data)) return null;
+      return data.filter(function(item) {
+        return item.type === "video" && item.videoId;
+      });
+    }
+
+    async function fetchPlaylist(playlistId) {
+      return await apiGet("action=playlist&id=" + encodeURIComponent(playlistId));
+    }
+
+    async function fetchChannelPlaylists(channelId) {
+      var data = await apiGet("action=channel_playlists&id=" + encodeURIComponent(channelId));
+      return Array.isArray(data) ? data : null;
     }
 
     async function importFullPlaylist(playlistId, title, btn) {
@@ -2412,7 +2378,7 @@
       }
       listLabel.textContent = "İçe aktarılıyor: " + (title || "");
 
-      var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId));
+      var data = await fetchPlaylist(playlistId);
       importing = false;
 
       if (btn) {
@@ -2472,10 +2438,7 @@
         listLoadingMore = true;
         searchPage += 1;
       }
-      var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(searchQuery || q) +
-        "&type=video&page=" + searchPage + "&region=TR"
-      );
+      var data = await fetchSearch(searchQuery || q, searchPage, false);
       searchLoading = false;
       listLoadingMore = false;
       var batch = [];
@@ -2503,110 +2466,34 @@
       renderList();
     }
 
-    async function loadReadyPlaylists(catKey) {
-      catKey = catKey || "populer";
+    async function loadReadyPlaylists() {
       searchLoading = true;
       activeTab = "ready";
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "ready");
       });
       updateManualChrome();
-      if (plCats) {
-        plCats.querySelectorAll(".cat").forEach(function(c) {
-          c.classList.toggle("active", c.dataset.cat === catKey);
-        });
-      }
       renderList();
 
-      var found = (CATEGORY_PLAYLISTS[catKey] || CATEGORY_PLAYLISTS["populer"] || []).map(function(p) {
-        return {
-          playlistId: p.playlistId,
-          title: p.title,
-          author: p.author || YT_CHARTS_AUTHOR,
-          videoCount: p.videoCount || 0
-        };
-      });
-
-      var q = CATEGORY_PLAYLIST_SEARCH[catKey] || (catKey + " playlist");
-      var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
-      );
-
-      var seen = {};
-      found.forEach(function(p) { seen[p.playlistId] = true; });
-
+      var data = await fetchChannelPlaylists(YT_MUSIC_CHANNEL);
       if (Array.isArray(data)) {
+        var seen = {};
+        readyPlaylists = [];
         data.forEach(function(item) {
-          if (item.type !== "playlist" || !item.playlistId) return;
+          if (!item || item.type !== "playlist" || !item.playlistId) return;
           if (seen[item.playlistId]) return;
-          if (item.videoCount && item.videoCount < 5) return;
           seen[item.playlistId] = true;
-          found.push({
+          readyPlaylists.push({
             playlistId: item.playlistId,
             title: item.title || "Playlist",
-            author: item.author || "",
+            author: item.author || "YouTube Music",
             videoCount: item.videoCount || 0
           });
         });
-      }
-
-      readyPlaylists = found.slice(0, 12);
-      searchLoading = false;
-      renderList();
-    }
-
-    async function doSmartSearch(q, append) {
-      q = (q || "").trim();
-      if (!q) return;
-      if (!append) {
-        readyQuery = q;
-        readyPage = 1;
+      } else {
         readyPlaylists = [];
-        readyHasMore = true;
-        searchLoading = true;
-        activeTab = "ready";
-        document.querySelectorAll(".tab").forEach(function(t) {
-          t.classList.toggle("active", t.dataset.tab === "ready");
-        });
-        updateManualChrome();
-        renderList();
-      } else {
-        if (listLoadingMore || !readyHasMore) return;
-        listLoadingMore = true;
-        readyPage += 1;
       }
-      var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(readyQuery || q) +
-        "&type=playlist&page=" + readyPage + "&region=TR"
-      );
       searchLoading = false;
-      listLoadingMore = false;
-      var batch = [];
-      if (Array.isArray(data)) {
-        batch = data
-          .filter(function(item) {
-            return item.type === "playlist" && item.playlistId &&
-              (!item.videoCount || item.videoCount >= 5);
-          })
-          .map(function(item) {
-            return {
-              playlistId: item.playlistId,
-              title: item.title || "Playlist",
-              author: item.author || "",
-              videoCount: item.videoCount || 0
-            };
-          });
-      }
-      if (!batch.length) {
-        readyHasMore = false;
-      } else {
-        var seenP = {};
-        readyPlaylists.forEach(function(x) { seenP[x.playlistId] = true; });
-        batch.forEach(function(x) {
-          if (!seenP[x.playlistId]) { seenP[x.playlistId] = true; readyPlaylists.push(x); }
-        });
-        readyHasMore = batch.length >= 6;
-      }
       renderList();
     }
 
@@ -3215,8 +3102,6 @@
         if (!nearBottom) return;
         if (activeTab === "search" && searchQuery) {
           doSongSearch(searchQuery, true);
-        } else if (activeTab === "ready" && readyQuery) {
-          doSmartSearch(readyQuery, true);
         }
       });
     })();
@@ -3416,13 +3301,7 @@
 
     function updateSearchPlaceholder() {
       if (!plSearch) return;
-      if (activeTab === "search") {
-        plSearch.placeholder = "Şarkı adı yaz…";
-      } else if (activeTab === "ready") {
-        plSearch.placeholder = "Playlist ara…";
-      } else {
-        plSearch.placeholder = "Ne dinlemek istiyorsun?";
-      }
+      plSearch.placeholder = "Şarkı adı yaz…";
     }
 
     document.querySelectorAll(".tab").forEach(function(tab) {
@@ -3434,7 +3313,7 @@
         updateManualChrome();
         updateSearchPlaceholder();
         if (activeTab === "ready") {
-          if (!readyPlaylists.length) loadReadyPlaylists("populer");
+          if (!readyPlaylists.length) loadReadyPlaylists();
           else renderList();
         } else {
           renderList();
@@ -3442,19 +3321,10 @@
       });
     });
 
-    if (plCats) {
-      plCats.querySelectorAll(".cat").forEach(function(cat) {
-        cat.addEventListener("click", function() {
-          loadReadyPlaylists(cat.dataset.cat);
-        });
-      });
-    }
-
     function runSearch() {
       var q = (plSearch.value || "").trim();
       if (!q) return;
-      if (activeTab === "search") doSongSearch(q);
-      else doSmartSearch(q);
+      doSongSearch(q);
     }
     plSearchBtn.addEventListener("click", runSearch);
     plSearch.addEventListener("keydown", function(e) {
