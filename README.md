@@ -2,7 +2,7 @@
 
 **A lightweight YouTube music player designed for TVs, car head units, and always-on displays — controlled remotely from your phone.**
 
-SuperYT is an experimental, browser-based project built with HTML, CSS, and JavaScript, plus a small PHP API for YouTube search, playlist import, and channel playlist discovery. The playback device displays the video, while a phone or second device can act as a remote for searching, selecting tracks, and managing playlists.
+SuperYT is an experimental, browser-based project built with static HTML, CSS, and JavaScript. The playback device displays the video, while a phone or second device can act as a remote for searching, selecting tracks, and managing playlists.
 
 **Testing and experimental use only.** This project is provided as-is, without any guarantee of uninterrupted operation, compatibility, or availability of third-party services. Use it only in ways permitted by applicable law and the terms of the services involved.
 
@@ -31,7 +31,7 @@ Same-browser communication uses `BroadcastChannel` and browser storage events wh
 - **Phone as a remote:** Manage playback and playlists from a second device instead of repeatedly interacting with the main screen.
 - **Content discovery:** Browse categories and search for videos or songs through supported external services.
 - **Favorites:** Keep a list of favorite items in the browser on the device where they were saved.
-- **Minimal setup:** The player and remote are plain HTML/CSS/JavaScript, but search, playlist import, and channel playlists use the bundled PHP API (`api/youtube.php`). Host them on any PHP-capable web server.
+- **Minimal setup:** Static files only — host on GitHub Pages or any static web host. No custom backend required for the app shell.
 - **No project account system:** The project does not require a SuperYT account or a project-managed database. External services may still process connection and request data.
 
 ---
@@ -41,7 +41,7 @@ Same-browser communication uses `BroadcastChannel` and browser storage events wh
 ### Player — `index.html`
 
 - Category-based browsing (Turkish Pop, Turkish Rock, Arabesque, Rap, Slow, International Pop, Classical, Lofi, Popular, and Favorites).
-- Song search through the local PHP API (`api/youtube.php`), which talks to YouTube directly.
+- Text search through configured Invidious instances.
 - Category query variations intended to provide different result sets over time.
 - Favorites stored in browser `localStorage`.
 - Progressive loading of search results (pagination + `IntersectionObserver`).
@@ -60,10 +60,10 @@ Same-browser communication uses `BroadcastChannel` and browser storage events wh
 - Connect with a room code or a QR / deep link (`playlist.html?c=CODE`).
 - **Shuffle mode:** Control the current player flow where supported by sync logic.
 - **Manual mode:** Build and manage a queue from the phone.
-- Browse ready-made playlists pulled from the YouTube Music channel (`UC-9-kyTW8ZkZNDHQJ6FgpwQ`).
-- Search for songs only and add results to the queue.
+- Browse ready-made chart / category playlist options.
+- Search for videos or songs and add results to the queue.
 - Add, remove, reorder, and clear queued items.
-- Import a YouTube playlist into the manual queue through the local PHP API.
+- Import a playlist when the external endpoint provides the required data.
 - Previous / next / play-pause and seek when state is available from the player.
 - Live connection status with reconnection attempts (BroadcastChannel, `localStorage`, PeerJS).
 - Touch-friendly layout for phones and tablets.
@@ -102,8 +102,6 @@ minimal-muzik-main/
 └── LICENSE                         # License information
 ```
 
-The search, playlist import, and channel playlist proxy lives in `api/youtube.php`. Upload the `api` folder together with the HTML files and make sure PHP has cURL enabled.
-
 Confirm that all referenced assets are present before publishing.
 
 ---
@@ -121,7 +119,7 @@ https://YOUR_USER.github.io/YOUR_REPO/
 https://YOUR_USER.github.io/YOUR_REPO/playlist.html
 ```
 
-GitHub Pages is static-only and **cannot run the bundled PHP API**, so search, playlist import, and channel playlists will not work there. Use a PHP-capable host (Apache/Nginx + PHP, XAMPP, or `php -S`) for the full feature set. Playback and cross-device control still depend on external services and browser features.
+No build step or custom backend is required for static hosting. Playback, search, and cross-device control still depend on external services and browser features; GitHub Pages does not operate or guarantee those services.
 
 **HTTPS is required** for reliable PeerJS, camera QR flows, Add to Home Screen / install prompts, and service workers. Opening via `file://` is not recommended.
 
@@ -160,7 +158,7 @@ Same-device sync may fail under `file://`, strict privacy settings, or isolated 
 Serve over HTTP instead of `file://`:
 
 ```bash
-php -S 127.0.0.1:8080
+python -m http.server 8080
 ```
 
 Then open:
@@ -170,7 +168,7 @@ http://localhost:8080/
 http://localhost:8080/playlist.html
 ```
 
-Use PHP's built-in server (or Apache/Nginx with PHP) so `api/youtube.php` can handle search, playlist import, and channel playlist requests. Opening the files through `file://` or a static-only server will break those API calls.
+A static server is enough for the app shell. It does not replace the external services the project calls.
 
 ---
 
@@ -178,7 +176,7 @@ Use PHP's built-in server (or Apache/Nginx with PHP) so `api/youtube.php` can ha
 
 | **Component** | **Implementation / purpose** |
 | --- | --- |
-| Search and metadata | Local PHP API (`api/youtube.php`) using YouTube InnerTube endpoints |
+| Search and metadata | Configured public Invidious instances |
 | Video playback | YouTube IFrame API |
 | Thumbnails | URLs from the external search service / YouTube image hosts |
 | Same-browser sync | `BroadcastChannel` + `localStorage` events |
@@ -201,8 +199,8 @@ Details may change with the source. Check the current files for endpoints, stora
 | **What** | **Where to look** |
 | --- | --- |
 | Categories and search variations | Category / query config in `index.html` |
-| Search API endpoint | `SEARCH_API` in `index2.html` and `playlist.html` |
-| Ready-made playlists | `YT_MUSIC_CHANNEL` in `playlist.html` and the `channel_playlists` action in `api/youtube.php` |
+| Search service instances | Invidious instance list in `index.html` |
+| Ready-made playlists | Playlist / category mappings in `playlist.html` |
 | Room-code behavior | Room constants and storage logic in both HTML files |
 | PeerJS connection behavior | Peer host / client logic in both HTML files |
 | Quality defaults | Quality preference + CSS viewport classes in `index.html` |
@@ -219,7 +217,7 @@ SuperYT does not include its own account system or server-side user database. Th
 
 Depending on features used, requests may go to:
 
-- **YouTube InnerTube** — search, playlist metadata, and channel playlists (proxied by `api/youtube.php`)
+- **Invidious instances** — search and playlist metadata
 - **YouTube / embedded player** — playback
 - **PeerJS infrastructure** — cross-device control
 - **SponsorBlock** — segment data (if enabled)
@@ -241,8 +239,8 @@ Do not enter sensitive or confidential information into the application.
 
 Known limitations include:
 
-- The local PHP API must be reachable and PHP must have cURL enabled; static-only hosting will break search and playlist features.
-- YouTube may rate-limit, change, or block InnerTube requests; search results and playlist metadata can be incomplete or change without notice.
+- Public Invidious instances may be slow, rate-limited, or offline.
+- Search results and playlist metadata can be incomplete or change without notice.
 - YouTube may block playback (region, age, embedding, account rules).
 - Autoplay with sound may require a user gesture.
 - Remote commands cannot force fullscreen or bypass autoplay policies.
@@ -279,7 +277,7 @@ SuperYT is not intended to host copies of copyrighted media and does not grant r
 
 ### 4. Third-party services and trademarks
 
-YouTube, Google, PeerJS, SponsorBlock, QR services, CDN providers, and content hosts are independent third parties. Names are referenced only to describe integrations. No endorsement or partnership is implied.
+YouTube, Google, Invidious operators, PeerJS, SponsorBlock, QR services, CDN providers, and content hosts are independent third parties. Names are referenced only to describe integrations. No endorsement or partnership is implied.
 
 Those services may change terms, restrict access, or become unavailable. Users must follow their current policies.
 
@@ -300,6 +298,7 @@ If you believe material in this repository infringes your rights, contact the re
 ### 8. Legal and service references
 
 - [YouTube Terms of Service](https://www.youtube.com/t/terms)
+- [Invidious project](https://github.com/iv-org/invidious)
 - [PeerJS](https://peerjs.com/)
 - [SponsorBlock](https://sponsor.ajay.app/)
 

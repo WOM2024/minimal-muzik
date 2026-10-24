@@ -1476,9 +1476,7 @@
   <script>
     document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
 
-    // Yerel YouTube arama servisi (Invidious/üçüncü taraf sunucu kullanmaz).
-    // PHP destekli bir sunucuda çalıştırılmalıdır: api/youtube.php
-    const SEARCH_API = "api/youtube.php";
+    const SEARCH_INSTANCES = ["https://invidious.f5.si", "https://yt.chocolatemoo53.com", "https://invidious.nerdvpn.de", "https://invidious.tiekoetter.com"];
     const FAV_KEY = "minimal_yt_favorites";
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
@@ -2620,34 +2618,36 @@
     }
 
     async function fetchSearch(query, page, preferViews) {
-      try {
-        var url =
-          SEARCH_API +
-          "?action=search&q=" +
-          encodeURIComponent(query) +
-          "&type=video&page=" +
-          page +
-          "&region=TR";
+      for (var i = 0; i < SEARCH_INSTANCES.length; i++) {
+        var inst = SEARCH_INSTANCES[i];
+        try {
+          var url =
+            inst +
+            "/api/v1/search?q=" +
+            encodeURIComponent(query) +
+            "&type=video&page=" +
+            page +
+            "&region=TR";
 
-        // Popüler / çok dinlenen için views sıralama
-        if (preferViews) {
-          url += "&sort=views";
+          // Popüler / çok dinlenen için views sıralama
+          if (preferViews) {
+            url += "&sort=views";
+          }
+
+          var res = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+          });
+          if (!res.ok) continue;
+          var data = await res.json();
+          if (!Array.isArray(data)) continue;
+          return data.filter(function(item) {
+            return item.type === "video" && item.videoId;
+          });
+        } catch (e) {
+          console.warn("Search failed:", inst, e);
         }
-
-        var res = await fetch(url, {
-          cache: "no-store",
-          signal: AbortSignal.timeout(30000)
-        });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        var data = await res.json();
-        if (!Array.isArray(data)) throw new Error("Geçersiz arama yanıtı");
-        return data.filter(function(item) {
-          return item.type === "video" && item.videoId;
-        });
-      } catch (e) {
-        console.warn("Search failed:", e);
-        return null;
       }
+      return null;
     }
 
     async function doSearch(query, reset, preferViews) {
