@@ -1201,9 +1201,8 @@
         Sonraki şarkı yükleniyor...
       </div>
 
-      <div id="playerPoster" style="position:absolute;inset:0;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;">
-        <div style="font-size:64px;opacity:0.35;">🎵</div>
-      </div>
+      <!-- poster yok: sadece video player -->
+      <div id="playerPoster" style="display:none;" aria-hidden="true"></div>
 
       <!-- Parent sayfada ses odağı: direksiyon / Bluetooth AVRCP track tuşları için gerekli -->
       <audio id="audioPlayer" playsinline webkit-playsinline preload="auto" loop style="display:none;"></audio>
@@ -3421,10 +3420,7 @@
 
       setPlayerLoading(true, "Yükleniyor...");
       pendingPlayId = id;
-      if (playerPoster) {
-        playerPoster.style.backgroundImage =
-          "url(https://i.ytimg.com/vi/" + id + "/hqdefault.jpg)";
-      }
+      // Poster/resim kullanılmıyor — sadece video player
       loadOfficialYtPlayer(id, !mediaUnlocked, durationSec || _currentLoadDuration || 0);
     }
 
