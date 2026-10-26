@@ -822,17 +822,17 @@
       overflow: hidden; /* cover için kenarları kes */
     }
 
-    /* Video ekranı fit (contain) — tam 16:9 görünsün, YT kalite dişlisi tıklanabilir olsun */
+    /* Video ekranı alanı doldursun (cover) — oran bozulmaz, ortalı */
     #ytplayer,
     #ytplayer-host,
     .player-area iframe {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: min(100%, 177.78vh);   /* 16:9 — ekranı taşırma */
-      height: min(100%, 56.25vw);
-      max-width: 100%;
-      max-height: 100%;
+      width: max(100%, 177.78vh);
+      height: max(100%, 56.25vw);
+      min-width: 100%;
+      min-height: 100%;
       transform: translate(-50%, -50%);
       border: none;
       background: #000;
@@ -1214,7 +1214,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
+        style="position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -3009,7 +3009,7 @@
         host = document.createElement("div");
         host.id = ytHostId;
         host.style.cssText =
-          "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
+          "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
         if (tip && tip.parentNode === area) {
           area.insertBefore(host, tip);
         } else {
@@ -3229,14 +3229,14 @@
       });
     }
 
-    // Video her şarkı değişiminde ve tam ekranda ortalı kalsın
-    var PLAYER_FIT_CSS =
-      "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;";
+    // Cover boyut + ortalama (şarkı değişimi / tam ekran / resize)
+    var PLAYER_COVER_CSS =
+      "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;";
     function centerPlayerMedia() {
       try {
         var host = document.getElementById(ytHostId);
         if (host) {
-          host.style.cssText = PLAYER_FIT_CSS + "display:block;";
+          host.style.cssText = PLAYER_COVER_CSS + "display:block;";
           var inner = host.querySelector("iframe");
           if (inner) {
             inner.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;";
@@ -3244,9 +3244,8 @@
         }
         var old = document.getElementById("ytplayer");
         if (old && old.tagName === "IFRAME" && old.style.display !== "none") {
-          old.style.cssText = PLAYER_FIT_CSS + "display:block;";
+          old.style.cssText = PLAYER_COVER_CSS + "display:block;";
         }
-        // YT API iframe
         try {
           if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
             var fi = ytPlayerInstance.getIframe();
@@ -3344,7 +3343,7 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
               }
             } catch (e3) {}
