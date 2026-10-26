@@ -863,16 +863,25 @@
       aspect-ratio: auto;
     }
 
-    /* Kenar dokunma kapalı */
-    .edge-nav { display: none !important; }
-
-    /* Her zaman aktif kaydırma katmanı (butonların altında) */
-    .swipe-catcher {
+    /* Kenar: sadece yatay KAYDIRMA (tıklama geçmez, video kontrolü orta alanda)
+       Orta alan boş → YouTube kontrolleri tıklanabilir */
+    .edge-nav {
       position: absolute;
-      inset: 0;
+      top: 0;
+      bottom: 0;
+      width: 18%;
       z-index: 20;
+      display: block;
       background: transparent;
       touch-action: pan-y;
+    }
+    .edge-nav.left { left: 0; }
+    .edge-nav.right { right: 0; }
+
+    /* Tam kaplayan catcher YOK — tıklamaları player'a bırakır */
+    .swipe-catcher {
+      display: none !important;
+      pointer-events: none;
     }
 
     .player-loading {
@@ -4304,14 +4313,14 @@
       updateFsIcon();
     })();
 
-    // Yatay kaydırma: kontroller görünsün/gizlensin fark etmez
-    // Ayar paneli / slider / buton üzerindeyken video DEĞİŞMEZ
+    // Yatay KAYDIRMA ile önceki/sonraki (sadece sürükleme, tek dokunuş video değiştirmez)
+    // Orta alan boş → YouTube play/kalite/seek kontrolleri tıklanabilir
+    // Sol/sağ kenar + siyah boşluk: kaydırma algılanır
     (function initPlayerSwipe() {
       var startX = 0, startY = 0, startT = 0;
       var tracking = false;
-      var THRESH = 48;
+      var THRESH = 50;
       var RATIO = 1.5;
-      var catcher = document.getElementById("swipeCatcher");
 
       function isBlockedTarget(el) {
         if (!el || !el.closest) return false;
@@ -4347,6 +4356,7 @@
         var dt = Date.now() - startT;
         if (dt > 900) return;
         var adx = Math.abs(dx), ady = Math.abs(dy);
+        // Sadece gerçek kaydırma — kısa dokunuş / tıklama YOK SAYILIR (player kontrolleri için)
         if (adx < THRESH) return;
         if (ady > 0 && adx < ady * RATIO) return;
         if (dx > 0) playPrev();
@@ -4354,9 +4364,8 @@
       }
       function onCancel() { tracking = false; }
 
-      // Sadece swipe-catcher — playerView'a ekleme (panel event'leri bubble olmasın)
-      var el = catcher || playerView;
-      if (el) {
+      function bindSwipe(el) {
+        if (!el) return;
         el.addEventListener("touchstart", onStart, { passive: true });
         el.addEventListener("touchend", onEnd, { passive: true });
         el.addEventListener("touchcancel", onCancel, { passive: true });
@@ -4366,6 +4375,24 @@
         }, { passive: true });
         el.addEventListener("pointerup", function(e) {
           if (e.pointerType === "touch") return;
+          onEnd(e);
+        }, { passive: true });
+      }
+
+      // Kenarlar: kaydırma için (ortadaki YT kontrollerine engel olmaz)
+      bindSwipe(document.getElementById("edgeNavPrev"));
+      bindSwipe(document.getElementById("edgeNavNext"));
+      // Kontroller gizliyken tam katman (tap layer) üzerinde de kaydırma
+      bindSwipe(document.getElementById("playerChromeTap"));
+      // Normal modda player etrafındaki siyah alan
+      if (playerView) {
+        playerView.addEventListener("touchstart", function(e) {
+          // iframe içinden gelmez; sadece playerView'un kendi boş alanından
+          if (e.target !== playerView && !(e.target && e.target.classList && e.target.classList.contains("player-area"))) return;
+          onStart(e);
+        }, { passive: true });
+        playerView.addEventListener("touchend", function(e) {
+          if (e.target !== playerView && !(e.target && e.target.classList && e.target.classList.contains("player-area"))) return;
           onEnd(e);
         }, { passive: true });
       }
