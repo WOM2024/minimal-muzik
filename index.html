@@ -826,8 +826,8 @@
     }
 
     /*
-      Video alanı tamamen doldursun (cover) — siyah şerit yok, ortalı
-      Normal + tam ekran aynı mantık; taşan kısım kırpılır
+      Normal: küçük ortalı player
+      Tam ekran: alanı dolduran büyük player (cover, siyah şerit yok)
     */
     #ytplayer,
     #ytplayer-host,
@@ -836,27 +836,44 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: max(100%, 177.78vh);
-      height: max(100%, 56.25vw);
-      min-width: 100%;
-      min-height: 100%;
+      width: min(92vw, calc(56vh * 16 / 9));
+      height: auto;
+      aspect-ratio: 16 / 9;
+      max-width: 92%;
+      max-height: 56vh;
       border: none;
       background: #000;
     }
 
-    /* Kontroller gizliyken sol/sağ kenar: önceki / sonraki */
-    .edge-nav {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 22%;
-      z-index: 26;
-      display: none;
-      background: transparent;
+    :fullscreen #ytplayer,
+    :fullscreen #ytplayer-host,
+    :fullscreen .player-area iframe,
+    :-webkit-full-screen #ytplayer,
+    :-webkit-full-screen #ytplayer-host,
+    :-webkit-full-screen .player-area iframe,
+    #playerView.is-fullscreen #ytplayer,
+    #playerView.is-fullscreen #ytplayer-host,
+    #playerView.is-fullscreen .player-area iframe {
+      width: max(100%, 177.78vh);
+      height: max(100%, 56.25vw);
+      min-width: 100%;
+      min-height: 100%;
+      max-width: none;
+      max-height: none;
+      aspect-ratio: auto;
     }
-    .edge-nav.left { left: 0; }
-    .edge-nav.right { right: 0; }
-    .edge-nav.active { display: block; }
+
+    /* Kenar dokunma kapalı */
+    .edge-nav { display: none !important; }
+
+    /* Her zaman aktif kaydırma katmanı (butonların altında) */
+    .swipe-catcher {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: transparent;
+      touch-action: pan-y;
+    }
 
     .player-loading {
       display: none;
@@ -1216,6 +1233,7 @@
 
     <div class="player-area">
       <div class="player-dim-overlay" id="playerDimOverlay"></div>
+      <div class="swipe-catcher" id="swipeCatcher" aria-hidden="true"></div>
       <div class="player-chrome-tap" id="playerChromeTap" aria-hidden="true"></div>
       <div class="edge-nav left" id="edgeNavPrev" aria-label="Önceki video"></div>
       <div class="edge-nav right" id="edgeNavNext" aria-label="Sonraki video"></div>
@@ -1235,7 +1253,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;border:none;background:#000;z-index:1;display:none;"
+        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -3030,7 +3048,7 @@
         host = document.createElement("div");
         host.id = ytHostId;
         host.style.cssText =
-          "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;background:#000;z-index:1;";
+          "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;background:#000;z-index:1;";
         if (tip && tip.parentNode === area) {
           area.insertBefore(host, tip);
         } else {
@@ -3257,10 +3275,12 @@
                 (playerView && playerView.classList.contains("is-fullscreen")));
     }
     function playerBoxCss(displayBlock) {
-      // Cover: siyah şerit yok, alan tamamen dolu, ortalı
+      var fs = isPageFullscreen();
+      var size = fs
+        ? "width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;"
+        : "width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;";
       return "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
-        "width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;" +
-        "border:none;background:#000;z-index:1;" +
+        size + "border:none;background:#000;z-index:1;" +
         (displayBlock ? "display:block;" : "");
     }
     function centerPlayerMedia() {
@@ -3377,7 +3397,7 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                iframe.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;border:none;background:#000;z-index:1;display:block;";
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
               }
             } catch (e3) {}
@@ -4063,23 +4083,11 @@
       syncSecondsUI();
 
       var tapLayer = document.getElementById("playerChromeTap");
-      var edgePrev = document.getElementById("edgeNavPrev");
-      var edgeNext = document.getElementById("edgeNavNext");
 
       function setTapLayer(on) {
-        if (tapLayer) {
-          if (on) tapLayer.classList.add("active");
-          else tapLayer.classList.remove("active");
-        }
-        // Kontroller gizliyken sol/sağ kenar ile önceki/sonraki
-        if (edgePrev) {
-          if (on) edgePrev.classList.add("active");
-          else edgePrev.classList.remove("active");
-        }
-        if (edgeNext) {
-          if (on) edgeNext.classList.add("active");
-          else edgeNext.classList.remove("active");
-        }
+        if (!tapLayer) return;
+        if (on) tapLayer.classList.add("active");
+        else tapLayer.classList.remove("active");
       }
 
       function showChrome() {
@@ -4096,40 +4104,51 @@
         }, hideSec * 1000);
       }
 
-      // Kenar tıklama: önceki / sonraki (kontroller gizliyken)
-      if (edgePrev) {
-        edgePrev.addEventListener("click", function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          playPrev();
-          showChrome();
-        });
-      }
-      if (edgeNext) {
-        edgeNext.addEventListener("click", function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          playNext();
-          showChrome();
-        });
-      }
-
       function onInteract() {
         if (!view || !view.classList.contains("active")) return;
         showChrome();
       }
 
+      // Kontroller gizliyken: kısa dokunuş = chrome aç; yatay kaydırma = önceki/sonraki
       if (tapLayer) {
+        var tlX = 0, tlY = 0, tlT = 0, tlMoved = false;
+        tapLayer.addEventListener("touchstart", function(e) {
+          var t = e.touches && e.touches[0];
+          if (!t) return;
+          tlX = t.clientX; tlY = t.clientY; tlT = Date.now(); tlMoved = false;
+        }, { passive: true });
+        tapLayer.addEventListener("touchmove", function(e) {
+          var t = e.touches && e.touches[0];
+          if (!t) return;
+          if (Math.abs(t.clientX - tlX) > 12 || Math.abs(t.clientY - tlY) > 12) tlMoved = true;
+        }, { passive: true });
+        tapLayer.addEventListener("touchend", function(e) {
+          var t = e.changedTouches && e.changedTouches[0];
+          if (!t) { showChrome(); return; }
+          var dx = t.clientX - tlX;
+          var dy = t.clientY - tlY;
+          var dt = Date.now() - tlT;
+          var adx = Math.abs(dx), ady = Math.abs(dy);
+          // Yatay kaydırma → video değiştir (kontroller gizli/görünür fark etmez)
+          if (dt < 900 && adx >= 48 && adx > ady * 1.4) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dx > 0) playPrev();
+            else playNext();
+            return;
+          }
+          // Kısa dokunuş → kontrolleri göster
+          if (!tlMoved || (adx < 12 && ady < 12)) {
+            e.preventDefault();
+            e.stopPropagation();
+            showChrome();
+          }
+        }, { passive: false });
         tapLayer.addEventListener("click", function(e) {
           e.preventDefault();
           e.stopPropagation();
           showChrome();
         });
-        tapLayer.addEventListener("touchend", function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          showChrome();
-        }, { passive: false });
       }
 
       if (view) {
@@ -4265,21 +4284,17 @@
       updateFsIcon();
     })();
 
-    // Video izleme ekranında yatay kaydırma: sağa = önceki, sola = sonraki
+    // Yatay kaydırma: kontroller görünsün/gizlensin fark etmez — her zaman çalışır
+    // Dokunarak (tap) video değiştirmez; sadece kaydırma + butonlar
     (function initPlayerSwipe() {
       var startX = 0, startY = 0, startT = 0;
       var tracking = false;
-      var THRESH = 48; // min yatay px
-      var RATIO = 1.6; // |dx| en az |dy| * RATIO kadar olmalı
-
-      function isInteractiveTarget(el) {
-        if (!el || !el.closest) return false;
-        return !!el.closest("button, a, input, select, textarea, .player-nav, .player-top, .bright-panel-idx, .voice-search-panel");
-      }
+      var THRESH = 48;
+      var RATIO = 1.5;
+      var catcher = document.getElementById("swipeCatcher");
 
       function onStart(e) {
         if (!playerView || !playerView.classList.contains("active")) return;
-        if (isInteractiveTarget(e.target)) { tracking = false; return; }
         var t = e.touches && e.touches[0] ? e.touches[0] : e;
         startX = t.clientX;
         startY = t.clientY;
@@ -4296,28 +4311,27 @@
         if (dt > 900) return;
         var adx = Math.abs(dx), ady = Math.abs(dy);
         if (adx < THRESH) return;
-        // Yatay baskın olmalı
         if (ady > 0 && adx < ady * RATIO) return;
-        // sağa kaydır (dx > 0) → önceki; sola (dx < 0) → sonraki
+        // sağa = önceki, sola = sonraki
         if (dx > 0) playPrev();
         else playNext();
       }
       function onCancel() { tracking = false; }
 
-      if (playerView) {
-        playerView.addEventListener("touchstart", onStart, { passive: true, capture: true });
-        playerView.addEventListener("touchend", onEnd, { passive: true, capture: true });
-        playerView.addEventListener("touchcancel", onCancel, { passive: true, capture: true });
-        // mouse ile de (masaüstü)
-        playerView.addEventListener("pointerdown", function(e) {
+      var targets = [catcher, playerView].filter(Boolean);
+      targets.forEach(function(el) {
+        el.addEventListener("touchstart", onStart, { passive: true });
+        el.addEventListener("touchend", onEnd, { passive: true });
+        el.addEventListener("touchcancel", onCancel, { passive: true });
+        el.addEventListener("pointerdown", function(e) {
           if (e.pointerType === "touch") return;
           onStart(e);
         }, { passive: true });
-        playerView.addEventListener("pointerup", function(e) {
+        el.addEventListener("pointerup", function(e) {
           if (e.pointerType === "touch") return;
           onEnd(e);
         }, { passive: true });
-      }
+      });
     })();
 
     // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
