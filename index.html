@@ -697,10 +697,22 @@
       padding: 16px 18px 14px;
       z-index: 50;
       width: min(300px, 92vw);
+      max-height: min(72vh, 520px);
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
       backdrop-filter: blur(12px);
     }
     .bright-panel-idx.show { display: block; animation: panel-in .2s ease; }
+    @media (orientation: landscape) {
+      .bright-panel-idx {
+        top: 48px;
+        max-height: calc(100vh - 64px);
+        width: min(340px, 88vw);
+      }
+    }
     @keyframes panel-in {
       from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -879,8 +891,11 @@
       border-color: #ff2d55;
     }
 
-    /* Kenar: sadece yatay KAYDIRMA (tıklama geçmez, video kontrolü orta alanda)
-       Orta alan boş → YouTube kontrolleri tıklanabilir */
+    /*
+      Kenar katmanları YouTube kalite dişlisini engelliyordu.
+      Tıklama geçsin diye pointer-events: none — kaydırma chrome gizliyken
+      playerChromeTap üzerinden çalışır.
+    */
     .edge-nav {
       position: absolute;
       top: 0;
@@ -889,7 +904,8 @@
       z-index: 20;
       display: block;
       background: transparent;
-      touch-action: pan-y;
+      pointer-events: none !important;
+      touch-action: none;
     }
     .edge-nav.left { left: 0; }
     .edge-nav.right { right: 0; }
@@ -897,7 +913,7 @@
     /* Tam kaplayan catcher YOK — tıklamaları player'a bırakır */
     .swipe-catcher {
       display: none !important;
-      pointer-events: none;
+      pointer-events: none !important;
     }
 
     .player-loading {
