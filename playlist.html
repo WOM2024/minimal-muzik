@@ -1105,6 +1105,8 @@
       <button type="button" id="plSearchBtn">Ara</button>
     </div>
 
+    <div class="pl-cats" id="plCats" style="display:none;flex-wrap:wrap;gap:6px;padding:0 12px 8px;"></div>
+
     <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
     <div class="scroll-area" id="scrollArea"></div>
 
@@ -1172,58 +1174,94 @@
     const FAV_KEY = "minimal_muzik_favs";
 
     const YT_MUSIC_CHANNEL = "UC-9-kyTW8ZkZNDHQJ6FgpwQ";
-    const YT_CHARTS_AUTHOR = "YouTube Music Global Charts";
+    const YT_CHARTS_AUTHOR = "YouTube Music";
+    const PIPED_INSTANCES = [
+      "https://api.piped.private.coffee",
+      "https://pipedapi.adminforge.de",
+      "https://pipedapi.kavin.rocks"
+    ];
 
+    // TR kanal rafları (UC-9-kyTW8ZkZNDHQJ6FgpwQ, gl=TR)
+    // Liste ID sabit; şarkı içeriği her içe aktarımda canlı çekilir (güncel kalır)
     const CATEGORY_PLAYLISTS = {
-      "populer": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn48eLKe4-ToW1youy18Othb", title: "Weekly Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
+      "yaz": [
+        { playlistId: "RDCLAK5uy_l_zj11FqAjDdNoqfqF_MFdmUiCJFO-ekc", title: "Yaz 2026", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kgyVskAlUmfLTyLNEHBP915OwdV5XzY2E", title: "Yaz 2025", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_msKGdNoadC2wMeSYnawaIEKl0k3-NLsC0", title: "Yaz 2024", author: YT_CHARTS_AUTHOR }
       ],
-      "turkce-pop": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "Top 100 Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6K25Wo9fqy6bQLluWfvC61", title: "Daily Top Music Videos — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "yeni": [
+        { playlistId: "RDCLAK5uy_ncwbM766_rhOk_JllLnAXmv_5v21_b2bc", title: "RELEASED", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_k31GPZp_nSsHeJEniR4MqtqFBRJatI-JI", title: "Yeni Türkçe Pop", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_n2YZ2tg_cPKwwuyYdZJwHHRG6pjc6DpTA", title: "Yeni Türkçe Rap", author: YT_CHARTS_AUTHOR }
       ],
-      "turkce-rock": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye (Rock karışık chart)", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "hit": [
+        { playlistId: "RDCLAK5uy_kplYm7rOpLU7HMTWiuKRt3LB5gg9IH9jQ", title: "2026'nın Hitleri (Şimdiye Kadar)", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_n7OdwqgA4C6ewA6dD-YAXJEqUC0lPHqUA", title: "Hit Şarkılar Türkiye", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_n1j1GACZO4o7U1m708pa7jV1q7zR-cY44", title: "FLAŞ Turkish Pop", author: YT_CHARTS_AUTHOR }
       ],
       "arabesk": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+        { playlistId: "RDCLAK5uy_nE4CrcCrDmLla_yf1amsKeskZwKmzFV0c", title: "Arabesk Rock", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_l_OoFwPbm0VooI2_KA7IlIlfXwK_Z3YyM", title: "Fantezi Krallığı", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_lJebAEX__xHcXQfubdlhrrHtG5zR4PTBc", title: "Arabesk Pop Hitleri", author: YT_CHARTS_AUTHOR }
+      ],
+      "indie": [
+        { playlistId: "RDCLAK5uy_l2Y9mrA559EY5tfe8kK8YxdUVR0rADYBI", title: "Sakin Türkçe Indie", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_ndRnLUnP0uZJVUzS607uhNvdeCQjXj3qE", title: "Avaz Avaz Türkçe Indie", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kha4t7zxJWIbFQonE6cWE6v144KJkqJQ0", title: "Türkçe Post-Punk & Darkwave", author: YT_CHARTS_AUTHOR }
+      ],
+      "mod": [
+        { playlistId: "RDCLAK5uy_kB1PM1GFKy0KLYd3C5oZ59KHN-q2JcRRg", title: "Türkiye'den Elektronik Müzik", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_nn7TrLh_PhbQirSe-UOw4Plnc68htwELs", title: "New Anatolian Wave", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_k01s16yKt3DF85A_c7ZyiJ042HgbLqMdI", title: "Rota Oluşturuldu", author: YT_CHARTS_AUTHOR }
+      ],
+      "turkce-pop": [
+        { playlistId: "RDCLAK5uy_nX6UmhaEyaWe200N_vATudKrScwKqiawI", title: "Türkçe Pop Partisi", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kmxYMUgERVjuxoAPA_WgY6f036fkLCTMI", title: "Neşeli Türkçe Pop", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_nqmfME1gwNMEd-b-9rSttKi306K2ogh7Y", title: "Slow Türkçe Pop", author: YT_CHARTS_AUTHOR }
       ],
       "rap": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn59hyJwXYE-_65OUiNdtnjO", title: "Daily Top Songs on Shorts — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 50 }
+        { playlistId: "RDCLAK5uy_l63FFr2xGnXGVPfOWTNtAirWzsmZW_fBU", title: "Türkçe Trap Partisi", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kB6tJoV5Jad0LvzVhWWN_XnOZH4iTYSjA", title: "Türkçe Rap Kardiyo", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_lByOu5SN-hvLkhkgwr7yKau4lFHVk6mOc", title: "Türkçe Drill Partisi", author: YT_CHARTS_AUTHOR }
       ],
-      "slow": [
-        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "turkce-rock": [
+        { playlistId: "RDCLAK5uy_nkN2Fde5lIJN38ta7Tyvr8Uona03aHnRo", title: "Anadolu Rock Klasikleri", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_mU1mi2mlNym0yTsQsFnrPRsQdDcS6-y6k", title: "Türkçe Rock Yol Şarkıları", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_m5iRJRUhtLWAf7JWYFNb3ANZkuxMK9yrw", title: "Güncel Türkçe Rock", author: YT_CHARTS_AUTHOR }
       ],
-      "yabanci-pop": [
-        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn50iCQRUVmgUjOrCggCQ9nR", title: "Top 100 Music Videos — France", author: YT_CHARTS_AUTHOR, videoCount: 100 },
-        { playlistId: "PL4fGSI1pDJn5BPviUFX4a3IMnAgyknC68", title: "Top 100 Music Videos — Italy", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "turku": [
+        { playlistId: "RDCLAK5uy_n0BEng8y9HmKm6-moud8jAQ9RkE7Ie1G4", title: "Eskimeyen Türküler", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kKlrieyjRMawRNWejYDgUiWUr6OSoCp-4", title: "Akustik Türküler", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_m_nTTDNmqZqV2E3Trgyxz8f-d_my9YSZk", title: "Ağla Sazım", author: YT_CHARTS_AUTHOR }
       ],
-      "klasik": [
-        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "Top 100 Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "donemler": [
+        { playlistId: "RDCLAK5uy_mhLCwdOhIfhWnBCZnN-B22eC2TbgXooqM", title: "Türkçe 1990'lar", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_kjQJh9d85PwdTFi8V03RleRqWdE6_17vo", title: "Eskimeyen Türkçe Akustik", author: YT_CHARTS_AUTHOR },
+        { playlistId: "RDCLAK5uy_mo6Yju-l1p19WsGcI9OjTMgyCZarfyEIk", title: "Türkçe 2010'lar", author: YT_CHARTS_AUTHOR }
       ],
-      "lofi": [
-        { playlistId: "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0", title: "Daily Top Music Videos — Global", author: YT_CHARTS_AUTHOR, videoCount: 100 }
+      "listeler": [
+        { playlistId: "PL4fGSI1pDJn6rnJKpaAkK1XK8QUfa9KqP", title: "En Popüler 100 Müzik Videosu - Türkiye", author: "YouTube Music Global Charts", videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn5tdVDtIAZArERm_vv4uFCR", title: "Top 100 Songs — Türkiye", author: "YouTube Music Global Charts", videoCount: 100 },
+        { playlistId: "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM", title: "En Popüler 100 Global Müzik Videosu", author: "YouTube Music Global Charts", videoCount: 100 }
       ]
     };
 
-    const CATEGORY_PLAYLIST_SEARCH = {
-      "turkce-pop": "türkçe pop playlist",
-      "turkce-rock": "türkçe rock playlist",
-      "arabesk": "arabesk playlist",
-      "rap": "türkçe rap playlist",
-      "slow": "slow şarkılar playlist",
-      "yabanci-pop": "pop hits playlist 2025",
-      "klasik": "classical music playlist",
-      "lofi": "lofi hip hop playlist",
-      "populer": "türkiye top 100 playlist"
+    const CATEGORY_LABELS = {
+      yaz: "Yaz",
+      yeni: "Yeni Şarkılar",
+      hit: "Hit Şarkılar",
+      arabesk: "Arabesk",
+      indie: "Türkçe İndie",
+      mod: "Moduna Göre",
+      "turkce-pop": "Türkçe Pop",
+      rap: "Türkçe Rap & Trap",
+      "turkce-rock": "Türkçe Rock",
+      turku: "Türkü",
+      donemler: "Dönemler",
+      listeler: "Listeler"
     };
+
+    const CATEGORY_PLAYLIST_SEARCH = {};
 
     let roomCode = "";
     let peer = null;
@@ -2287,7 +2325,7 @@
       if (activeTab === "ready") {
         listLabel.textContent = importing
           ? "İçe aktarılıyor…"
-          : "YouTube Music listeleri";
+          : "Keşfet · kategori seç → listeyi Listem'e aktar";
         if (searchLoading) {
           scrollArea.innerHTML = '<div class="loading-q">Playlistler yükleniyor…</div>';
           return;
@@ -2409,6 +2447,49 @@
       return null;
     }
 
+    async function fetchPlaylistVideos(playlistId) {
+      // 1) Invidious (PL… listeleri)
+      var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId));
+      if (data && Array.isArray(data.videos) && data.videos.length) {
+        return data.videos.map(function(v) {
+          return { id: v.videoId, title: v.title || "", author: v.author || "" };
+        }).filter(function(v) { return !!v.id; });
+      }
+      // 2) Piped (RDCLAK… YouTube Music rafları)
+      for (var i = 0; i < PIPED_INSTANCES.length; i++) {
+        try {
+          var res = await fetch(PIPED_INSTANCES[i] + "/playlists/" + encodeURIComponent(playlistId), {
+            signal: AbortSignal.timeout(12000)
+          });
+          if (!res.ok) continue;
+          var pj = await res.json();
+          var streams = pj.relatedStreams || pj.videos || [];
+          if (!Array.isArray(streams) || !streams.length) continue;
+          return streams.map(function(s) {
+            var id = s.id || "";
+            if (!id && s.url) {
+              var m = String(s.url).match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+              if (m) id = m[1];
+              if (!id) {
+                var m2 = String(s.url).match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
+                if (m2) id = m2[1];
+              }
+              if (!id) {
+                var m3 = String(s.url).match(/\/([a-zA-Z0-9_-]{11})$/);
+                if (m3) id = m3[1];
+              }
+            }
+            return {
+              id: id,
+              title: s.title || s.name || "",
+              author: s.uploaderName || s.uploader || s.author || ""
+            };
+          }).filter(function(v) { return !!v.id; });
+        } catch (e) {}
+      }
+      return null;
+    }
+
     async function importFullPlaylist(playlistId, title, btn) {
       if (importing || !playlistId) return;
       importing = true;
@@ -2418,7 +2499,7 @@
       }
       listLabel.textContent = "İçe aktarılıyor: " + (title || "");
 
-      var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId));
+      var videos = await fetchPlaylistVideos(playlistId);
       importing = false;
 
       if (btn) {
@@ -2426,19 +2507,20 @@
         btn.textContent = "Seç";
       }
 
-      if (!data || !Array.isArray(data.videos)) {
+      if (!videos || !videos.length) {
         listLabel.textContent = "İçe aktarma başarısız";
+        showToast("Liste alınamadı, tekrar dene");
         return;
       }
 
-      // Mevcut listeyi sil, seçilen listenin şarkılarını koy
+      // Mevcut listeyi sil, seçilen listenin güncel şarkılarını koy
       manualQueue = [];
       var seen = {};
-      data.videos.forEach(function(v) {
-        if (!v.videoId || seen[v.videoId]) return;
-        seen[v.videoId] = true;
+      videos.forEach(function(v) {
+        if (!v.id || seen[v.id]) return;
+        seen[v.id] = true;
         manualQueue.push({
-          id: v.videoId,
+          id: v.id,
           title: v.title || "",
           author: v.author || ""
         });
@@ -2449,9 +2531,10 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "playlist");
       });
+      if (plCats) plCats.style.display = "none";
       updateManualChrome();
       renderList();
-      showToast(manualQueue.length ? (manualQueue.length + " şarkı yüklendi") : "Liste boş");
+      showToast(manualQueue.length ? (manualQueue.length + " şarkı yüklendi · Listem") : "Liste boş");
       if (manualQueue.length) {
         var first = manualQueue[0];
         sendCommand({ type: "play", id: first.id, title: first.title, author: first.author });
@@ -2509,25 +2592,48 @@
       renderList();
     }
 
+    function ensureReadyCats(activeKey) {
+      if (!plCats) return;
+      var keys = Object.keys(CATEGORY_PLAYLISTS);
+      if (!plCats.dataset.built) {
+        plCats.innerHTML = keys.map(function(k) {
+          return '<button type="button" class="cat" data-cat="' + k + '" style="border:1px solid rgba(255,255,255,0.12);background:#222;color:#eee;border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;">' +
+            (CATEGORY_LABELS[k] || k) +
+            "</button>";
+        }).join("");
+        plCats.dataset.built = "1";
+        plCats.querySelectorAll(".cat").forEach(function(cat) {
+          cat.addEventListener("click", function() {
+            loadReadyPlaylists(cat.dataset.cat);
+          });
+        });
+      }
+      plCats.style.display = "flex";
+      plCats.querySelectorAll(".cat").forEach(function(c) {
+        var on = c.dataset.cat === activeKey;
+        c.classList.toggle("active", on);
+        c.style.background = on ? "#ff2d55" : "#222";
+        c.style.color = on ? "#000" : "#eee";
+        c.style.fontWeight = on ? "700" : "500";
+      });
+    }
+
     async function loadReadyPlaylists(catKey) {
-      catKey = catKey || "populer";
+      var keys = Object.keys(CATEGORY_PLAYLISTS);
+      catKey = catKey || keys[0] || "yaz";
+      if (!CATEGORY_PLAYLISTS[catKey]) catKey = keys[0];
       searchLoading = true;
       activeTab = "ready";
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "ready");
       });
       updateManualChrome();
-      if (plCats) {
-        plCats.querySelectorAll(".cat").forEach(function(c) {
-          c.classList.toggle("active", c.dataset.cat === catKey);
-        });
-      }
+      ensureReadyCats(catKey);
       renderList();
 
-      // SADECE sabit YouTube Music Charts (UC-9-kyTW8ZkZNDHQJ6FgpwQ) playlistleri.
-      // Rastgele arama sonucu eklenmez — resmi chart listeleri gelsin.
-      // Playlist ID sabit; şarkılar her açılışta /api/v1/playlists ile güncel gelir.
-      var found = (CATEGORY_PLAYLISTS[catKey] || CATEGORY_PLAYLISTS["populer"] || []).map(function(p) {
+      // Kategori playlistleri (TR YouTube Music rafları)
+      // ID sabit; seçilince şarkılar canlı çekilir → YouTube güncellemesi yansır
+      var found = (CATEGORY_PLAYLISTS[catKey] || []).map(function(p) {
         return {
           playlistId: p.playlistId,
           title: p.title,
@@ -2535,20 +2641,6 @@
           videoCount: p.videoCount || 0
         };
       });
-
-      // Resmi playlist başlık / video sayısını tazelemeyi dene (başarısız olursa sabit kalır)
-      try {
-        for (var i = 0; i < Math.min(found.length, 4); i++) {
-          (function(pl) {
-            fetchApi("/api/v1/playlists/" + encodeURIComponent(pl.playlistId)).then(function(info) {
-              if (!info || !info.title) return;
-              pl.title = info.title || pl.title;
-              if (info.videoCount) pl.videoCount = info.videoCount;
-              if (activeTab === "ready") renderList();
-            }).catch(function() {});
-          })(found[i]);
-        }
-      } catch (e) {}
 
       readyPlaylists = found;
       searchLoading = false;
@@ -3454,21 +3546,13 @@
         updateManualChrome();
         updateSearchPlaceholder();
         if (activeTab === "ready") {
-          if (!readyPlaylists.length) loadReadyPlaylists("populer");
-          else renderList();
+          loadReadyPlaylists(Object.keys(CATEGORY_PLAYLISTS)[0] || "yaz");
         } else {
+          if (plCats) plCats.style.display = "none";
           renderList();
         }
       });
     });
-
-    if (plCats) {
-      plCats.querySelectorAll(".cat").forEach(function(cat) {
-        cat.addEventListener("click", function() {
-          loadReadyPlaylists(cat.dataset.cat);
-        });
-      });
-    }
 
     function runSearch() {
       var q = (plSearch.value || "").trim();
