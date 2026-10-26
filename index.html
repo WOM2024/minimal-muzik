@@ -1214,7 +1214,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
+        style="position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -3009,7 +3009,7 @@
         host = document.createElement("div");
         host.id = ytHostId;
         host.style.cssText =
-          "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
+          "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
         if (tip && tip.parentNode === area) {
           area.insertBefore(host, tip);
         } else {
@@ -3153,6 +3153,7 @@
         function finishLoadSuccess(target) {
           if (myToken !== _loadToken) return;
           pendingPlayId = null;
+          centerPlayerMedia();
           applyMuteAndPlay(target || ytPlayerInstance);
           // Loading KAPATMA — YT ortadaki pause butonu görünmesin;
           // sadece PLAYING (veya watchdog) kapatır
@@ -3227,6 +3228,41 @@
         loadOfficialYtPlayer._recreate(id, wantMute, durationSec, myToken);
       });
     }
+
+    // Video her şarkı değişiminde ve tam ekranda ortalı kalsın
+    var PLAYER_FIT_CSS =
+      "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;";
+    function centerPlayerMedia() {
+      try {
+        var host = document.getElementById(ytHostId);
+        if (host) {
+          host.style.cssText = PLAYER_FIT_CSS + "display:block;";
+          var inner = host.querySelector("iframe");
+          if (inner) {
+            inner.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;";
+          }
+        }
+        var old = document.getElementById("ytplayer");
+        if (old && old.tagName === "IFRAME" && old.style.display !== "none") {
+          old.style.cssText = PLAYER_FIT_CSS + "display:block;";
+        }
+        // YT API iframe
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
+            var fi = ytPlayerInstance.getIframe();
+            if (fi && fi.parentNode) {
+              fi.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;";
+            }
+          }
+        } catch (e2) {}
+      } catch (e) {}
+    }
+    window.addEventListener("resize", function() {
+      if (playerView && playerView.classList.contains("active")) centerPlayerMedia();
+    });
+    window.addEventListener("orientationchange", function() {
+      setTimeout(centerPlayerMedia, 100);
+    });
 
     // Player sıfırdan oluştur (loadOfficialYtPlayer içinden / watchdog'tan)
     loadOfficialYtPlayer._recreate = function(id, wantMute, durationSec, myToken) {
@@ -3308,7 +3344,7 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:min(100%,177.78vh);height:min(100%,56.25vw);max-width:100%;max-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
               }
             } catch (e3) {}
@@ -4157,7 +4193,12 @@
         toggleFs();
       });
       ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"].forEach(function(ev) {
-        document.addEventListener(ev, updateFsIcon);
+        document.addEventListener(ev, function() {
+          updateFsIcon();
+          // Tam ekran geçişinde videoyu yeniden ortala
+          setTimeout(centerPlayerMedia, 50);
+          setTimeout(centerPlayerMedia, 250);
+        });
       });
       updateFsIcon();
     })();
@@ -4166,11 +4207,17 @@
     (function initPlayerSwipe() {
       var startX = 0, startY = 0, startT = 0;
       var tracking = false;
-      var THRESH = 60; // min px
-      var MAX_VERTICAL = 80; // dikey kaydırma ise yoksay
+      var THRESH = 48; // min yatay px
+      var RATIO = 1.6; // |dx| en az |dy| * RATIO kadar olmalı
+
+      function isInteractiveTarget(el) {
+        if (!el || !el.closest) return false;
+        return !!el.closest("button, a, input, select, textarea, .player-nav, .player-top, .bright-panel-idx, .voice-search-panel");
+      }
 
       function onStart(e) {
         if (!playerView || !playerView.classList.contains("active")) return;
+        if (isInteractiveTarget(e.target)) { tracking = false; return; }
         var t = e.touches && e.touches[0] ? e.touches[0] : e;
         startX = t.clientX;
         startY = t.clientY;
@@ -4184,9 +4231,11 @@
         var dx = t.clientX - startX;
         var dy = t.clientY - startY;
         var dt = Date.now() - startT;
-        if (dt > 800) return;
-        if (Math.abs(dy) > MAX_VERTICAL) return;
-        if (Math.abs(dx) < THRESH) return;
+        if (dt > 900) return;
+        var adx = Math.abs(dx), ady = Math.abs(dy);
+        if (adx < THRESH) return;
+        // Yatay baskın olmalı
+        if (ady > 0 && adx < ady * RATIO) return;
         // sağa kaydır (dx > 0) → önceki; sola (dx < 0) → sonraki
         if (dx > 0) playPrev();
         else playNext();
@@ -4194,12 +4243,12 @@
       function onCancel() { tracking = false; }
 
       if (playerView) {
-        playerView.addEventListener("touchstart", onStart, { passive: true });
-        playerView.addEventListener("touchend", onEnd, { passive: true });
-        playerView.addEventListener("touchcancel", onCancel, { passive: true });
+        playerView.addEventListener("touchstart", onStart, { passive: true, capture: true });
+        playerView.addEventListener("touchend", onEnd, { passive: true, capture: true });
+        playerView.addEventListener("touchcancel", onCancel, { passive: true, capture: true });
         // mouse ile de (masaüstü)
         playerView.addEventListener("pointerdown", function(e) {
-          if (e.pointerType === "touch") return; // touch zaten handle
+          if (e.pointerType === "touch") return;
           onStart(e);
         }, { passive: true });
         playerView.addEventListener("pointerup", function(e) {
@@ -4479,6 +4528,10 @@
       }
       function cleanup() {
         if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        if (webSpeechRec) {
+          try { webSpeechRec.onresult = null; webSpeechRec.onerror = null; webSpeechRec.onend = null; webSpeechRec.abort(); } catch (eW) {}
+          webSpeechRec = null;
+        }
         try { if (processorNode) { processorNode.onaudioprocess = null; processorNode.disconnect(); } } catch (e) {}
         processorNode = null;
         try { if (sourceNode) sourceNode.disconnect(); } catch (e2) {}
@@ -4511,15 +4564,73 @@
           hideOverlay(900);
         }
       }
-      function startListen() {
-        if (busy) return;
-        busy = true;
-        applied = false;
-        lastPartial = "";
-        setListening(true);
-        // Mikrofon açılınca çalan şarkıyı durdur
-        try { msPause(); } catch (eP) {}
-        showOverlay("Dinliyorum…");
+      // Tarayıcı Web Speech API (model indirme yok, TR desteği iyi) — öncelikli
+      var webSpeechRec = null;
+      function startWebSpeech() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return false;
+        try {
+          if (webSpeechRec) {
+            try { webSpeechRec.abort(); } catch (eA) {}
+            webSpeechRec = null;
+          }
+          var rec = new SR();
+          webSpeechRec = rec;
+          rec.lang = "tr-TR";
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+          rec.continuous = false;
+          var gotFinal = false;
+          rec.onresult = function(ev) {
+            var text = "";
+            for (var i = ev.resultIndex; i < ev.results.length; i++) {
+              var r = ev.results[i];
+              if (r[0] && r[0].transcript) text += r[0].transcript;
+              if (r.isFinal) gotFinal = true;
+            }
+            text = String(text || "").trim();
+            if (text) {
+              lastPartial = text;
+              setTranscript(text);
+            }
+            if (gotFinal && text) stopListen(text);
+          };
+          rec.onerror = function() {
+            if (!gotFinal) {
+              // Web Speech başarısız → Vosk'a düş
+              try { rec.abort(); } catch (e) {}
+              webSpeechRec = null;
+              startVoskListen();
+            }
+          };
+          rec.onend = function() {
+            if (!gotFinal && lastPartial) stopListen(lastPartial);
+            else if (!gotFinal && listening) {
+              // boş bitti, Vosk dene
+              webSpeechRec = null;
+              startVoskListen();
+            }
+          };
+          rec.start();
+          listenTimer = setTimeout(function() {
+            if (!gotFinal) {
+              try { rec.stop(); } catch (eS) {}
+              if (lastPartial) stopListen(lastPartial);
+              else {
+                try { rec.abort(); } catch (e2) {}
+                webSpeechRec = null;
+                startVoskListen();
+              }
+            }
+          }, LISTEN_MS + 800);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function startVoskListen() {
+        if (!busy && !listening) return; // kullanıcı iptal etmiş olabilir
         ensureModel().then(function(model) {
           return navigator.mediaDevices.getUserMedia({
             video: false,
@@ -4533,7 +4644,6 @@
           var gotFinal = false;
           var speechStarted = false;
           var silentFrames = 0;
-          // ~4096/16000 ≈ 0.25s; 3 kare sessizlik ≈ 0.75s
           var SILENCE_FRAMES = 3;
           var ENERGY_TH = 0.012;
           recognizer.on("result", function(msg) {
@@ -4594,6 +4704,21 @@
           toast("Mikrofon / model açılamadı");
           console.warn("[MM] voice", err);
         });
+      }
+
+      function startListen() {
+        if (busy) return;
+        busy = true;
+        applied = false;
+        lastPartial = "";
+        setListening(true);
+        // Mikrofon açılınca çalan şarkıyı durdur
+        try { msPause(); } catch (eP) {}
+        showOverlay("Dinliyorum…");
+        // Önce Web Speech (model indirme yok, daha küçük ayak izi, TR iyi)
+        if (startWebSpeech()) return;
+        // Yoksa Vosk small-tr
+        startVoskListen();
       }
       btn.addEventListener("click", function(e) {
         e.stopPropagation();

@@ -2524,8 +2524,9 @@
       }
       renderList();
 
-      // Sabit YouTube Music Charts (UC-9-kyTW8ZkZNDHQJ6FgpwQ) playlistleri.
-      // Playlist ID'ler sabit; içindeki şarkılar her açılışta /api/v1/playlists ile güncel gelir.
+      // SADECE sabit YouTube Music Charts (UC-9-kyTW8ZkZNDHQJ6FgpwQ) playlistleri.
+      // Rastgele arama sonucu eklenmez — resmi chart listeleri gelsin.
+      // Playlist ID sabit; şarkılar her açılışta /api/v1/playlists ile güncel gelir.
       var found = (CATEGORY_PLAYLISTS[catKey] || CATEGORY_PLAYLISTS["populer"] || []).map(function(p) {
         return {
           playlistId: p.playlistId,
@@ -2535,53 +2536,21 @@
         };
       });
 
-      // Kanal playlistlerini de dene (bazı instance'larda boş dönebilir)
+      // Resmi playlist başlık / video sayısını tazelemeyi dene (başarısız olursa sabit kalır)
       try {
-        var chData = await fetchApi(
-          "/api/v1/channels/" + encodeURIComponent(YT_MUSIC_CHANNEL) + "/playlists?sort_by=newest"
-        );
-        if (chData && Array.isArray(chData.playlists) && chData.playlists.length) {
-          var seenCh = {};
-          found.forEach(function(p) { seenCh[p.playlistId] = true; });
-          chData.playlists.forEach(function(item) {
-            if (!item.playlistId || seenCh[item.playlistId]) return;
-            if (item.videoCount && item.videoCount < 5) return;
-            seenCh[item.playlistId] = true;
-            found.push({
-              playlistId: item.playlistId,
-              title: item.title || "Playlist",
-              author: item.author || YT_CHARTS_AUTHOR,
-              videoCount: item.videoCount || 0
-            });
-          });
+        for (var i = 0; i < Math.min(found.length, 4); i++) {
+          (function(pl) {
+            fetchApi("/api/v1/playlists/" + encodeURIComponent(pl.playlistId)).then(function(info) {
+              if (!info || !info.title) return;
+              pl.title = info.title || pl.title;
+              if (info.videoCount) pl.videoCount = info.videoCount;
+              if (activeTab === "ready") renderList();
+            }).catch(function() {});
+          })(found[i]);
         }
       } catch (e) {}
 
-      // Ek olarak kategori aramasıyla güncel playlistler ekle
-      var q = CATEGORY_PLAYLIST_SEARCH[catKey] || (catKey + " playlist");
-      var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
-      );
-
-      var seen = {};
-      found.forEach(function(p) { seen[p.playlistId] = true; });
-
-      if (Array.isArray(data)) {
-        data.forEach(function(item) {
-          if (item.type !== "playlist" || !item.playlistId) return;
-          if (seen[item.playlistId]) return;
-          if (item.videoCount && item.videoCount < 5) return;
-          seen[item.playlistId] = true;
-          found.push({
-            playlistId: item.playlistId,
-            title: item.title || "Playlist",
-            author: item.author || "",
-            videoCount: item.videoCount || 0
-          });
-        });
-      }
-
-      readyPlaylists = found.slice(0, 12);
+      readyPlaylists = found;
       searchLoading = false;
       renderList();
     }
