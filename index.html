@@ -497,7 +497,13 @@
       width: 20px; height: 20px; fill: currentColor;
     }
     /* Sesli komut tam ekran katmanı */
-    .voice-overlay {
+    .voice-overlay,
+    .voice-search-backdrop,
+    .voice-search-panel {
+      display: none !important;
+      pointer-events: none !important;
+    }
+    .voice-overlay-disabled {
       display: none;
       position: absolute;
       inset: 0;
@@ -510,7 +516,7 @@
       -webkit-backdrop-filter: blur(6px);
       pointer-events: none;
     }
-    .voice-overlay.show { display: flex; }
+    .voice-overlay.show { display: none !important; }
     .voice-orb {
       position: relative;
       width: 96px; height: 96px;
@@ -566,7 +572,7 @@
       z-index: 85;
       background: rgba(0,0,0,0.45);
     }
-    .voice-search-backdrop.show { display: block; }
+    .voice-search-backdrop.show { display: none !important; }
     .voice-search-panel {
       position: absolute;
       top: 0; right: 0; bottom: 0;
@@ -823,11 +829,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      /* Ekranda pinch / pan zoom yok — boyut sadece ayarlardan */
+      touch-action: pan-y;
+      -ms-touch-action: pan-y;
+      user-select: none;
+      -webkit-user-select: none;
     }
-
     /*
-      Normal: küçük ortalı player
-      Tam ekran: alanı dolduran büyük player (cover, siyah şerit yok)
+      Video kutusu: her zaman ortalı; boyut ekran modu JS ile verilir.
+      Ekranda pinch/pan ile büyütme yok.
     */
     #ytplayer,
     #ytplayer-host,
@@ -836,16 +846,13 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: min(92vw, calc(56vh * 16 / 9));
-      height: auto;
-      aspect-ratio: 16 / 9;
-      max-width: 92%;
-      max-height: 56vh;
       border: none;
       background: #000;
+      touch-action: none;
+      -ms-touch-action: none;
     }
 
-    /* Tam ekran: 16:9 oran korunur, mümkün olduğunca büyük, ekranın tam ortası */
+    /* Tam ekran / yatay: alan tüm ekranı kaplar, video JS ile ortalanır */
     #playerView.is-fullscreen .player-area,
     :fullscreen .player-area,
     :-webkit-full-screen .player-area {
@@ -853,44 +860,23 @@
       inset: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
       overflow: hidden !important;
     }
 
-    :fullscreen #ytplayer,
-    :fullscreen #ytplayer-host,
-    :fullscreen .player-area iframe,
-    :-webkit-full-screen #ytplayer,
-    :-webkit-full-screen #ytplayer-host,
-    :-webkit-full-screen .player-area iframe,
-    #playerView.is-fullscreen #ytplayer,
-    #playerView.is-fullscreen #ytplayer-host,
-    #playerView.is-fullscreen .player-area iframe {
-      position: relative !important;
-      top: auto !important;
-      left: auto !important;
-      right: auto !important;
-      bottom: auto !important;
-      transform: none !important;
-      width: min(100vw, calc(100vh * 16 / 9)) !important;
-      height: min(100vh, calc(100vw * 9 / 16)) !important;
-      max-width: 100vw !important;
-      max-height: 100vh !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      aspect-ratio: 16 / 9;
-      margin: 0 auto;
+    .sp-mode-btn {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: #2a2a2a;
+      color: #eee;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
     }
-
-    #playerView.is-fullscreen #ytplayer-host iframe,
-    :fullscreen #ytplayer-host iframe {
-      position: absolute !important;
-      inset: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      transform: none !important;
+    .sp-mode-btn.active {
+      background: #ff2d55;
+      color: #000;
+      border-color: #ff2d55;
     }
 
     /* Kenar: sadece yatay KAYDIRMA (tıklama geçmez, video kontrolü orta alanda)
@@ -1263,6 +1249,23 @@
             <span class="sp-dim-val" id="brightValLabel">0%</span>
           </label>
           <input type="range" id="brightRangeIdx" min="0" max="80" value="0" />
+        </div>
+
+        <div class="sp-section">
+          <div class="sp-field-label">Ekran modu</div>
+          <div class="sp-mode-row" id="displayModeRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+            <button type="button" class="sp-mode-btn" data-mode="fit">Sığdır</button>
+            <button type="button" class="sp-mode-btn" data-mode="fill">Doldur</button>
+            <button type="button" class="sp-mode-btn" data-mode="stretch">Uzat</button>
+            <button type="button" class="sp-mode-btn" data-mode="zoom">Zoom</button>
+          </div>
+          <div class="sp-seconds show" id="zoomWrap" style="margin-top:10px;display:none;">
+            <div class="sp-seconds-top">
+              <span>Yakınlaştır</span>
+              <span class="sp-seconds-val" id="zoomValLabel">100%</span>
+            </div>
+            <input type="range" id="zoomRange" min="100" max="220" value="100" step="5" />
+          </div>
         </div>
       </div>
     </div>
@@ -3304,24 +3307,65 @@
       });
     }
 
-    // Normal: küçük ortalı kutu | Tam ekran: büyük ortalı kutu — kenara kaymaz
+    // Ekran modu: fit | fill | stretch | zoom — seçim kalıcı
+    var KEY_DISP_MODE = "minimal_muzik_disp_mode";
+    var KEY_DISP_ZOOM = "minimal_muzik_disp_zoom";
+    var displayMode = "fit";
+    var displayZoom = 1;
+    try {
+      var dm = localStorage.getItem(KEY_DISP_MODE);
+      if (dm === "fit" || dm === "fill" || dm === "stretch" || dm === "zoom") displayMode = dm;
+      var dz = parseInt(localStorage.getItem(KEY_DISP_ZOOM) || "100", 10);
+      if (!isNaN(dz)) displayZoom = Math.max(1, Math.min(2.2, dz / 100));
+    } catch (e) {}
+
     function isPageFullscreen() {
       return !!(document.fullscreenElement || document.webkitFullscreenElement ||
                 document.mozFullScreenElement || document.msFullscreenElement ||
                 (playerView && playerView.classList.contains("is-fullscreen")));
     }
-    function playerBoxCss(displayBlock) {
-      var fs = isPageFullscreen();
-      if (fs) {
-        // Tam ekran: oranlı fit, flex parent ortalar (transform yok)
-        return "position:relative;top:auto;left:auto;transform:none;" +
-          "width:min(100vw,calc(100vh * 16 / 9));height:min(100vh,calc(100vw * 9 / 16));" +
-          "max-width:100vw;max-height:100vh;aspect-ratio:16/9;" +
-          "border:none;background:#000;z-index:1;margin:0 auto;" +
-          (displayBlock ? "display:block;" : "");
+    function getPlayerAreaSize() {
+      var area = document.querySelector(".player-area");
+      if (isPageFullscreen()) {
+        return {
+          w: window.innerWidth || document.documentElement.clientWidth || 360,
+          h: window.innerHeight || document.documentElement.clientHeight || 640
+        };
       }
+      if (area && area.clientWidth > 2 && area.clientHeight > 2) {
+        return { w: area.clientWidth, h: area.clientHeight };
+      }
+      var iw = window.innerWidth || 360;
+      var ih = window.innerHeight || 640;
+      return { w: iw, h: Math.max(180, Math.round(ih * 0.55)) };
+    }
+    function computePlayerBox() {
+      var a = getPlayerAreaSize();
+      var aw = a.w, ah = a.h;
+      var w, h;
+      var ar = 16 / 9;
+      if (displayMode === "stretch") {
+        w = aw; h = ah;
+      } else if (displayMode === "fill") {
+        // Doldur (cover): alanı tamamen kapla, kırpılabilir
+        if (aw / ah > ar) { w = aw; h = aw / ar; }
+        else { h = ah; w = ah * ar; }
+      } else {
+        // Sığdır (fit) veya zoom tabanı
+        if (aw / ah > ar) { h = ah; w = ah * ar; }
+        else { w = aw; h = aw / ar; }
+        if (displayMode === "zoom") {
+          w *= displayZoom;
+          h *= displayZoom;
+        }
+      }
+      return { w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
+    }
+    function playerBoxCss(displayBlock) {
+      var box = computePlayerBox();
       return "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
-        "width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;" +
+        "width:" + box.w + "px;height:" + box.h + "px;" +
+        "max-width:none;max-height:none;min-width:0;min-height:0;" +
         "border:none;background:#000;z-index:1;" +
         (displayBlock ? "display:block;" : "");
     }
@@ -3352,12 +3396,42 @@
         } catch (e2) {}
       } catch (e) {}
     }
+    function syncDisplayModeUI() {
+      var row = document.getElementById("displayModeRow");
+      if (row) {
+        row.querySelectorAll(".sp-mode-btn").forEach(function(b) {
+          b.classList.toggle("active", b.getAttribute("data-mode") === displayMode);
+        });
+      }
+      var zw = document.getElementById("zoomWrap");
+      var zr = document.getElementById("zoomRange");
+      var zl = document.getElementById("zoomValLabel");
+      if (zw) zw.style.display = displayMode === "zoom" ? "block" : "none";
+      if (zr) zr.value = String(Math.round(displayZoom * 100));
+      if (zl) zl.textContent = Math.round(displayZoom * 100) + "%";
+    }
     window.addEventListener("resize", function() {
       if (playerView && playerView.classList.contains("active")) centerPlayerMedia();
     });
     window.addEventListener("orientationchange", function() {
-      setTimeout(centerPlayerMedia, 100);
+      setTimeout(centerPlayerMedia, 80);
+      setTimeout(centerPlayerMedia, 250);
+      setTimeout(centerPlayerMedia, 500);
     });
+    // Pinch / gesture zoom engeli (mobil tarayıcı)
+    ["gesturestart", "gesturechange", "gestureend"].forEach(function(ev) {
+      document.addEventListener(ev, function(e) {
+        if (playerView && playerView.classList.contains("active")) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+    });
+    document.addEventListener("touchmove", function(e) {
+      if (!playerView || !playerView.classList.contains("active")) return;
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault(); // pinch
+      }
+    }, { passive: false });
 
     // Player sıfırdan oluştur (loadOfficialYtPlayer içinden / watchdog'tan)
     loadOfficialYtPlayer._recreate = function(id, wantMute, durationSec, myToken) {
@@ -4235,6 +4309,36 @@
       if (range) range.value = String(v);
       if (dim) dim.style.opacity = String(Math.min(0.85, v / 100));
       if (brightLabel) brightLabel.textContent = v + "%";
+
+      // Ekran modu: sadece buradan; ekranda pinch/pan ile boyut değişmez
+      try { syncDisplayModeUI(); } catch (e0) {}
+      var modeRow = document.getElementById("displayModeRow");
+      if (modeRow) {
+        modeRow.querySelectorAll(".sp-mode-btn").forEach(function(mbtn) {
+          mbtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            displayMode = mbtn.getAttribute("data-mode") || "fit";
+            try { localStorage.setItem(KEY_DISP_MODE, displayMode); } catch (err) {}
+            syncDisplayModeUI();
+            centerPlayerMedia();
+          });
+        });
+      }
+      var zoomRangeEl = document.getElementById("zoomRange");
+      if (zoomRangeEl) {
+        zoomRangeEl.addEventListener("input", function() {
+          var n = parseInt(zoomRangeEl.value, 10) || 100;
+          displayZoom = Math.max(1, Math.min(2.2, n / 100));
+          try { localStorage.setItem(KEY_DISP_ZOOM, String(n)); } catch (err) {}
+          var zl = document.getElementById("zoomValLabel");
+          if (zl) zl.textContent = n + "%";
+          if (displayMode === "zoom") centerPlayerMedia();
+        });
+        zoomRangeEl.addEventListener("touchstart", function(e) { e.stopPropagation(); }, { passive: true });
+        zoomRangeEl.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
+      }
+
       function setSwipeCatcherEnabled(on) {
         var sc = document.getElementById("swipeCatcher");
         if (sc) sc.style.pointerEvents = on ? "auto" : "none";
