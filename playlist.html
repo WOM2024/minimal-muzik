@@ -1161,7 +1161,13 @@
     // MQTT: PeerJS kopsun diye kopmayan yedek senkron (ekran kilidi sonrası asıl kurtarıcı)
     const MQTT_URL = "wss://broker.emqx.io:8084/mqtt";
     const MQTT_PREFIX = "superyt/v1/";
-    const SEARCH_INSTANCES = ["https://invidious.f5.si"];
+    const SEARCH_INSTANCES = [
+      "https://invidious.materialio.us",
+      "https://yt.chocolatemoo53.com",
+      "https://invidious.nerdvpn.de",
+      "https://invidious.tiekoetter.com",
+      "https://invidious.f5.si"
+    ];
     const MANUAL_KEY = "minimal_muzik_manual_pl";
     const FAV_KEY = "minimal_muzik_favs";
 
@@ -1865,7 +1871,7 @@
       var isMan = mode === "manual";
       if (tabsBar) tabsBar.classList.toggle("show", isMan);
       // Arama: Keşfet (listeler) ve Ara sekmelerinde
-      if (searchBar) searchBar.classList.toggle("show", isMan && (activeTab === "search" || activeTab === "ready"));
+      if (searchBar) searchBar.classList.toggle("show", isMan && activeTab === "search");
       if (plCats) plCats.classList.remove("show");
     }
 
@@ -2518,6 +2524,8 @@
       }
       renderList();
 
+      // Sabit YouTube Music Charts (UC-9-kyTW8ZkZNDHQJ6FgpwQ) playlistleri.
+      // Playlist ID'ler sabit; içindeki şarkılar her açılışta /api/v1/playlists ile güncel gelir.
       var found = (CATEGORY_PLAYLISTS[catKey] || CATEGORY_PLAYLISTS["populer"] || []).map(function(p) {
         return {
           playlistId: p.playlistId,
@@ -2527,6 +2535,29 @@
         };
       });
 
+      // Kanal playlistlerini de dene (bazı instance'larda boş dönebilir)
+      try {
+        var chData = await fetchApi(
+          "/api/v1/channels/" + encodeURIComponent(YT_MUSIC_CHANNEL) + "/playlists?sort_by=newest"
+        );
+        if (chData && Array.isArray(chData.playlists) && chData.playlists.length) {
+          var seenCh = {};
+          found.forEach(function(p) { seenCh[p.playlistId] = true; });
+          chData.playlists.forEach(function(item) {
+            if (!item.playlistId || seenCh[item.playlistId]) return;
+            if (item.videoCount && item.videoCount < 5) return;
+            seenCh[item.playlistId] = true;
+            found.push({
+              playlistId: item.playlistId,
+              title: item.title || "Playlist",
+              author: item.author || YT_CHARTS_AUTHOR,
+              videoCount: item.videoCount || 0
+            });
+          });
+        }
+      } catch (e) {}
+
+      // Ek olarak kategori aramasıyla güncel playlistler ekle
       var q = CATEGORY_PLAYLIST_SEARCH[catKey] || (catKey + " playlist");
       var data = await fetchApi(
         "/api/v1/search?q=" + encodeURIComponent(q) + "&type=playlist&page=1&region=TR"
@@ -2979,7 +3010,7 @@
       if (!btn) return;
 
       var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
-      var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
+      var VOSK_MODEL_TR = "./models/vosk-model-small-tr-0.3.tar.gz";
       var LISTEN_MS = 4000;
 
       var listening = false;
@@ -3125,6 +3156,10 @@
             }
 
             var gotFinal = false;
+            var speechStarted = false;
+            var silentFrames = 0;
+            var SILENCE_FRAMES = 3;
+            var ENERGY_TH = 0.012;
             recognizer.on("result", function(message) {
               try {
                 var t = (message && message.result && message.result.text) || "";
@@ -3141,7 +3176,7 @@
                 p = String(p).trim();
                 if (!p) return;
                 lastPartial = p;
-                // Komut tamamlandıysa (nokta = çal/sonraki/durdur…) mikrofonu hemen kapat
+                speechStarted = true;
                 if (!gotFinal && isTerminalVoiceUtterance(p)) {
                   gotFinal = true;
                   stopListening(p);
@@ -3159,7 +3194,23 @@
             sourceNode = audioContext.createMediaStreamSource(mediaStream);
             processorNode = audioContext.createScriptProcessor(4096, 1, 1);
             processorNode.onaudioprocess = function(event) {
+              if (gotFinal) return;
               try {
+                var input = event.inputBuffer.getChannelData(0);
+                var sum = 0;
+                for (var i = 0; i < input.length; i += 4) sum += input[i] * input[i];
+                var rms = Math.sqrt(sum / (input.length / 4));
+                if (rms > ENERGY_TH) {
+                  speechStarted = true;
+                  silentFrames = 0;
+                } else if (speechStarted) {
+                  silentFrames++;
+                  if (silentFrames >= SILENCE_FRAMES && lastPartial) {
+                    gotFinal = true;
+                    stopListening(lastPartial);
+                    return;
+                  }
+                }
                 recognizer.acceptWaveform(event.inputBuffer);
               } catch (err) {
                 console.warn("[PL] acceptWaveform", err);
@@ -3453,8 +3504,8 @@
     function runSearch() {
       var q = (plSearch.value || "").trim();
       if (!q) return;
+      // Arama sadece "Ara" sekmesinde; Keşfet'te arama yok
       if (activeTab === "search") doSongSearch(q);
-      else doSmartSearch(q);
     }
     plSearchBtn.addEventListener("click", runSearch);
     plSearch.addEventListener("keydown", function(e) {
@@ -3480,9 +3531,15 @@
       // Service worker: Android Chrome tek-tık yükleme için gerekli
       if ("serviceWorker" in navigator) {
         try {
-          navigator.serviceWorker.register("./sw-playlist.js", { scope: "./" }).catch(function() {});
+          navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function() {});
         } catch (eSW) {}
       }
+      setTimeout(function () {
+        try {
+          fetch("./models/vosk-model-small-tr-0.3.tar.gz", { credentials: "same-origin" }).catch(function () {});
+          fetch("https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js", { mode: "cors" }).catch(function () {});
+        } catch (ePf) {}
+      }, 2500);
 
       function isStandalone() {
         try {

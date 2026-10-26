@@ -487,6 +487,15 @@
       color: #ff2d55;
       box-shadow: 0 0 14px rgba(255,45,85,0.4);
     }
+    .player-nav button#fullscreenBtn {
+      min-width: 40px;
+      width: 40px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .player-nav button#fullscreenBtn svg {
+      width: 20px; height: 20px; fill: currentColor;
+    }
     /* Sesli komut tam ekran katmanı */
     .voice-overlay {
       display: none;
@@ -813,17 +822,17 @@
       overflow: hidden; /* cover için kenarları kes */
     }
 
-    /* Video ekranı tamamen doldursun (cover) — oran bozulmaz, fazla kısım kesilir */
+    /* Video ekranı fit (contain) — tam 16:9 görünsün, YT kalite dişlisi tıklanabilir olsun */
     #ytplayer,
     #ytplayer-host,
     .player-area iframe {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: max(100%, 177.78vh);   /* 16:9 genişlik */
-      height: max(100%, 56.25vw);   /* 16:9 yükseklik */
-      min-width: 100%;
-      min-height: 100%;
+      width: min(100%, 177.78vh);   /* 16:9 — ekranı taşırma */
+      height: min(100%, 56.25vw);
+      max-width: 100%;
+      max-height: 100%;
       transform: translate(-50%, -50%);
       border: none;
       background: #000;
@@ -1147,6 +1156,10 @@
           <span class="nav-text">Sonraki</span>
           <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
         </button>
+        <button type="button" id="fullscreenBtn" title="Tam ekran" aria-label="Tam ekran">
+          <svg viewBox="0 0 24 24" id="fsIconExpand"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          <svg viewBox="0 0 24 24" id="fsIconCompress" style="display:none"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+        </button>
       </div>
       <div class="bright-panel-idx" id="brightPanelIdx">
         <div class="sp-title">Ayarlar</div>
@@ -1214,7 +1227,13 @@
   <script>
     document.addEventListener('contextmenu', function(e) { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; e.preventDefault(); }, { capture: true });
 
-    const SEARCH_INSTANCES = ["https://invidious.f5.si", "https://yt.chocolatemoo53.com", "https://invidious.nerdvpn.de", "https://invidious.tiekoetter.com"];
+    const SEARCH_INSTANCES = [
+      "https://invidious.materialio.us",
+      "https://yt.chocolatemoo53.com",
+      "https://invidious.nerdvpn.de",
+      "https://invidious.tiekoetter.com",
+      "https://invidious.f5.si"
+    ];
     const FAV_KEY = "minimal_yt_favorites";
     const ROOM_PREFIX = "mm-";
     const STORAGE_KEY = "minimal_muzik_sync";
@@ -4095,6 +4114,101 @@
       playNext();
     });
 
+    // Tam ekran (sayfa / playerView)
+    (function initFullscreenBtn() {
+      var fsBtn = document.getElementById("fullscreenBtn");
+      var iconExpand = document.getElementById("fsIconExpand");
+      var iconCompress = document.getElementById("fsIconCompress");
+      if (!fsBtn) return;
+
+      function isFs() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+                  document.mozFullScreenElement || document.msFullscreenElement);
+      }
+      function updateFsIcon() {
+        var on = isFs();
+        if (iconExpand) iconExpand.style.display = on ? "none" : "";
+        if (iconCompress) iconCompress.style.display = on ? "" : "none";
+        fsBtn.title = on ? "Tam ekrandan çık" : "Tam ekran";
+        fsBtn.setAttribute("aria-label", fsBtn.title);
+      }
+      function toggleFs() {
+        try {
+          if (isFs()) {
+            var exit = document.exitFullscreen || document.webkitExitFullscreen ||
+                       document.mozCancelFullScreen || document.msExitFullscreen;
+            if (exit) exit.call(document);
+          } else {
+            var target = playerView || document.documentElement;
+            var req = target.requestFullscreen || target.webkitRequestFullscreen ||
+                      target.webkitRequestFullScreen || target.mozRequestFullScreen ||
+                      target.msRequestFullscreen;
+            if (req) {
+              var p = req.call(target);
+              if (p && typeof p.catch === "function") p.catch(function() {});
+            }
+          }
+        } catch (e) {}
+        setTimeout(updateFsIcon, 150);
+      }
+      fsBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFs();
+      });
+      ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"].forEach(function(ev) {
+        document.addEventListener(ev, updateFsIcon);
+      });
+      updateFsIcon();
+    })();
+
+    // Video izleme ekranında yatay kaydırma: sağa = önceki, sola = sonraki
+    (function initPlayerSwipe() {
+      var startX = 0, startY = 0, startT = 0;
+      var tracking = false;
+      var THRESH = 60; // min px
+      var MAX_VERTICAL = 80; // dikey kaydırma ise yoksay
+
+      function onStart(e) {
+        if (!playerView || !playerView.classList.contains("active")) return;
+        var t = e.touches && e.touches[0] ? e.touches[0] : e;
+        startX = t.clientX;
+        startY = t.clientY;
+        startT = Date.now();
+        tracking = true;
+      }
+      function onEnd(e) {
+        if (!tracking) return;
+        tracking = false;
+        var t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+        var dx = t.clientX - startX;
+        var dy = t.clientY - startY;
+        var dt = Date.now() - startT;
+        if (dt > 800) return;
+        if (Math.abs(dy) > MAX_VERTICAL) return;
+        if (Math.abs(dx) < THRESH) return;
+        // sağa kaydır (dx > 0) → önceki; sola (dx < 0) → sonraki
+        if (dx > 0) playPrev();
+        else playNext();
+      }
+      function onCancel() { tracking = false; }
+
+      if (playerView) {
+        playerView.addEventListener("touchstart", onStart, { passive: true });
+        playerView.addEventListener("touchend", onEnd, { passive: true });
+        playerView.addEventListener("touchcancel", onCancel, { passive: true });
+        // mouse ile de (masaüstü)
+        playerView.addEventListener("pointerdown", function(e) {
+          if (e.pointerType === "touch") return; // touch zaten handle
+          onStart(e);
+        }, { passive: true });
+        playerView.addEventListener("pointerup", function(e) {
+          if (e.pointerType === "touch") return;
+          onEnd(e);
+        }, { passive: true });
+      }
+    })();
+
     // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
     window.addEventListener("keydown", function(e) {
       var k = e.key || e.code || "";
@@ -4180,7 +4294,7 @@
       var transcriptEl = document.getElementById("voiceTranscript");
       var hintEl = document.getElementById("voiceHint");
       var VOSK_JS = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js";
-      var VOSK_MODEL_TR = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-tr-0.3.tar.gz";
+      var VOSK_MODEL_TR = "./models/vosk-model-small-tr-0.3.tar.gz";
       var LISTEN_MS = 4000;
       var listening = false, busy = false, applied = false;
       var voskModel = null, voskReady = null;
@@ -4417,6 +4531,11 @@
           try { recognizer = new ctx.model.KaldiRecognizer(16000); }
           catch (e) { recognizer = new ctx.model.KaldiRecognizer(); }
           var gotFinal = false;
+          var speechStarted = false;
+          var silentFrames = 0;
+          // ~4096/16000 ≈ 0.25s; 3 kare sessizlik ≈ 0.75s
+          var SILENCE_FRAMES = 3;
+          var ENERGY_TH = 0.012;
           recognizer.on("result", function(msg) {
             var t = (msg && msg.result && msg.result.text) || "";
             if (String(t).trim()) { gotFinal = true; stopListen(String(t).trim()); }
@@ -4426,6 +4545,7 @@
             p = String(p).trim();
             if (!p || gotFinal || applied) return;
             lastPartial = p;
+            speechStarted = true;
             setTranscript(p);
             var spec = matchCmd(p);
             if (spec && spec.terminal) {
@@ -4438,7 +4558,25 @@
           sourceNode = audioContext.createMediaStreamSource(mediaStream);
           processorNode = audioContext.createScriptProcessor(4096, 1, 1);
           processorNode.onaudioprocess = function(ev) {
-            try { if (!gotFinal && !applied) recognizer.acceptWaveform(ev.inputBuffer); } catch (err) {}
+            if (gotFinal || applied) return;
+            try {
+              var input = ev.inputBuffer.getChannelData(0);
+              var sum = 0;
+              for (var i = 0; i < input.length; i += 4) sum += input[i] * input[i];
+              var rms = Math.sqrt(sum / (input.length / 4));
+              if (rms > ENERGY_TH) {
+                speechStarted = true;
+                silentFrames = 0;
+              } else if (speechStarted) {
+                silentFrames++;
+                if (silentFrames >= SILENCE_FRAMES && lastPartial) {
+                  gotFinal = true;
+                  stopListen(lastPartial);
+                  return;
+                }
+              }
+              recognizer.acceptWaveform(ev.inputBuffer);
+            } catch (err) {}
           };
           sourceNode.connect(processorNode);
           var gain = audioContext.createGain();
@@ -4513,6 +4651,21 @@
         window.addEventListener("blur", clearHold);
         console.log("[MM] volume-hold test aktif: AudioVolumeUp 500ms veya Shift+↑");
       })();
+    })();
+
+    // Service worker + Vosk model önbellek (kalıcı)
+    (function registerSwAndPrefetchModel() {
+      if ("serviceWorker" in navigator) {
+        try {
+          navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function () {});
+        } catch (e) {}
+      }
+      setTimeout(function () {
+        try {
+          fetch("./models/vosk-model-small-tr-0.3.tar.gz", { credentials: "same-origin" }).catch(function () {});
+          fetch("https://cdn.jsdelivr.net/npm/vosk-browser@0.0.5/dist/vosk.js", { mode: "cors" }).catch(function () {});
+        } catch (e2) {}
+      }, 2500);
     })();
 
     initRoomSync();
