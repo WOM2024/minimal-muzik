@@ -819,23 +819,52 @@
       position: relative;
       background: #000;
       min-height: 0;
-      overflow: hidden; /* cover için kenarları kes */
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* Video ekranı alanı doldursun (cover) — oran bozulmaz, ortalı */
+    /*
+      Normal: küçük ortalı player (yaklaşık 16:9 kutu)
+      Tam ekran: daha büyük ortalı player
+      Asla kenara kaymaz / yarım görünmez
+    */
     #ytplayer,
     #ytplayer-host,
     .player-area iframe {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: max(100%, 177.78vh);
-      height: max(100%, 56.25vw);
-      min-width: 100%;
-      min-height: 100%;
       transform: translate(-50%, -50%);
+      width: min(92%, 560px);
+      height: auto;
+      aspect-ratio: 16 / 9;
+      max-height: 42vh;
       border: none;
       background: #000;
+    }
+
+    /* Sayfa / playerView tam ekrandayken büyüt, yine ortala */
+    :fullscreen #ytplayer,
+    :fullscreen #ytplayer-host,
+    :fullscreen .player-area iframe,
+    :-webkit-full-screen #ytplayer,
+    :-webkit-full-screen #ytplayer-host,
+    :-webkit-full-screen .player-area iframe {
+      width: min(96vw, 1100px);
+      max-height: 88vh;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+
+    #playerView.is-fullscreen #ytplayer,
+    #playerView.is-fullscreen #ytplayer-host,
+    #playerView.is-fullscreen .player-area iframe {
+      width: min(96vw, 1100px);
+      max-height: 88vh;
+      height: auto;
+      aspect-ratio: 16 / 9;
     }
 
     .player-loading {
@@ -1213,7 +1242,7 @@
         playsinline
         webkit-playsinline
         referrerpolicy="strict-origin-when-cross-origin"
-        style="position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:none;"
+        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92%,560px);aspect-ratio:16/9;height:auto;max-height:42vh;border:none;background:#000;z-index:1;display:none;"
       ></iframe>
 
 
@@ -3008,7 +3037,7 @@
         host = document.createElement("div");
         host.id = ytHostId;
         host.style.cssText =
-          "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);background:#000;z-index:1;";
+          "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92%,560px);aspect-ratio:16/9;height:auto;max-height:42vh;background:#000;z-index:1;";
         if (tip && tip.parentNode === area) {
           area.insertBefore(host, tip);
         } else {
@@ -3228,28 +3257,44 @@
       });
     }
 
-    // Cover boyut + ortalama (şarkı değişimi / tam ekran / resize)
-    var PLAYER_COVER_CSS =
-      "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;";
+    // Normal: küçük ortalı kutu | Tam ekran: büyük ortalı kutu — kenara kaymaz
+    function isPageFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+                document.mozFullScreenElement || document.msFullscreenElement ||
+                (playerView && playerView.classList.contains("is-fullscreen")));
+    }
+    function playerBoxCss(displayBlock) {
+      var fs = isPageFullscreen();
+      var size = fs
+        ? "width:min(96vw,1100px);max-height:88vh;"
+        : "width:min(92%,560px);max-height:42vh;";
+      return "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
+        size + "aspect-ratio:16/9;height:auto;border:none;background:#000;z-index:1;" +
+        (displayBlock ? "display:block;" : "");
+    }
     function centerPlayerMedia() {
       try {
+        var css = playerBoxCss(true);
         var host = document.getElementById(ytHostId);
         if (host) {
-          host.style.cssText = PLAYER_COVER_CSS + "display:block;";
+          host.style.cssText = css;
           var inner = host.querySelector("iframe");
           if (inner) {
-            inner.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;";
+            // host kutu boyutunda; iframe içi doldursun
+            inner.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;display:block;";
           }
         }
         var old = document.getElementById("ytplayer");
         if (old && old.tagName === "IFRAME" && old.style.display !== "none") {
-          old.style.cssText = PLAYER_COVER_CSS + "display:block;";
+          old.style.cssText = css;
         }
         try {
           if (ytPlayerInstance && typeof ytPlayerInstance.getIframe === "function") {
             var fi = ytPlayerInstance.getIframe();
-            if (fi && fi.parentNode) {
-              fi.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;";
+            if (fi && fi.parentNode && fi.parentNode.id === ytHostId) {
+              fi.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;display:block;";
+            } else if (fi) {
+              fi.style.cssText = css;
             }
           }
         } catch (e2) {}
@@ -3342,7 +3387,7 @@
               if (iframe) {
                 iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; web-share; fullscreen");
                 iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-                iframe.style.cssText = "position:absolute;top:50%;left:50%;width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;transform:translate(-50%,-50%);border:none;background:#000;z-index:1;display:block;";
+                iframe.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92%,560px);aspect-ratio:16/9;height:auto;max-height:42vh;border:none;background:#000;z-index:1;display:block;";
                 ytplayer = iframe;
               }
             } catch (e3) {}
@@ -4158,10 +4203,12 @@
       }
       function updateFsIcon() {
         var on = isFs();
+        if (playerView) playerView.classList.toggle("is-fullscreen", on);
         if (iconExpand) iconExpand.style.display = on ? "none" : "";
         if (iconCompress) iconCompress.style.display = on ? "" : "none";
         fsBtn.title = on ? "Tam ekrandan çık" : "Tam ekran";
         fsBtn.setAttribute("aria-label", fsBtn.title);
+        centerPlayerMedia();
       }
       function toggleFs() {
         try {
