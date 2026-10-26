@@ -845,6 +845,20 @@
       background: #000;
     }
 
+    /* Tam ekran: 16:9 oran korunur, mümkün olduğunca büyük, ekranın tam ortası */
+    #playerView.is-fullscreen .player-area,
+    :fullscreen .player-area,
+    :-webkit-full-screen .player-area {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+    }
+
     :fullscreen #ytplayer,
     :fullscreen #ytplayer-host,
     :fullscreen .player-area iframe,
@@ -854,13 +868,29 @@
     #playerView.is-fullscreen #ytplayer,
     #playerView.is-fullscreen #ytplayer-host,
     #playerView.is-fullscreen .player-area iframe {
-      width: max(100%, 177.78vh);
-      height: max(100%, 56.25vw);
-      min-width: 100%;
-      min-height: 100%;
-      max-width: none;
-      max-height: none;
-      aspect-ratio: auto;
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      transform: none !important;
+      width: min(100vw, calc(100vh * 16 / 9)) !important;
+      height: min(100vh, calc(100vw * 9 / 16)) !important;
+      max-width: 100vw !important;
+      max-height: 100vh !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      aspect-ratio: 16 / 9;
+      margin: 0 auto;
+    }
+
+    #playerView.is-fullscreen #ytplayer-host iframe,
+    :fullscreen #ytplayer-host iframe {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      transform: none !important;
     }
 
     /* Kenar: sadece yatay KAYDIRMA (tıklama geçmez, video kontrolü orta alanda)
@@ -1194,9 +1224,6 @@
         </button>
         <button type="button" class="nav-settings" id="settingsBtn" title="Parlaklık" aria-label="Parlaklık ayarı">
           <svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
-        </button>
-        <button type="button" id="voicePlayerBtn" class="voice-player-btn" title="Sesli komut" aria-label="Sesli komut">
-          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
         </button>
         <button type="button" id="nextBtn" title="Sonraki video" aria-label="Sonraki video">
           <span class="nav-text">Sonraki</span>
@@ -3285,11 +3312,17 @@
     }
     function playerBoxCss(displayBlock) {
       var fs = isPageFullscreen();
-      var size = fs
-        ? "width:max(100%,177.78vh);height:max(100%,56.25vw);min-width:100%;min-height:100%;"
-        : "width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;";
+      if (fs) {
+        // Tam ekran: oranlı fit, flex parent ortalar (transform yok)
+        return "position:relative;top:auto;left:auto;transform:none;" +
+          "width:min(100vw,calc(100vh * 16 / 9));height:min(100vh,calc(100vw * 9 / 16));" +
+          "max-width:100vw;max-height:100vh;aspect-ratio:16/9;" +
+          "border:none;background:#000;z-index:1;margin:0 auto;" +
+          (displayBlock ? "display:block;" : "");
+      }
       return "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
-        size + "border:none;background:#000;z-index:1;" +
+        "width:min(92vw,calc(56vh * 16 / 9));height:auto;aspect-ratio:16/9;max-width:92%;max-height:56vh;" +
+        "border:none;background:#000;z-index:1;" +
         (displayBlock ? "display:block;" : "");
     }
     function centerPlayerMedia() {
@@ -4475,8 +4508,9 @@
     currentCatKey = "turkce-pop";
     currentQuery = pickRandomQuery("turkce-pop");
 
-    // ── Oyuncu ekranı sesli komut (Vosk TR) ──
+    // ── Oyuncu ekranı sesli komut kaldırıldı ──
     (function initPlayerVoice() {
+      return; // sesli arama / komut devre dışı
       var btn = document.getElementById("voicePlayerBtn");
       if (!btn) return;
       var overlay = document.getElementById("voiceOverlay");
