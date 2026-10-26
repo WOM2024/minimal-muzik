@@ -4193,6 +4193,10 @@
       if (range) range.value = String(v);
       if (dim) dim.style.opacity = String(Math.min(0.85, v / 100));
       if (brightLabel) brightLabel.textContent = v + "%";
+      function setSwipeCatcherEnabled(on) {
+        var sc = document.getElementById("swipeCatcher");
+        if (sc) sc.style.pointerEvents = on ? "auto" : "none";
+      }
       if (btn) {
         btn.addEventListener("click", function(e) {
           e.stopPropagation();
@@ -4200,7 +4204,9 @@
           if (panel && panel.classList.contains("show")) {
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
+            setSwipeCatcherEnabled(false);
           } else {
+            setSwipeCatcherEnabled(true);
             showChrome();
           }
         });
@@ -4213,10 +4219,24 @@
           try { localStorage.setItem(KEY_DIM, String(n)); } catch (e) {}
         });
       }
+      if (panel) {
+        ["touchstart", "touchmove", "touchend", "pointerdown", "pointerup"].forEach(function(ev) {
+          panel.addEventListener(ev, function(e) { e.stopPropagation(); }, { passive: true });
+        });
+      }
+      if (secRange) {
+        secRange.addEventListener("touchstart", function(e) { e.stopPropagation(); }, { passive: true });
+        secRange.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
+      }
+      if (range) {
+        range.addEventListener("touchstart", function(e) { e.stopPropagation(); }, { passive: true });
+        range.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
+      }
       document.addEventListener("click", function(e) {
         if (!panel || !panel.classList.contains("show")) return;
         if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
         panel.classList.remove("show");
+        setSwipeCatcherEnabled(true);
         showChrome();
       });
     })();
@@ -4284,8 +4304,8 @@
       updateFsIcon();
     })();
 
-    // Yatay kaydırma: kontroller görünsün/gizlensin fark etmez — her zaman çalışır
-    // Dokunarak (tap) video değiştirmez; sadece kaydırma + butonlar
+    // Yatay kaydırma: kontroller görünsün/gizlensin fark etmez
+    // Ayar paneli / slider / buton üzerindeyken video DEĞİŞMEZ
     (function initPlayerSwipe() {
       var startX = 0, startY = 0, startT = 0;
       var tracking = false;
@@ -4293,8 +4313,23 @@
       var RATIO = 1.5;
       var catcher = document.getElementById("swipeCatcher");
 
+      function isBlockedTarget(el) {
+        if (!el || !el.closest) return false;
+        return !!el.closest(
+          "button, a, input, select, textarea, label, " +
+          ".player-nav, .player-top, .bright-panel-idx, " +
+          ".voice-search-panel, .voice-overlay, .back-btn"
+        );
+      }
+      function isSettingsOpen() {
+        var panel = document.getElementById("brightPanelIdx");
+        return !!(panel && panel.classList.contains("show"));
+      }
+
       function onStart(e) {
         if (!playerView || !playerView.classList.contains("active")) return;
+        if (isSettingsOpen()) { tracking = false; return; }
+        if (isBlockedTarget(e.target)) { tracking = false; return; }
         var t = e.touches && e.touches[0] ? e.touches[0] : e;
         startX = t.clientX;
         startY = t.clientY;
@@ -4304,6 +4339,8 @@
       function onEnd(e) {
         if (!tracking) return;
         tracking = false;
+        if (isSettingsOpen()) return;
+        if (isBlockedTarget(e.target)) return;
         var t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
         var dx = t.clientX - startX;
         var dy = t.clientY - startY;
@@ -4312,14 +4349,14 @@
         var adx = Math.abs(dx), ady = Math.abs(dy);
         if (adx < THRESH) return;
         if (ady > 0 && adx < ady * RATIO) return;
-        // sağa = önceki, sola = sonraki
         if (dx > 0) playPrev();
         else playNext();
       }
       function onCancel() { tracking = false; }
 
-      var targets = [catcher, playerView].filter(Boolean);
-      targets.forEach(function(el) {
+      // Sadece swipe-catcher — playerView'a ekleme (panel event'leri bubble olmasın)
+      var el = catcher || playerView;
+      if (el) {
         el.addEventListener("touchstart", onStart, { passive: true });
         el.addEventListener("touchend", onEnd, { passive: true });
         el.addEventListener("touchcancel", onCancel, { passive: true });
@@ -4331,7 +4368,7 @@
           if (e.pointerType === "touch") return;
           onEnd(e);
         }, { passive: true });
-      });
+      }
     })();
 
     // Donanım / sistem medya tuşları — agresif (capture + birden fazla key adı)
