@@ -1442,7 +1442,9 @@
     (function initLockScreenPlayer() {
       if (!("mediaSession" in navigator)) return;
       try {
-        var rate = 8000, len = rate * 2;
+        // Chrome, 5 saniyeden kısa medyayı bildirimde göstermiyor. Bu yüzden
+        // 5 dakikalık, duyulamayacak kadar sessiz bir WAV üretiyoruz.
+        var rate = 8000, len = rate * 300;
         var buf = new ArrayBuffer(44 + len), v = new DataView(buf);
         function putStr(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
         putStr(0, "RIFF"); v.setUint32(4, 36 + len, true); putStr(8, "WAVE"); putStr(12, "fmt ");
@@ -1450,15 +1452,16 @@
         v.setUint32(24, rate, true); v.setUint32(28, rate, true);
         v.setUint16(32, 1, true); v.setUint16(34, 8, true);
         putStr(36, "data"); v.setUint32(40, len, true);
-        for (var i = 0; i < len; i++) v.setUint8(44 + i, 128);
-        var bytes = new Uint8Array(buf), bin = "";
-        for (var j = 0; j < bytes.length; j++) bin += String.fromCharCode(bytes[j]);
+        // Tam sessiz (sabit 128) yerine 1 birimlik sinusoidal olmayan salınım:
+        // duyulmaz ama tarayıcı gerçek ses akışı olarak sayar.
+        for (var i = 0; i < len; i++) v.setUint8(44 + i, i % 2 ? 129 : 127);
         var audio = document.createElement("audio");
         audio.id = "mmLockAudio";
-        audio.src = "data:audio/wav;base64," + btoa(bin);
+        audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
         audio.loop = true;
         audio.preload = "auto";
         audio.volume = 0.0001;
+        audio.muted = false;
         audio.setAttribute("playsinline", "");
         document.body.appendChild(audio);
 
@@ -1467,23 +1470,28 @@
           pause: function() { sendCommand({ type: "pause" }); },
           previoustrack: function() { sendCommand({ type: "prev" }); },
           nexttrack: function() { sendCommand({ type: "next" }); },
-          seekto: function(d) { if (d && typeof d.seekTime === "number") sendCommand({ type: "seek", position: d.seekTime }); },
-          seekbackward: function(d) { sendCommand({ type: "seek", position: Math.max(0, remotePos - ((d && d.seekOffset) || 10)) }); },
-          seekforward: function(d) { sendCommand({ type: "seek", position: remotePos + ((d && d.seekOffset) || 10) }); }
+          seekto: function(d) { if (d && typeof d.seekTime === "number") sendCommand({ type: "seek", position: d.seekTime }); }
         };
         Object.keys(actions).forEach(function(a) {
           try { navigator.mediaSession.setActionHandler(a, actions[a]); } catch (e) {}
         });
 
         window.__mmLockAudioStart = function() {
+          if (!audio.paused) return;
           var p = audio.play();
-          if (p && typeof p.catch === "function") p.catch(function() {});
+          if (p && typeof p.then === "function") {
+            p.then(function() { try { updateLockMedia(); } catch (e) {} })
+             .catch(function() {});
+          }
         };
         ["pointerdown", "click", "keydown"].forEach(function(ev) {
           document.addEventListener(ev, function once() {
             window.__mmLockAudioStart();
             document.removeEventListener(ev, once, true);
           }, { capture: true, once: true });
+        });
+        document.addEventListener("visibilitychange", function() {
+          if (!document.hidden && audio.paused && isPlayingRemote) window.__mmLockAudioStart();
         });
       } catch (e) {}
     })();
@@ -1591,6 +1599,7 @@
       if (iconPlay) iconPlay.style.display = playing ? "none" : "block";
       if (iconPause) iconPause.style.display = playing ? "block" : "none";
       updateLockPlayback();
+      if (isPlayingRemote && window.__mmLockAudioStart) window.__mmLockAudioStart();
     }
 
     function updateProgressUI(pos, dur) {
@@ -2089,6 +2098,7 @@
         updateProgressUI(state.position, state.duration || remoteDur);
       }
       updateLockMedia();
+      if (state.playing && window.__mmLockAudioStart) window.__mmLockAudioStart();
       var newId = state.now && state.now.id;
       var newSig = queueSig(state.queue);
       // Şarkı id'leri değişince (yenile) mutlaka yeniden çiz
