@@ -1443,18 +1443,29 @@
       if (!("mediaSession" in navigator)) return;
       try {
         // Chrome, 5 saniyeden kısa medyayı bildirimde göstermiyor. Bu yüzden
-        // 5 dakikalık, duyulamayacak kadar sessiz bir WAV üretiyoruz.
-        var rate = 8000, len = rate * 300;
-        var buf = new ArrayBuffer(44 + len), v = new DataView(buf);
+        // en az 5 saniyelik bir WAV üretiyoruz.
+        //
+        // ÖNEMLİ: Sinyal tamamen sessiz olmamalı (Chrome sessiz akışı "ses yok"
+        // sayıp kilit ekranı kontrolünü kaldırıyor) ama duyulabilir bir ton da
+        // olmamalı. Eski kod 8 kHz'de 127/129 arasında salınan 4 kHz'lik bir
+        // kare dalga üretiyordu; ses seviyesi yok sayılan cihazlarda bu, ince
+        // bir cızırtı/ötme olarak duyuluyordu. Onun yerine 44.1 kHz / 16-bit
+        // çok düşük seviyeli beyaz gürültü kullanıyoruz (~-66 dBFS).
+        var rate = 44100, seconds = 20, len = rate * seconds, bytes = len * 2;
+        var buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
         function putStr(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
-        putStr(0, "RIFF"); v.setUint32(4, 36 + len, true); putStr(8, "WAVE"); putStr(12, "fmt ");
+        putStr(0, "RIFF"); v.setUint32(4, 36 + bytes, true); putStr(8, "WAVE"); putStr(12, "fmt ");
         v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-        v.setUint32(24, rate, true); v.setUint32(28, rate, true);
-        v.setUint16(32, 1, true); v.setUint16(34, 8, true);
-        putStr(36, "data"); v.setUint32(40, len, true);
-        // Tam sessiz (sabit 128) yerine 1 birimlik sinusoidal olmayan salınım:
-        // duyulmaz ama tarayıcı gerçek ses akışı olarak sayar.
-        for (var i = 0; i < len; i++) v.setUint8(44 + i, i % 2 ? 129 : 127);
+        v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+        v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+        putStr(36, "data"); v.setUint32(40, bytes, true);
+        // İnsan kulağının ve telefon hoparlörünün algılayamayacağı kadar düşük
+        // seviyeli dither: akış "gerçek ses" sayılır, duyulmaz.
+        var noiseAmp = 0.0005;
+        for (var i = 0; i < len; i++) {
+          var sample = Math.round((Math.random() * 2 - 1) * noiseAmp * 32767);
+          v.setInt16(44 + i * 2, sample, true);
+        }
         var audio = document.createElement("audio");
         audio.id = "mmLockAudio";
         audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
