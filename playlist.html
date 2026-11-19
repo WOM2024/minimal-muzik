@@ -1445,12 +1445,11 @@
         // Chrome, 5 saniyeden kısa medyayı bildirimde göstermiyor. Bu yüzden
         // en az 5 saniyelik bir WAV üretiyoruz.
         //
-        // ÖNEMLİ: Sinyal tamamen sessiz olmamalı (Chrome sessiz akışı "ses yok"
-        // sayıp kilit ekranı kontrolünü kaldırıyor) ama duyulabilir bir ton da
-        // olmamalı. Eski kod 8 kHz'de 127/129 arasında salınan 4 kHz'lik bir
-        // kare dalga üretiyordu; ses seviyesi yok sayılan cihazlarda bu, ince
-        // bir cızırtı/ötme olarak duyuluyordu. Onun yerine 44.1 kHz / 16-bit
-        // çok düşük seviyeli beyaz gürültü kullanıyoruz (~-66 dBFS).
+        // Kullanıcı isteği: tamamen blank (sessiz) WAV. ArrayBuffer zaten
+        // sıfırlarla dolu geldiği için ses verisi (data chunk) tamamen 0'dır.
+        // Not: Bazı Chrome/Android sürümleri tamamen sessiz akışı "medya yok"
+        // sayıp kilit ekranı kontrolünü kaldırabilir. Bu durumda düşük seviyeli
+        // bir sinyale geri dönmek gerekir.
         var rate = 44100, seconds = 20, len = rate * seconds, bytes = len * 2;
         var buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
         function putStr(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
@@ -1459,13 +1458,7 @@
         v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
         v.setUint16(32, 2, true); v.setUint16(34, 16, true);
         putStr(36, "data"); v.setUint32(40, bytes, true);
-        // İnsan kulağının ve telefon hoparlörünün algılayamayacağı kadar düşük
-        // seviyeli dither: akış "gerçek ses" sayılır, duyulmaz.
-        var noiseAmp = 0.0005;
-        for (var i = 0; i < len; i++) {
-          var sample = Math.round((Math.random() * 2 - 1) * noiseAmp * 32767);
-          v.setInt16(44 + i * 2, sample, true);
-        }
+        // Ses verisi: tamamen 0 (blank). Seviye/volume mevcut ayarda kalıyor.
         var audio = document.createElement("audio");
         audio.id = "mmLockAudio";
         audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
@@ -1507,15 +1500,200 @@
       } catch (e) {}
     })();
 
-    function updateLockMedia() {
+    // —— Kilit ekranı artwork: thumbnail ↔ SuperYT logosu ——
+    // Media Session API'de gerçek bir "crossfade" yok. Geçiş efekti için ara
+    // kareleri canvas ile üretip metadata.artwork'ü kare kare güncelliyoruz.
+    // Bazı Android sürümleri artwork güncellemelerini geciktirebilir veya
+    // atlayabilir; o durumda geçiş sert bir değişim gibi görünebilir.
+    var LOCK_ART_HOLD_MS = 2000;
+    var LOCK_ART_FADE_STEPS = 4;
+    var LOCK_ART_FADE_STEP_MS = 70;
+    var _lockArt = {
+      trackId: "",
+      frames: null,
+      currentSrc: "",
+      timer: null,
+      token: 0,
+      logoImage: null
+    };
+
+    function loadLockArtImage(src, useCors) {
+      return new Promise(function(resolve, reject) {
+        var img = new Image();
+        if (useCors) img.crossOrigin = "anonymous";
+        img.onload = function() { resolve(img); };
+        img.onerror = function() { reject(new Error("görsel yüklenemedi")); };
+        img.src = src;
+      });
+    }
+
+    function getLockArtLogo() {
+      if (_lockArt.logoImage) return Promise.resolve(_lockArt.logoImage);
+      return loadLockArtImage("superyt-logo.png", false).then(function(img) {
+        _lockArt.logoImage = img;
+        return img;
+      });
+    }
+
+    function drawLockArtCover(ctx, img, size) {
+      var iw = img.naturalWidth || img.width || 1;
+      var ih = img.naturalHeight || img.height || 1;
+      var scale = Math.max(size / iw, size / ih);
+      var dw = iw * scale, dh = ih * scale;
+      ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    }
+
+    function buildLockArtFrames(id) {
+      return Promise.all([
+        loadLockArtImage(thumbUrl(id), true),
+        getLockArtLogo()
+      ]).then(function(imgs) {
+        var thumb = imgs[0], logo = imgs[1];
+        var size = 512;
+        var canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("canvas yok");
+
+        var bg = ctx.createLinearGradient(0, 0, 0, size);
+        bg.addColorStop(0, "#1a1a24");
+        bg.addColorStop(1, "#07070b");
+
+        var logoScale = Math.min((size * 0.72) / (logo.width || 1), (size * 0.44) / (logo.height || 1));
+        var logoW = (logo.width || 0) * logoScale;
+        var logoH = (logo.height || 0) * logoScale;
+        var logoX = (size - logoW) / 2;
+        var logoY = (size - logoH) / 2;
+
+        function compose(logoAlpha) {
+          ctx.clearRect(0, 0, size, size);
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, size, size);
+          if (logoAlpha < 1) {
+            ctx.globalAlpha = 1 - logoAlpha;
+            drawLockArtCover(ctx, thumb, size);
+            ctx.globalAlpha = 1;
+          }
+          if (logoAlpha > 0 && logoW > 0 && logoH > 0) {
+            ctx.globalAlpha = logoAlpha;
+            ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+            ctx.globalAlpha = 1;
+          }
+          return canvas.toDataURL("image/jpeg", 0.9);
+        }
+
+        var toLogo = [];
+        var toThumb = [];
+        for (var i = 1; i <= LOCK_ART_FADE_STEPS; i++) {
+          toLogo.push(compose(i / (LOCK_ART_FADE_STEPS + 1)));
+        }
+        for (var j = LOCK_ART_FADE_STEPS; j >= 1; j--) {
+          toThumb.push(compose(j / (LOCK_ART_FADE_STEPS + 1)));
+        }
+        return {
+          thumb: compose(0),
+          logo: compose(1),
+          toLogo: toLogo,
+          toThumb: toThumb
+        };
+      });
+    }
+
+    function publishLockArtwork(src) {
       if (!("mediaSession" in navigator)) return;
       try {
         var now = lastState && lastState.now;
         var title = (now && (now.title || now.id)) ? (now.title || "YouTube") : "SuperYT";
         var artist = (now && now.author) || "YouTube";
-        var art = (now && now.id) ? [{ src: thumbUrl(now.id), sizes: "320x180", type: "image/jpeg" }] : [];
-        navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: artist, album: "SuperYT", artwork: art });
+        var isFrame = src && src.indexOf("data:") === 0;
+        var art = src
+          ? [{ src: src, sizes: isFrame ? "512x512" : "320x180", type: "image/jpeg" }]
+          : ((now && now.id) ? [{ src: thumbUrl(now.id), sizes: "320x180", type: "image/jpeg" }] : []);
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: title,
+          artist: artist,
+          album: "SuperYT",
+          artwork: art
+        });
       } catch (e) {}
+    }
+
+    function setLockArtFrame(src) {
+      if (!src) return;
+      _lockArt.currentSrc = src;
+      publishLockArtwork(src);
+    }
+
+    function stopLockArtRotation() {
+      _lockArt.token++;
+      _lockArt.trackId = "";
+      _lockArt.frames = null;
+      _lockArt.currentSrc = "";
+      if (_lockArt.timer) {
+        clearTimeout(_lockArt.timer);
+        _lockArt.timer = null;
+      }
+    }
+
+    function startLockArtRotation(id) {
+      stopLockArtRotation();
+      var token = ++_lockArt.token;
+      _lockArt.trackId = id;
+      buildLockArtFrames(id).then(function(frames) {
+        if (token !== _lockArt.token) return;
+        if (!lastState || !lastState.now || lastState.now.id !== id) return;
+        _lockArt.frames = frames;
+        runLockArtCycle(token);
+      }).catch(function() {
+        // Görseller alınamazsa doğrudan thumbnail ile devam et.
+      });
+    }
+
+    function playLockArtFrames(token, frames, done) {
+      var i = 0;
+      function next() {
+        if (token !== _lockArt.token) return;
+        if (i >= frames.length) {
+          done();
+          return;
+        }
+        setLockArtFrame(frames[i++]);
+        _lockArt.timer = setTimeout(next, LOCK_ART_FADE_STEP_MS);
+      }
+      next();
+    }
+
+    function runLockArtCycle(token) {
+      if (token !== _lockArt.token || !_lockArt.frames) return;
+      var frames = _lockArt.frames;
+      setLockArtFrame(frames.thumb);
+      _lockArt.timer = setTimeout(function() {
+        if (token !== _lockArt.token) return;
+        playLockArtFrames(token, frames.toLogo, function() {
+          if (token !== _lockArt.token) return;
+          setLockArtFrame(frames.logo);
+          _lockArt.timer = setTimeout(function() {
+            if (token !== _lockArt.token) return;
+            playLockArtFrames(token, frames.toThumb, function() {
+              if (token !== _lockArt.token) return;
+              runLockArtCycle(token);
+            });
+          }, LOCK_ART_HOLD_MS);
+        });
+      }, LOCK_ART_HOLD_MS);
+    }
+
+    function updateLockMedia() {
+      if (!("mediaSession" in navigator)) return;
+      var now = lastState && lastState.now;
+      if (now && now.id) {
+        if (_lockArt.trackId !== now.id) startLockArtRotation(now.id);
+        publishLockArtwork(_lockArt.currentSrc || thumbUrl(now.id));
+      } else {
+        stopLockArtRotation();
+        publishLockArtwork("");
+      }
       updateLockPlayback();
     }
 
@@ -3274,6 +3452,7 @@
       try { kept = (localStorage.getItem(LAST_ROOM_KEY) || roomCode || "").trim().toUpperCase(); } catch (e) {}
       roomCode = "";
       lastState = null;
+      try { stopLockArtRotation(); } catch (e) {}
       lastAliveAt = 0;
       lastPongAt = 0;
       lastMqttAt = 0;
