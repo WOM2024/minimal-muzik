@@ -751,26 +751,42 @@
     }
     #plSearchBtn:active { opacity: 0.85; }
 
-    /* Category chips */
+    /* Category chips — yatay kaydırılabilir, mobil dostu */
     .cats {
       flex-shrink: 0;
       display: none; gap: 8px;
-      padding: 0 12px 10px;
-      overflow-x: auto; scrollbar-width: none;
+      padding: 6px 14px 12px;
+      overflow-x: auto; overflow-y: hidden;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      scroll-padding: 0 14px;
+      scroll-behavior: smooth;
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
     }
     .cats.show { display: flex; }
     .cats::-webkit-scrollbar { display: none; }
     .cat {
       flex-shrink: 0;
+      min-height: 36px;
       padding: 8px 16px;
-      background: var(--bg-highlight);
-      border: none; border-radius: 20px;
-      font-size: 12px; font-weight: 700;
-      color: var(--text); cursor: pointer; white-space: nowrap;
-      transition: background .15s, color .15s;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 999px;
+      font-size: 12.5px; font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer; white-space: nowrap;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s, border-color .15s, transform .12s;
     }
-    .cat.active, .cat:active {
-      background: linear-gradient(135deg, #ff2d55, #ff4d6d); color: #fff;
+    .cat:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+    .cat:active { transform: scale(0.96); }
+    .cat.active {
+      background: linear-gradient(135deg, #ff2d55, #ff4d6d);
+      color: #fff;
+      border-color: transparent;
       box-shadow: 0 2px 12px rgba(255,45,85,0.3);
     }
 
@@ -946,6 +962,19 @@
     .pl-import:active { opacity: 0.85; }
     .pl-import:disabled { opacity: 0.45; pointer-events: none; }
 
+    .ready-more {
+      display: block; width: 100%;
+      margin: 12px 0 6px;
+      padding: 13px 12px;
+      background: var(--bg-highlight); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: background .15s;
+    }
+    .ready-more:active { background: var(--bg-card); }
+    .ready-more:disabled { opacity: 0.55; pointer-events: none; }
+
     .empty-q, .loading-q {
       text-align: center; color: var(--text-muted);
       font-size: 14px; padding: 48px 20px; line-height: 1.6; font-weight: 500;
@@ -1103,7 +1132,7 @@
       <button type="button" id="plSearchBtn">Ara</button>
     </div>
 
-    <div class="pl-cats" id="plCats" style="display:none;flex-wrap:wrap;gap:6px;padding:0 12px 8px;"></div>
+    <div class="cats" id="plCats" role="group" aria-label="Keşfet kategorileri"></div>
 
     <div class="list-label" id="listLabel">Sıradaki şarkılar</div>
     <div class="scroll-area" id="scrollArea"></div>
@@ -1175,6 +1204,7 @@
     const YT_CHARTS_AUTHOR = "YouTube Music";
     const PIPED_INSTANCES = [
       "https://api.piped.private.coffee",
+      "https://pipedapi.ducks.party",
       "https://pipedapi.adminforge.de",
       "https://pipedapi.kavin.rocks"
     ];
@@ -1257,6 +1287,23 @@
       turku: "Türkü",
       donemler: "Dönemler",
       listeler: "Listeler"
+    };
+
+    // Kategori seçilince 3 sabit liste gösterilir; ardından bu sorguyla
+    // daha fazla playlist aranıp listeye eklenir (Keşfet'te daha fazla seçenek).
+    const CATEGORY_QUERIES = {
+      yaz: "yaz 2026 şarkıları",
+      yeni: "yeni türkçe pop 2026",
+      hit: "türkçe hit şarkılar",
+      arabesk: "arabesk şarkılar",
+      indie: "türkçe indie",
+      mod: "türkçe elektronik müzik",
+      "turkce-pop": "türkçe pop şarkıları",
+      rap: "türkçe rap",
+      "turkce-rock": "türkçe rock",
+      turku: "türkü",
+      donemler: "türkçe 90'lar",
+      listeler: "top 100 türkiye"
     };
 
     const CATEGORY_PLAYLIST_SEARCH = {};
@@ -1380,6 +1427,8 @@
     let readyPage = 1;
     let readyHasMore = false;
     let readyQuery = "";
+    let readyCatKey = "";
+    let readyReqSeq = 0;
     let listLoadingMore = false;
     let isPlayingRemote = false;
     let remotePos = 0;
@@ -1906,9 +1955,10 @@
     function updateManualChrome() {
       var isMan = mode === "manual";
       if (tabsBar) tabsBar.classList.toggle("show", isMan);
-      // Arama: Keşfet (listeler) ve Ara sekmelerinde
-      if (searchBar) searchBar.classList.toggle("show", isMan && activeTab === "search");
-      if (plCats) plCats.classList.remove("show");
+      // Arama: Keşfet (playlist ara) ve Ara (şarkı ara) sekmelerinde görünür
+      if (searchBar) searchBar.classList.toggle("show", isMan && (activeTab === "search" || activeTab === "ready"));
+      // Kategori çubuğu yalnızca Keşfet sekmesinde görünür
+      if (plCats) plCats.classList.toggle("show", isMan && activeTab === "ready");
     }
 
     function setMode(m) {
@@ -2323,13 +2373,17 @@
       if (activeTab === "ready") {
         listLabel.textContent = importing
           ? "İçe aktarılıyor…"
-          : "Keşfet · kategori seç → listeyi Listem'e aktar";
+          : (readyPlaylists.length
+              ? "Keşfet · " + readyPlaylists.length + " playlist · Seç → Listem"
+              : "Keşfet · playlist ara veya kategori seç");
         if (searchLoading) {
           scrollArea.innerHTML = '<div class="loading-q">Playlistler yükleniyor…</div>';
           return;
         }
         if (!readyPlaylists.length) {
-          scrollArea.innerHTML = '<div class="empty-q">Kategori seç → listeler gelsin.<br>Liste seç → mevcut listenin yerine gelir.</div>';
+          scrollArea.innerHTML = readyQuery
+            ? '<div class="empty-q">Playlist bulunamadı.<br>Farklı bir arama dene.</div>'
+            : '<div class="empty-q">Kategori seç → listeler gelsin.<br>Liste seç → mevcut listenin yerine gelir.</div>';
           return;
         }
         var htmlR = "";
@@ -2347,13 +2401,16 @@
             '<button type="button" class="pl-import" data-import="' + r + '">Seç</button>' +
             '</div>';
         }
+        if (readyHasMore) {
+          htmlR += '<button type="button" class="ready-more" id="readyMoreBtn">Daha fazla playlist göster</button>';
+        }
         scrollArea.innerHTML = htmlR;
         scrollArea.querySelectorAll("[data-import]").forEach(function(btn) {
           btn.addEventListener("click", function(e) {
             e.stopPropagation();
             var idx = parseInt(btn.dataset.import, 10);
             var pl = readyPlaylists[idx];
-            if (pl) importFullPlaylist(pl.playlistId, pl.title, btn);
+            if (pl) importFullPlaylist(pl.playlistId, pl.title, btn, pl.videoCount);
           });
         });
         scrollArea.querySelectorAll(".pl-card").forEach(function(card) {
@@ -2362,6 +2419,13 @@
             var btn = card.querySelector("[data-import]");
             if (btn) btn.click();
           });
+        });
+        var moreBtn = document.getElementById("readyMoreBtn");
+        if (moreBtn) moreBtn.addEventListener("click", function() {
+          moreBtn.disabled = true;
+          moreBtn.textContent = "Yükleniyor…";
+          var q = readyQuery || CATEGORY_QUERIES[readyCatKey] || CATEGORY_LABELS[readyCatKey] || "türkçe pop";
+          doSmartSearch(q, true);
         });
         return;
       }
@@ -2445,50 +2509,95 @@
       return null;
     }
 
-    async function fetchPlaylistVideos(playlistId) {
-      // 1) Invidious (PL… listeleri)
-      var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId));
-      if (data && Array.isArray(data.videos) && data.videos.length) {
-        return data.videos.map(function(v) {
-          return { id: v.videoId, title: v.title || "", author: v.author || "" };
-        }).filter(function(v) { return !!v.id; });
+    function pipedStreamId(s) {
+      var id = s.id || s.videoId || "";
+      if (!id && s.url) {
+        var m = String(s.url).match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+        if (m) id = m[1];
+        if (!id) {
+          var m2 = String(s.url).match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
+          if (m2) id = m2[1];
+        }
+        if (!id) {
+          var m3 = String(s.url).match(/\/([a-zA-Z0-9_-]{11})$/);
+          if (m3) id = m3[1];
+        }
       }
-      // 2) Piped (RDCLAK… YouTube Music rafları)
+      return id;
+    }
+
+    function collectPlaylistStreams(streams, out, seen) {
+      var added = 0;
+      (streams || []).forEach(function(s) {
+        var id = pipedStreamId(s);
+        if (!id || seen[id]) return;
+        seen[id] = true;
+        out.push({
+          id: id,
+          title: s.title || s.name || "",
+          author: s.uploaderName || s.uploader || s.author || ""
+        });
+        added++;
+      });
+      return added;
+    }
+
+    async function fetchPlaylistVideos(playlistId) {
+      // 1) Piped — YouTube Music "RDCLAK…" mix listelerini destekler.
+      //    nextpage ile TÜM sayfaları çek: mix'lerde 1. sayfa 24 şarkı verir,
+      //    2. sayfa eksik kalanı tamamlar.
       for (var i = 0; i < PIPED_INSTANCES.length; i++) {
+        var base = PIPED_INSTANCES[i];
         try {
-          var res = await fetch(PIPED_INSTANCES[i] + "/playlists/" + encodeURIComponent(playlistId), {
-            signal: AbortSignal.timeout(12000)
+          var res = await fetch(base + "/playlists/" + encodeURIComponent(playlistId), {
+            signal: AbortSignal.timeout(8000)
           });
           if (!res.ok) continue;
           var pj = await res.json();
           var streams = pj.relatedStreams || pj.videos || [];
           if (!Array.isArray(streams) || !streams.length) continue;
-          return streams.map(function(s) {
-            var id = s.id || "";
-            if (!id && s.url) {
-              var m = String(s.url).match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-              if (m) id = m[1];
-              if (!id) {
-                var m2 = String(s.url).match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
-                if (m2) id = m2[1];
-              }
-              if (!id) {
-                var m3 = String(s.url).match(/\/([a-zA-Z0-9_-]{11})$/);
-                if (m3) id = m3[1];
-              }
-            }
-            return {
-              id: id,
-              title: s.title || s.name || "",
-              author: s.uploaderName || s.uploader || s.author || ""
-            };
-          }).filter(function(v) { return !!v.id; });
+          var out = [], seen = {};
+          collectPlaylistStreams(streams, out, seen);
+          var np = pj.nextpage;
+          var pages = 1;
+          while (np && pages < 8) {
+            var npRes = await fetch(base + "/nextpage/playlists/" + encodeURIComponent(playlistId) +
+              "?nextpage=" + encodeURIComponent(np), { signal: AbortSignal.timeout(8000) });
+            if (!npRes.ok) break;
+            var npj = await npRes.json();
+            var added = collectPlaylistStreams(npj.relatedStreams || npj.videos || [], out, seen);
+            pages++;
+            // Piped bazı mix'lerde aynı sayfayı tekrar döndürüyor:
+            // yeni şarkı gelmiyorsa dur (sonsuz döngü olmasın).
+            if (!added) break;
+            np = npj.nextpage;
+          }
+          if (out.length) return out;
         } catch (e) {}
       }
+      // 2) Invidious fallback (normal PL… listeleri; ?page= ile sayfalama)
+      try {
+        var all = [], seen2 = {};
+        for (var page = 1; page <= 6; page++) {
+          var data = await fetchApi("/api/v1/playlists/" + encodeURIComponent(playlistId) +
+            "?page=" + page);
+          if (!data || !Array.isArray(data.videos) || !data.videos.length) break;
+          var added2 = 0;
+          data.videos.forEach(function(v) {
+            if (!v.videoId || seen2[v.videoId]) return;
+            seen2[v.videoId] = true;
+            all.push({ id: v.videoId, title: v.title || "", author: v.author || "" });
+            added2++;
+          });
+          if (!added2) break;
+          if (data.videoCount && all.length >= data.videoCount) break;
+        }
+        if (all.length) return all;
+      } catch (e) {}
       return null;
     }
 
-    async function importFullPlaylist(playlistId, title, btn) {
+    async function importFullPlaylist(playlistId, title, btn, videoCount) {
       if (importing || !playlistId) return;
       importing = true;
       if (btn) {
@@ -2507,7 +2616,7 @@
 
       if (!videos || !videos.length) {
         listLabel.textContent = "İçe aktarma başarısız";
-        showToast("Liste alınamadı, tekrar dene");
+        showToast("Liste alınamadı — servis geçici olarak yanıt vermiyor, tekrar dene");
         return;
       }
 
@@ -2529,10 +2638,15 @@
       document.querySelectorAll(".tab").forEach(function(t) {
         t.classList.toggle("active", t.dataset.tab === "playlist");
       });
-      if (plCats) plCats.style.display = "none";
+      if (plCats) plCats.classList.remove("show");
       updateManualChrome();
       renderList();
-      showToast(manualQueue.length ? (manualQueue.length + " şarkı yüklendi · Listem") : "Liste boş");
+      var expected = parseInt(videoCount, 10) || 0;
+      var msg = manualQueue.length ? (manualQueue.length + " şarkı yüklendi · Listem") : "Liste boş";
+      if (expected && manualQueue.length < expected) {
+        msg = manualQueue.length + "/" + expected + " şarkı yüklendi (bazıları mükerrer/kullanılamıyor) · Listem";
+      }
+      showToast(msg);
       if (manualQueue.length) {
         var first = manualQueue[0];
         sendCommand({ type: "play", id: first.id, title: first.title, author: first.author });
@@ -2595,7 +2709,7 @@
       var keys = Object.keys(CATEGORY_PLAYLISTS);
       if (!plCats.dataset.built) {
         plCats.innerHTML = keys.map(function(k) {
-          return '<button type="button" class="cat" data-cat="' + k + '" style="border:1px solid rgba(255,255,255,0.12);background:#222;color:#eee;border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;">' +
+          return '<button type="button" class="cat" data-cat="' + k + '" aria-pressed="false">' +
             (CATEGORY_LABELS[k] || k) +
             "</button>";
         }).join("");
@@ -2606,14 +2720,20 @@
           });
         });
       }
-      plCats.style.display = "flex";
+      plCats.classList.add("show");
+      var activeEl = null;
       plCats.querySelectorAll(".cat").forEach(function(c) {
         var on = c.dataset.cat === activeKey;
         c.classList.toggle("active", on);
-        c.style.background = on ? "#ff2d55" : "#222";
-        c.style.color = on ? "#000" : "#eee";
-        c.style.fontWeight = on ? "700" : "500";
+        c.setAttribute("aria-pressed", on ? "true" : "false");
+        if (on) activeEl = c;
       });
+      // Aktif kategoriyi yatay çubukta ortala — mobilde gözden kaçmasın
+      if (activeEl) {
+        try {
+          activeEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        } catch (e) {}
+      }
     }
 
     async function loadReadyPlaylists(catKey) {
@@ -2641,8 +2761,16 @@
       });
 
       readyPlaylists = found;
+      readyCatKey = catKey;
+      readyQuery = CATEGORY_QUERIES[catKey] || CATEGORY_LABELS[catKey] || catKey;
+      readyPage = 0;
+      readyHasMore = true;
+      listLoadingMore = false;
       searchLoading = false;
       renderList();
+      // 3 sabit listenin ardından arka planda daha fazla playlist getir
+      // (kullanıcı kaydırdıkça / "Daha fazla" ile devam eder)
+      doSmartSearch(readyQuery, true);
     }
 
     async function doSmartSearch(q, append) {
@@ -2650,6 +2778,7 @@
       if (!q) return;
       if (!append) {
         readyQuery = q;
+        readyCatKey = "";
         readyPage = 1;
         readyPlaylists = [];
         readyHasMore = true;
@@ -2659,16 +2788,26 @@
           t.classList.toggle("active", t.dataset.tab === "ready");
         });
         updateManualChrome();
+        // Özel aramada kategori chip'lerindeki seçimi kaldır
+        if (plCats) plCats.querySelectorAll(".cat").forEach(function(c) {
+          c.classList.remove("active");
+          c.setAttribute("aria-pressed", "false");
+        });
         renderList();
       } else {
         if (listLoadingMore || !readyHasMore) return;
         listLoadingMore = true;
         readyPage += 1;
       }
+      // Aynı anda birden fazla istek olursa sadece sonuncusunun sonucu uygulanır
+      var myReq = ++readyReqSeq;
+      var reqQuery = readyQuery || q;
+      var reqPage = readyPage;
       var data = await fetchApi(
-        "/api/v1/search?q=" + encodeURIComponent(readyQuery || q) +
-        "&type=playlist&page=" + readyPage + "&region=TR"
+        "/api/v1/search?q=" + encodeURIComponent(reqQuery) +
+        "&type=playlist&page=" + reqPage + "&region=TR"
       );
+      if (myReq !== readyReqSeq) return;
       searchLoading = false;
       listLoadingMore = false;
       var batch = [];
@@ -2687,15 +2826,21 @@
             };
           });
       }
+      var addedCount = 0;
       if (!batch.length) {
         readyHasMore = false;
       } else {
         var seenP = {};
         readyPlaylists.forEach(function(x) { seenP[x.playlistId] = true; });
         batch.forEach(function(x) {
-          if (!seenP[x.playlistId]) { seenP[x.playlistId] = true; readyPlaylists.push(x); }
+          if (!seenP[x.playlistId]) {
+            seenP[x.playlistId] = true;
+            readyPlaylists.push(x);
+            addedCount++;
+          }
         });
-        readyHasMore = batch.length >= 6;
+        // Yeni sonuç gelmiyorsa daha fazla sayfa denemeyi bırak
+        readyHasMore = addedCount > 0 && batch.length >= 6;
       }
       renderList();
     }
@@ -2778,6 +2923,11 @@
     function onStateMessage(state) {
       if (!state) return;
       if (state.room && state.room !== roomCode) return;
+      // Birden fazla kanal (BC / MQTT / Peer / localStorage) aynı state'i
+      // farklı gecikmelerle getirebiliyor. Eski (stale) bir state yenisinin
+      // üzerine yazarsa "önce yeni, sonra eski şarkı seçili" titremesi olur.
+      if (state.updated && lastState && lastState.updated &&
+          state.updated < lastState.updated) return;
       lastAliveAt = Date.now();
       applyState(state);
       updateLinkStatus();
@@ -3546,7 +3696,7 @@
         if (activeTab === "ready") {
           loadReadyPlaylists(Object.keys(CATEGORY_PLAYLISTS)[0] || "yaz");
         } else {
-          if (plCats) plCats.style.display = "none";
+          if (plCats) plCats.classList.remove("show");
           renderList();
         }
       });
@@ -3555,8 +3705,8 @@
     function runSearch() {
       var q = (plSearch.value || "").trim();
       if (!q) return;
-      // Arama sadece "Ara" sekmesinde; Keşfet'te arama yok
       if (activeTab === "search") doSongSearch(q);
+      else if (activeTab === "ready") doSmartSearch(q);
     }
     plSearchBtn.addEventListener("click", runSearch);
     plSearch.addEventListener("keydown", function(e) {
