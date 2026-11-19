@@ -686,36 +686,62 @@
       transition: opacity .2s;
     }
     .bright-panel-idx {
-      display: none;
+      display: block;
       position: absolute;
       left: 50%;
       top: 54px;
-      transform: translateX(-50%);
+      transform: translateX(-50%) translateY(-8px) scale(0.97);
+      transform-origin: top center;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s cubic-bezier(.2,.8,.2,1), visibility 0s linear .18s;
       background: linear-gradient(180deg, #242424 0%, #1a1a1a 100%);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 16px 18px 14px;
+      border-radius: 14px;
+      padding: 14px 16px 12px;
       z-index: 50;
-      width: min(300px, 92vw);
-      max-height: min(70vh, 480px);
+      width: clamp(258px, 84vw, 336px);
+      max-height: min(52vh, 380px);
       overflow-x: hidden;
       overflow-y: auto;
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      scrollbar-color: #ff2d55 rgba(255,255,255,0.10);
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
+      touch-action: pan-y;
       box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
       backdrop-filter: blur(12px);
     }
-    .bright-panel-idx.show { display: block; animation: panel-in .2s ease; }
+    .bright-panel-idx.show {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0) scale(1);
+      transition: opacity .18s ease, transform .18s cubic-bezier(.2,.8,.2,1), visibility 0s;
+    }
+    .bright-panel-idx::-webkit-scrollbar { width: 9px; }
+    .bright-panel-idx::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.06);
+      border-radius: 9px;
+    }
+    .bright-panel-idx::-webkit-scrollbar-thumb {
+      background: #ff2d55;
+      border-radius: 9px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    .bright-panel-idx::-webkit-scrollbar-thumb:hover {
+      background: #ff5478;
+      background-clip: padding-box;
+    }
     @media (orientation: landscape) {
       .bright-panel-idx {
         top: 44px;
-        max-height: calc(100vh - 56px);
-        width: min(340px, 88vw);
+        max-height: min(56vh, 330px);
+        width: clamp(264px, 72vw, 344px);
       }
-    }
-    @keyframes panel-in {
-      from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
     .sp-title {
       font-size: 13px;
@@ -890,6 +916,31 @@
       color: #000;
       border-color: #ff2d55;
     }
+    /* Ekran modu: 4 seçenek tek satırda, cihaz genişliğine göre eşit dağılır */
+    #displayModeRow { flex-wrap: nowrap; }
+    #displayModeRow .sp-mode-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 8px 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bright-panel-idx select {
+      width: 100%;
+      padding: 9px 12px;
+      background: #2a2a2a;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      color: #eee;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+    .bright-panel-idx select:focus { border-color: #ff2d55; }
+    .bright-panel-idx select option { background: #242424; color: #eee; }
 
     /*
       Kenar katmanları YouTube kalite dişlisini engelliyordu.
@@ -1281,6 +1332,44 @@
               <span class="sp-seconds-val" id="zoomValLabel">100%</span>
             </div>
             <input type="range" id="zoomRange" min="100" max="220" value="100" step="5" />
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <label class="sp-field-label">
+            Video kalitesi
+            <span class="sp-dim-val" id="vqActualLabel">—</span>
+          </label>
+          <div class="sp-row-sub" style="margin-top:8px;line-height:1.45;">
+            YouTube iframe'i kaliteyi dışarıdan değiştirmemize izin vermiyor. Gerçek kaliteyi değiştirmek için oynatıcıdaki <b>⚙ &gt; Kalite</b> menüsünü kullanın; seçiminiz YouTube tarafından hatırlanır. Bu panel o anki gerçek kaliteyi gösterir.
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <div class="sp-row">
+            <div>
+              <div class="sp-row-label">Altyazı</div>
+              <div class="sp-row-sub">Video açılırken seçili dilde gelsin</div>
+            </div>
+            <label class="sp-toggle">
+              <input type="checkbox" id="ccToggle" />
+              <span class="sp-toggle-track"></span>
+            </label>
+          </div>
+          <div class="sp-seconds show" id="ccLangWrap" style="margin-top:10px;">
+            <div class="sp-seconds-top">
+              <span>Altyazı dili</span>
+            </div>
+            <select id="ccLangSelect">
+              <option value="">Otomatik (varsayılan)</option>
+              <option value="tr">Türkçe</option>
+              <option value="en">İngilizce</option>
+              <option value="de">Almanca</option>
+              <option value="fr">Fransızca</option>
+              <option value="es">İspanyolca</option>
+              <option value="ar">Arapça</option>
+              <option value="ru">Rusça</option>
+            </select>
           </div>
         </div>
       </div>
@@ -3188,6 +3277,105 @@
     // Aktif yükleme süresi (end= parametresi + timer)
     var _currentLoadDuration = 0;
 
+    // —— Altyazı tercihleri (kalıcı) + gerçek kalite gösterimi ——
+    // Not: YouTube iframe'i kaliteyi dışarıdan değiştirmemize izin vermiyor
+    // (setPlaybackQuality çalışmıyor, setPlaybackQualityRange dış API'ye kapalı).
+    // Kalite bu yüzden yalnızca gösterilir; değişim kullanıcının ⚙ > Kalite menüsünden yapılır.
+    // Altyazı captions modülü + setOption ile tamamen kontrol edilebiliyor.
+    var KEY_CC_ON = "minimal_muzik_captions_on";
+    var KEY_CC_LANG = "minimal_muzik_captions_lang";
+    var playbackPrefs = { captionsOn: false, captionsLang: "" };
+    try {
+      playbackPrefs.captionsOn = localStorage.getItem(KEY_CC_ON) === "1";
+      playbackPrefs.captionsLang = localStorage.getItem(KEY_CC_LANG) || "";
+    } catch (ePrefs) {}
+
+    function savePlaybackPrefs() {
+      try {
+        localStorage.setItem(KEY_CC_ON, playbackPrefs.captionsOn ? "1" : "0");
+        localStorage.setItem(KEY_CC_LANG, playbackPrefs.captionsLang || "");
+      } catch (e) {}
+    }
+
+    function qualityLabel(q) {
+      var map = {
+        highres: "1080p+", hd2160: "2160p", hd1440: "1440p",
+        hd1080: "1080p", hd720: "720p", large: "480p",
+        medium: "360p", small: "240p", tiny: "144p", auto: "otomatik"
+      };
+      return map[q] || q || "—";
+    }
+
+    // "de" seçilmişse videoda "de-DE" varsa onu bul (bölgesel dil kodları)
+    function resolveCaptionLang(target, lang) {
+      if (!lang) return "";
+      try {
+        var list = target.getOption("captions", "tracklist") || [];
+        if (Array.isArray(list) && list.length) {
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].languageCode === lang) return lang;
+          }
+          for (var j = 0; j < list.length; j++) {
+            var code = list[j] && list[j].languageCode;
+            if (code && code.indexOf(lang + "-") === 0) return code;
+          }
+        }
+      } catch (e) {}
+      return lang;
+    }
+
+    function applyCaptions(target) {
+      if (!target) return;
+      var on = !!playbackPrefs.captionsOn;
+      var lang = playbackPrefs.captionsLang || "";
+      try {
+        if (typeof target.loadModule === "function") target.loadModule("captions");
+      } catch (eL) {}
+      try {
+        if (!on) {
+          target.setOption("captions", "track", {});
+          target.setOption("captions", "reload", true);
+          return;
+        }
+        var track = null;
+        if (lang) {
+          track = { languageCode: resolveCaptionLang(target, lang) };
+        } else {
+          // Otomatik: oynatıcı zaten bir track seçtiyse ona dokunma (varsayılan dil)
+          var current = null;
+          try { current = target.getOption("captions", "track"); } catch (eCur) {}
+          if (current && current.languageCode) return;
+          var list = target.getOption("captions", "tracklist") || [];
+          if (Array.isArray(list) && list.length) {
+            var pref = null;
+            for (var i = 0; i < list.length; i++) {
+              if (list[i] && list[i].languageCode === "tr") { pref = list[i]; break; }
+            }
+            pref = pref || list[0];
+            if (pref && pref.languageCode) track = { languageCode: pref.languageCode };
+          }
+        }
+        if (track) target.setOption("captions", "track", track);
+        target.setOption("captions", "reload", true);
+      } catch (eC) {}
+    }
+
+    function captureCaptionTracks(target) {
+      if (!target) return;
+      try {
+        var list = target.getOption("captions", "tracklist") || [];
+        if (Array.isArray(list) && list.length && typeof window.__syncCaptionLanguageOptions === "function") {
+          window.__syncCaptionLanguageOptions(list);
+        }
+      } catch (e) {}
+    }
+
+    function applyCaptionPrefs(target) {
+      if (!target) return;
+      applyCaptions(target);
+      captureCaptionTracks(target);
+    }
+
     // —— Resmi YouTube IFrame API player (tek oturum + loadVideoById = 6.html modeli) ——
     // Uzaktan play komutlarında yarış / takılma olmasın: en son istek kazanır + loading watchdog
     function loadOfficialYtPlayer(id, muted, durationSec) {
@@ -3254,6 +3442,7 @@
           bindMediaSessionHandlers();
           bumpMediaSessionPlaying();
           armDurationFromApi(target || ytPlayerInstance);
+          applyCaptionPrefs(target || ytPlayerInstance);
           // Güvenlik: 2.5 sn içinde PLAYING gelmezse yine kapat
           setTimeout(function() {
             if (myToken !== _loadToken) return;
@@ -3479,7 +3668,7 @@
         modestbranding: 1,
         rel: 0,
         iv_load_policy: 3,
-        cc_load_policy: 0,
+        cc_load_policy: playbackPrefs.captionsOn ? 1 : 0,
         fs: 1,
         playsinline: 1,
         disablekb: 0,
@@ -3487,6 +3676,8 @@
         origin: window.location.origin || undefined
       };
       if (wantMute) playerVars.mute = 1;
+      // Altyazı dili + kalite önerisi (vq eski parametre; YouTube yok sayabilir)
+      if (playbackPrefs.captionsLang) playerVars.cc_lang_pref = playbackPrefs.captionsLang;
 
       function applyMuteAndPlayRecreate(target) {
         try {
@@ -3536,6 +3727,13 @@
             bindMediaSessionHandlers();
             bumpMediaSessionPlaying();
             armDurationFromApiRecreate(ev.target);
+            applyCaptionPrefs(ev.target);
+            setTimeout(function() {
+              try {
+                captureCaptionTracks(ev.target);
+                applyCaptions(ev.target);
+              } catch (eCc) {}
+            }, 900);
           },
           onStateChange: function(event) {
             try {
@@ -3562,6 +3760,8 @@
                 markMediaUnlocked();
                 try { ensureYtUnmuted(event.target || ytPlayerInstance); } catch (eU) {}
                 bumpMediaSessionPlaying();
+                // Altyazı dillerini videodan güncelle (altyazı onReady/load'da uygulanır)
+                try { captureCaptionTracks(event.target || ytPlayerInstance); } catch (eCap) {}
                 // SponsorBlock: oynatma başlayınca segmentleri çek ve atla
                 if (currentPlayingId) startSponsorCheck(currentPlayingId);
                 try { broadcastState(); } catch (eB) {}
@@ -3586,6 +3786,18 @@
                 } catch (eP) {}
               }
             } catch (e5) {}
+          },
+          onApiChange: function(event) {
+            try {
+              captureCaptionTracks(event.target || ytPlayerInstance);
+              applyCaptions(event.target || ytPlayerInstance);
+            } catch (eApi) {}
+          },
+          onPlaybackQualityChange: function(event) {
+            try {
+              var el = document.getElementById("vqActualLabel");
+              if (el) el.textContent = "şu an " + qualityLabel(event.data);
+            } catch (eQ) {}
           },
           onError: function(event) {
             var code = event && event.data;
@@ -4355,6 +4567,99 @@
         zoomRangeEl.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
       }
 
+      // —— Gerçek kalite gösterimi + altyazı ayarları ——
+      var vqActual = document.getElementById("vqActualLabel");
+      var ccToggle = document.getElementById("ccToggle");
+      var ccLangSelect = document.getElementById("ccLangSelect");
+      var ccLangWrap = document.getElementById("ccLangWrap");
+
+      function syncVqUI() {
+        if (!vqActual) return;
+        var q = "";
+        try {
+          if (ytPlayerInstance && typeof ytPlayerInstance.getPlaybackQuality === "function") {
+            q = ytPlayerInstance.getPlaybackQuality() || "";
+          }
+        } catch (eQ) {}
+        if (!q) {
+          vqActual.textContent = "—";
+          return;
+        }
+        vqActual.textContent = "şu an " + qualityLabel(q);
+      }
+
+      function syncCcUI() {
+        if (ccToggle) ccToggle.checked = !!playbackPrefs.captionsOn;
+        if (ccLangWrap) ccLangWrap.style.display = playbackPrefs.captionsOn ? "block" : "none";
+        if (!ccLangSelect) return;
+        var v = playbackPrefs.captionsLang || "";
+        var has = false;
+        for (var i = 0; i < ccLangSelect.options.length; i++) {
+          if (ccLangSelect.options[i].value === v) { has = true; break; }
+        }
+        if (!has && v) {
+          var opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v.toUpperCase();
+          opt.setAttribute("data-dynamic", "1");
+          ccLangSelect.appendChild(opt);
+        }
+        ccLangSelect.value = v;
+      }
+
+      // Video açılınca bulunan altyazı dillerini seçime ekle
+      // (önceki videodan kalan dinamik diller temizlenir, sabit liste korunur)
+      window.__syncCaptionLanguageOptions = function(list) {
+        if (!ccLangSelect || !Array.isArray(list)) return;
+        var dyn = ccLangSelect.querySelectorAll('option[data-dynamic="1"]');
+        for (var d = dyn.length - 1; d >= 0; d--) {
+          if (dyn[d].parentNode) dyn[d].parentNode.removeChild(dyn[d]);
+        }
+        var existing = {};
+        for (var i = 0; i < ccLangSelect.options.length; i++) {
+          existing[ccLangSelect.options[i].value] = true;
+        }
+        var added = 0;
+        list.forEach(function(t) {
+          var code = t && t.languageCode;
+          if (!code || existing[code] || added >= 40) return;
+          var opt = document.createElement("option");
+          opt.value = code;
+          opt.textContent = t.displayName || t.languageName || code;
+          opt.setAttribute("data-dynamic", "1");
+          ccLangSelect.appendChild(opt);
+          existing[code] = true;
+          added++;
+        });
+        var v = playbackPrefs.captionsLang || "";
+        if (v && !existing[v]) {
+          var opt2 = document.createElement("option");
+          opt2.value = v;
+          opt2.textContent = v.toUpperCase();
+          opt2.setAttribute("data-dynamic", "1");
+          ccLangSelect.appendChild(opt2);
+        }
+        ccLangSelect.value = v;
+      };
+
+      if (ccToggle) {
+        ccToggle.addEventListener("change", function() {
+          playbackPrefs.captionsOn = !!ccToggle.checked;
+          savePlaybackPrefs();
+          syncCcUI();
+          applyCaptionPrefs(ytPlayerInstance);
+        });
+      }
+      if (ccLangSelect) {
+        ccLangSelect.addEventListener("change", function() {
+          playbackPrefs.captionsLang = ccLangSelect.value || "";
+          savePlaybackPrefs();
+          applyCaptionPrefs(ytPlayerInstance);
+        });
+      }
+      syncVqUI();
+      syncCcUI();
+
       function setSwipeCatcherEnabled(on) {
         var sc = document.getElementById("swipeCatcher");
         if (sc) sc.style.pointerEvents = on ? "auto" : "none";
@@ -4364,6 +4669,7 @@
           e.stopPropagation();
           if (panel) panel.classList.toggle("show");
           if (panel && panel.classList.contains("show")) {
+            syncVqUI();
             clearTimeout(hideTimer);
             if (top) top.classList.remove("chrome-hidden");
             setSwipeCatcherEnabled(false);
